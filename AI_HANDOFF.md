@@ -16,10 +16,13 @@ Core flow:
 - App name: `어디고`
 - Git remote: `https://github.com/gisaya/wherego.git`
 - Initial recommendation data source direction: 한국관광공사 국문 관광정보 서비스_GW API.
+- Regional crowd signal direction: 한국관광공사 빅데이터 지역별 방문자수_GW API.
 - Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
 - TMAP congestion API is not part of the MVP because of cost.
-- AI role: generate/word travel persona and recommendation copy. Do not put AI API keys in the client.
+- AI direction: Gemini Flash-Lite with function calling for search planning, persona copy, and result-card copy. Do not put AI API keys in the client.
 - Apps in Toss direction: Granite/TDS style should be used for the actual app implementation.
+- Question flow: required 3 questions plus random 5 questions. Random questions should be selected from different tag groups.
+- Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, and 15 minutes of buffer for drive-time constraints.
 
 ## Current Assets
 
@@ -83,12 +86,33 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-08 21:57 KST: terms-page build returned `Built static terms pages for Vercel.`
   - 2026-07-08 22:05 KST: `.env.local` confirmed ignored, committed files checked for raw 64-char key patterns, and terms-page build returned `Built static terms pages for Vercel.`
   - 2026-07-08 22:16 KST: production Vercel deployment succeeded and `/`, `/terms/service`, `/terms/privacy` all returned HTTP 200.
+  - 2026-07-09 KST: `scripts/probe-question-bank-result.cjs` successfully exercised KTO KorService2, KTO DataLab locgo visitor rows, estimated drive-time filtering, parking-known filtering, and crowd labels.
+  - 2026-07-09 KST save check: terms-page build succeeded, `scripts/probe-question-bank-result.cjs` syntax check passed, generated question bank shape confirmed as 13 groups / 390 questions / 30 per group, and no 64-char hex secret pattern was found in commit candidates.
+
+## Current Question/API Work
+
+- `data/source-question-blueprint.json`: required source axes for movement scope, party constraints, and destination intent.
+- `data/general-question-bank.json`: generated general question bank, 13 tag groups x 30 questions = 390 questions.
+- `data/question-bank-normalized.json`: normalized copy of the downloaded Gemini question candidate file.
+- `data/question-bank-additions.json`: curated additional question candidates and policy notes.
+- `scripts/build-general-question-bank.cjs`: deterministic generator for the general bank.
+- `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, distance filtering, parking filtering, and DataLab crowd labeling.
+- `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
+
+Latest known probe result with the default Seoul City Hall test origin:
+
+- Persona: 아이와 함께하는 근교 숲 힐링 드라이버.
+- Recommended places: 일월수목원, 일영허브랜드(숲길정원), 무릉도원수목원.
+- Crowd data latest base date observed: `20260609`.
 
 ## Current Blockers And Risks
 
 - Vercel project exists and terms URLs are live, but GitHub auto-deploy is not connected yet.
 - Future app implementation still needs Granite project scaffolding or reuse of the `toss_tomato` structure.
 - API keys for 한국관광공사 and AI services must stay out of client code and Git. `.env.local` is intentionally ignored.
+- The current drive-time filter is an estimate, not real routing. A map/routing API is needed for production-grade travel time.
+- DataLab visitor counts are regional, not place-level. Treat crowd labels as a weak supporting signal.
+- The generated question bank is large enough for MVP experiments, but should still be edited for repeated wording before final UI copy freeze.
 
 ## Operating Rules
 
@@ -101,6 +125,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 ## Next Recommended Steps
 
 1. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.
-2. Use the live terms URLs in Apps in Toss submission settings.
-3. Scaffold the actual Apps in Toss/Granite app using the `toss_tomato` structure as the closest local reference.
-4. Implement 한국관광공사 API and AI calls server-side, loading `PUBLIC_DATA_PORTAL_SERVICE_KEY` and endpoint URLs from environment variables.
+2. Scaffold the actual Apps in Toss/Granite app using the `toss_tomato` structure as the closest local reference.
+3. Implement server routes for Gemini function calling, KTO KorService2 search/detail/image calls, and DataLab crowd signals.
+4. Convert the result-card probe output into the first Apps in Toss UI flow with a rewarded-ad gate before the result card.
+5. Review the question bank for repeated wording and user-facing tone before freezing the MVP copy.

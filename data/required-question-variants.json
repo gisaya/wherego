@@ -1,0 +1,539 @@
+{
+  "version": "2026-07-09",
+  "appName": "어디고",
+  "purpose": "앱 진입 직후 장소 후보를 빠르게 좁히는 필수 3문항 후보 세트",
+  "recommendedRequiredSlots": [
+    {
+      "slot": "distance_scope",
+      "label": "이동 범위",
+      "why": "출발지와 결합해 지역 후보를 1차로 좁힌다. 첫 화면은 반드시 2지선다로 시작한다.",
+      "preferredType": "select_2",
+      "variants": [
+        {
+          "id": "req_distance_01",
+          "question": "오늘은 가볍게 갈까요, 멀리 제대로 갈까요?",
+          "tone": "direct",
+          "options": [
+            {
+              "key": "A",
+              "label": "가볍게 근교로",
+              "tags": ["nearby", "daytrip", "low_fatigue"],
+              "searchHints": ["근교", "당일치기", "가벼운 드라이브"]
+            },
+            {
+              "key": "B",
+              "label": "멀리 제대로",
+              "tags": ["wide_trip", "destination_first", "overnight_ok"],
+              "searchHints": ["장거리", "숙박 가능", "목적지 우선"]
+            }
+          ]
+        },
+        {
+          "id": "req_distance_02",
+          "question": "차로 얼마나 움직일 수 있어요?",
+          "tone": "practical",
+          "options": [
+            {
+              "key": "A",
+              "label": "왕복 2시간 안쪽",
+              "tags": ["nearby", "short_drive", "daytrip"],
+              "searchHints": ["왕복 2시간", "근교", "부담 없는 거리"]
+            },
+            {
+              "key": "B",
+              "label": "왕복 3시간 이상도 가능",
+              "tags": ["long_drive", "wide_area", "destination_first"],
+              "searchHints": ["왕복 3시간 이상", "외곽", "장거리 드라이브"]
+            }
+          ]
+        },
+        {
+          "id": "req_distance_03",
+          "question": "오늘 여행 스케일은 어느 쪽이에요?",
+          "tone": "simple",
+          "options": [
+            {
+              "key": "A",
+              "label": "반나절 컷",
+              "tags": ["half_day", "nearby", "easy"],
+              "searchHints": ["반나절", "가까운 명소", "짧은 체류"]
+            },
+            {
+              "key": "B",
+              "label": "하루 꽉 채우기",
+              "tags": ["full_day", "wide_daytrip", "drive"],
+              "searchHints": ["하루 코스", "당일치기", "체류 긴 장소"]
+            }
+          ]
+        },
+        {
+          "id": "req_distance_04",
+          "question": "길 위에서 보내는 시간은 괜찮아요?",
+          "tone": "conversational",
+          "options": [
+            {
+              "key": "A",
+              "label": "이동은 짧을수록 좋음",
+              "tags": ["short_drive", "nearby", "low_fatigue"],
+              "searchHints": ["가까운 곳", "짧은 이동", "근거리"]
+            },
+            {
+              "key": "B",
+              "label": "좋은 곳이면 달릴 수 있음",
+              "tags": ["long_drive_ok", "destination_first"],
+              "searchHints": ["먼 곳", "목적지 우선", "장거리 가능"]
+            }
+          ]
+        },
+        {
+          "id": "req_distance_05",
+          "question": "돌아오는 길 피로도는 어느 정도까지 괜찮아요?",
+          "tone": "constraint",
+          "options": [
+            {
+              "key": "A",
+              "label": "저녁 전에 편하게 복귀",
+              "tags": ["easy_return", "nearby", "daytrip"],
+              "searchHints": ["저녁 전 복귀", "근교", "부담 없는 코스"]
+            },
+            {
+              "key": "B",
+              "label": "늦게 와도 괜찮음",
+              "tags": ["late_return_ok", "long_daytrip"],
+              "searchHints": ["늦은 복귀", "장거리", "긴 체류"]
+            }
+          ]
+        },
+        {
+          "id": "req_distance_06",
+          "question": "오늘은 집 근처 발견이에요, 여행 간 기분이에요?",
+          "tone": "friendly",
+          "options": [
+            {
+              "key": "A",
+              "label": "집 근처 발견",
+              "tags": ["nearby", "hidden_local", "short_trip"],
+              "searchHints": ["로컬 명소", "근처", "숨은 장소"]
+            },
+            {
+              "key": "B",
+              "label": "여행 간 기분",
+              "tags": ["travel_mood", "wide_area", "special_destination"],
+              "searchHints": ["여행지 느낌", "외곽", "특별한 목적지"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slot": "place_axis",
+      "label": "장소 축",
+      "why": "한국관광공사 KorService2 검색 키워드를 직접 결정하는 문항이다.",
+      "preferredType": "select_4",
+      "variants": [
+        {
+          "id": "req_axis_01",
+          "question": "오늘 끌리는 풍경은 어느 쪽이에요?",
+          "tone": "visual",
+          "options": [
+            {
+              "key": "A",
+              "label": "숲과 수목원",
+              "tags": ["forest", "arboretum", "healing"],
+              "searchHints": ["수목원", "숲", "자연휴양림", "생태공원"]
+            },
+            {
+              "key": "B",
+              "label": "바다와 해안",
+              "tags": ["sea", "coast", "open_view"],
+              "searchHints": ["해변", "해안", "방파제", "전망대"]
+            },
+            {
+              "key": "C",
+              "label": "호수와 강변",
+              "tags": ["lake", "river", "waterfront"],
+              "searchHints": ["호수", "저수지", "강변", "둘레길"]
+            },
+            {
+              "key": "D",
+              "label": "도심과 문화공간",
+              "tags": ["city", "culture", "indoor_ok"],
+              "searchHints": ["문화공간", "전시", "전망대", "카페거리"]
+            }
+          ]
+        },
+        {
+          "id": "req_axis_02",
+          "question": "목적지에 도착했을 때 제일 먼저 보였으면 하는 건?",
+          "tone": "scene",
+          "options": [
+            {
+              "key": "A",
+              "label": "나무 그늘",
+              "tags": ["shade", "forest", "quiet"],
+              "searchHints": ["숲길", "수목원", "산림욕장"]
+            },
+            {
+              "key": "B",
+              "label": "탁 트인 물가",
+              "tags": ["water", "open_view", "healing"],
+              "searchHints": ["호수", "강변", "바다", "수변공원"]
+            },
+            {
+              "key": "C",
+              "label": "예쁜 건물과 거리",
+              "tags": ["architecture", "street", "photo"],
+              "searchHints": ["건축명소", "거리", "벽화마을", "한옥마을"]
+            },
+            {
+              "key": "D",
+              "label": "체험할 거리",
+              "tags": ["experience", "activity", "family"],
+              "searchHints": ["체험마을", "박물관", "레포츠", "테마파크"]
+            }
+          ]
+        },
+        {
+          "id": "req_axis_03",
+          "question": "오늘 여행의 배경색을 고른다면?",
+          "tone": "playful",
+          "options": [
+            {
+              "key": "A",
+              "label": "초록",
+              "tags": ["green", "forest", "garden"],
+              "searchHints": ["수목원", "정원", "숲", "휴양림"]
+            },
+            {
+              "key": "B",
+              "label": "파랑",
+              "tags": ["blue", "sea", "lake"],
+              "searchHints": ["바다", "호수", "강", "해변"]
+            },
+            {
+              "key": "C",
+              "label": "노을",
+              "tags": ["sunset", "romantic", "view"],
+              "searchHints": ["노을명소", "낙조", "전망대", "해안"]
+            },
+            {
+              "key": "D",
+              "label": "조명",
+              "tags": ["night_view", "city", "light"],
+              "searchHints": ["야경", "빛축제", "전망대", "도심"]
+            }
+          ]
+        },
+        {
+          "id": "req_axis_04",
+          "question": "가서 주로 뭘 하고 싶어요?",
+          "tone": "action",
+          "options": [
+            {
+              "key": "A",
+              "label": "걷고 쉬기",
+              "tags": ["walk", "rest", "healing"],
+              "searchHints": ["산책로", "둘레길", "수목원", "공원"]
+            },
+            {
+              "key": "B",
+              "label": "사진 찍기",
+              "tags": ["photo", "hotplace", "view"],
+              "searchHints": ["포토존", "전망대", "벽화마을", "정원"]
+            },
+            {
+              "key": "C",
+              "label": "아이와 체험하기",
+              "tags": ["kids", "experience", "family"],
+              "searchHints": ["체험관", "생태공원", "박물관", "농촌체험"]
+            },
+            {
+              "key": "D",
+              "label": "실내에서 보기",
+              "tags": ["indoor", "culture", "weather_safe"],
+              "searchHints": ["미술관", "박물관", "전시관", "아쿠아리움"]
+            }
+          ]
+        },
+        {
+          "id": "req_axis_05",
+          "question": "오늘은 자연 쪽이에요, 사람 사는 동네 쪽이에요?",
+          "tone": "two-sided-but-4-options",
+          "options": [
+            {
+              "key": "A",
+              "label": "깊은 자연",
+              "tags": ["raw_nature", "quiet", "forest"],
+              "searchHints": ["자연휴양림", "숲", "계곡", "생태"]
+            },
+            {
+              "key": "B",
+              "label": "정돈된 공원",
+              "tags": ["park", "easy_walk", "family"],
+              "searchHints": ["공원", "수변공원", "생태공원", "정원"]
+            },
+            {
+              "key": "C",
+              "label": "감성 마을",
+              "tags": ["village", "photo", "local"],
+              "searchHints": ["마을", "골목", "벽화마을", "한옥마을"]
+            },
+            {
+              "key": "D",
+              "label": "복합 문화공간",
+              "tags": ["culture_space", "indoor_ok", "cafe"],
+              "searchHints": ["문화공간", "전시", "카페", "복합문화"]
+            }
+          ]
+        },
+        {
+          "id": "req_axis_06",
+          "question": "목적지 분위기는 어떤 쪽이면 좋겠어요?",
+          "tone": "mood",
+          "options": [
+            {
+              "key": "A",
+              "label": "고요한 힐링",
+              "tags": ["quiet", "healing", "low_crowd"],
+              "searchHints": ["힐링", "숲", "수목원", "조용한 명소"]
+            },
+            {
+              "key": "B",
+              "label": "시원한 경치",
+              "tags": ["view", "open_view", "water"],
+              "searchHints": ["전망", "호수", "바다", "강변"]
+            },
+            {
+              "key": "C",
+              "label": "활기찬 핫플",
+              "tags": ["hotplace", "crowd_ok", "trend"],
+              "searchHints": ["핫플", "거리", "카페거리", "시장"]
+            },
+            {
+              "key": "D",
+              "label": "배우고 보는 곳",
+              "tags": ["culture", "learning", "indoor"],
+              "searchHints": ["박물관", "전시", "문화재", "기념관"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slot": "constraint_priority",
+      "label": "필수 조건",
+      "why": "동행자, 보행, 주차, 혼잡 선호를 반영해 후보를 거른다. 같은 풍경이라도 실제 만족도를 크게 바꾼다.",
+      "preferredType": "select_4",
+      "variants": [
+        {
+          "id": "req_constraint_01",
+          "question": "이번 여행에서 제일 중요한 조건은?",
+          "tone": "priority",
+          "options": [
+            {
+              "key": "A",
+              "label": "주차가 편해야 함",
+              "tags": ["parking_required", "drive"],
+              "searchHints": ["주차 가능", "공영주차장", "차량 접근"]
+            },
+            {
+              "key": "B",
+              "label": "많이 안 걸어야 함",
+              "tags": ["easy_walk", "flat_walk", "low_fatigue"],
+              "searchHints": ["평지", "무장애", "산책로", "입구 가까움"]
+            },
+            {
+              "key": "C",
+              "label": "사람이 적어야 함",
+              "tags": ["low_crowd", "quiet"],
+              "searchHints": ["한적한", "숨은 명소", "조용한 곳"]
+            },
+            {
+              "key": "D",
+              "label": "사진이 잘 나와야 함",
+              "tags": ["photo", "view", "hotplace"],
+              "searchHints": ["포토존", "전망", "정원", "감성"]
+            }
+          ]
+        },
+        {
+          "id": "req_constraint_02",
+          "question": "누구 기준으로 편해야 해요?",
+          "tone": "companion",
+          "options": [
+            {
+              "key": "A",
+              "label": "혼자 조용히",
+              "tags": ["solo", "quiet", "reflective"],
+              "searchHints": ["조용한 산책", "한적한 곳", "사색"]
+            },
+            {
+              "key": "B",
+              "label": "연인/친구와",
+              "tags": ["couple_or_friends", "photo", "cafe_ok"],
+              "searchHints": ["데이트", "포토존", "카페", "전망"]
+            },
+            {
+              "key": "C",
+              "label": "아이와 가족끼리",
+              "tags": ["kids", "family", "safe", "parking"],
+              "searchHints": ["아이와 가볼만한 곳", "생태체험", "주차", "화장실"]
+            },
+            {
+              "key": "D",
+              "label": "부모님/시니어와",
+              "tags": ["senior", "flat_walk", "restroom", "easy_walk"],
+              "searchHints": ["평지", "무장애", "쉼터", "걷기 편한"]
+            }
+          ]
+        },
+        {
+          "id": "req_constraint_03",
+          "question": "혼잡도는 결과에 어떻게 반영할까요?",
+          "tone": "crowd",
+          "options": [
+            {
+              "key": "A",
+              "label": "덜 붐비는 곳 우선",
+              "tags": ["rank_low_crowd_first", "low_crowd"],
+              "searchHints": ["한적한", "비교적 여유", "방문자수 낮은 지역"]
+            },
+            {
+              "key": "B",
+              "label": "보통이면 괜찮음",
+              "tags": ["medium_crowd_ok"],
+              "searchHints": ["유명 명소", "적당한 인파"]
+            },
+            {
+              "key": "C",
+              "label": "핫플이면 붐벼도 됨",
+              "tags": ["crowd_ok", "hotplace"],
+              "searchHints": ["핫플", "인기 명소", "활기찬"]
+            },
+            {
+              "key": "D",
+              "label": "시간대만 피하면 됨",
+              "tags": ["off_peak", "crowd_flexible"],
+              "searchHints": ["오전 방문", "평일", "혼잡 시간 회피"]
+            }
+          ]
+        },
+        {
+          "id": "req_constraint_04",
+          "question": "날씨가 애매해도 버틸 수 있어야 해요?",
+          "tone": "weather",
+          "options": [
+            {
+              "key": "A",
+              "label": "실내 대안 필수",
+              "tags": ["indoor_required", "weather_safe"],
+              "searchHints": ["실내", "박물관", "전시관", "복합문화공간"]
+            },
+            {
+              "key": "B",
+              "label": "비 와도 운치 있으면 됨",
+              "tags": ["rain_ok", "forest", "lake"],
+              "searchHints": ["비 오는 숲", "호수", "안개", "운치"]
+            },
+            {
+              "key": "C",
+              "label": "맑은 날 야외가 좋음",
+              "tags": ["sunny", "outdoor", "open_view"],
+              "searchHints": ["야외", "전망", "정원", "해변"]
+            },
+            {
+              "key": "D",
+              "label": "그늘이 많으면 좋음",
+              "tags": ["shade", "summer_safe", "forest"],
+              "searchHints": ["그늘", "숲길", "수목원", "산책로"]
+            }
+          ]
+        },
+        {
+          "id": "req_constraint_05",
+          "question": "도착 후 이동 난이도는 어디까지 괜찮아요?",
+          "tone": "mobility",
+          "options": [
+            {
+              "key": "A",
+              "label": "주차 후 5분 컷",
+              "tags": ["minimal_walk", "parking_close"],
+              "searchHints": ["주차장 가까움", "입구 가까움", "전망대"]
+            },
+            {
+              "key": "B",
+              "label": "30분 산책 정도",
+              "tags": ["easy_walk", "promenade"],
+              "searchHints": ["산책로", "둘레길", "평지"]
+            },
+            {
+              "key": "C",
+              "label": "1시간 걷기도 가능",
+              "tags": ["long_walk", "trail"],
+              "searchHints": ["트레킹", "숲길", "둘레길"]
+            },
+            {
+              "key": "D",
+              "label": "언덕/계단도 괜찮음",
+              "tags": ["slope_ok", "active"],
+              "searchHints": ["전망대", "등산로", "출렁다리"]
+            }
+          ]
+        },
+        {
+          "id": "req_constraint_06",
+          "question": "같이 챙길 편의시설은?",
+          "tone": "amenity",
+          "options": [
+            {
+              "key": "A",
+              "label": "아이 편의시설",
+              "tags": ["kids", "family", "baby_facility"],
+              "searchHints": ["수유실", "기저귀 교환대", "어린이 체험"]
+            },
+            {
+              "key": "B",
+              "label": "반려동물 동반",
+              "tags": ["pet_friendly"],
+              "searchHints": ["반려견 동반", "펫 프렌들리", "산책"]
+            },
+            {
+              "key": "C",
+              "label": "화장실/쉼터",
+              "tags": ["restroom", "rest_area", "senior"],
+              "searchHints": ["화장실", "쉼터", "휴게공간"]
+            },
+            {
+              "key": "D",
+              "label": "카페/맛집",
+              "tags": ["cafe", "food_link"],
+              "searchHints": ["카페", "맛집", "로컬 음식"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "recommendedSets": [
+    {
+      "id": "set_balanced",
+      "label": "기본 추천형",
+      "questions": ["req_distance_01", "req_axis_01", "req_constraint_01"]
+    },
+    {
+      "id": "set_family",
+      "label": "가족/아이 친화형",
+      "questions": ["req_distance_02", "req_axis_04", "req_constraint_02"]
+    },
+    {
+      "id": "set_low_crowd",
+      "label": "한적한 곳 우선형",
+      "questions": ["req_distance_04", "req_axis_06", "req_constraint_03"]
+    },
+    {
+      "id": "set_weather_safe",
+      "label": "날씨 대응형",
+      "questions": ["req_distance_03", "req_axis_05", "req_constraint_04"]
+    }
+  ]
+}

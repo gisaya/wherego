@@ -1,0 +1,776 @@
+{
+  "version": "2026-07-09",
+  "appName": "어디고",
+  "philosophy": "어디고의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 최종적으로 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.",
+  "runtimeFlow": {
+    "requiredQuestionCount": 3,
+    "randomGeneralQuestionCount": 5,
+    "totalQuestionsPerRun": 8,
+    "rule": "원천질문 3개는 항상 묻고, 일반질문은 서로 다른 tagGroup에서 5개를 뽑는다."
+  },
+  "requiredSourceAxes": [
+    {
+      "axis": "movement_scope",
+      "label": "이동 범위",
+      "minimumVariantCount": 3,
+      "currentVariantCount": 6,
+      "questionModes": ["time", "kilometer", "city_scope", "region_preference"],
+      "role": "출발지와 결합해 추천 가능한 지역 후보를 줄인다."
+    },
+    {
+      "axis": "party_constraints",
+      "label": "동행자/인원/제약",
+      "minimumVariantCount": 3,
+      "currentVariantCount": 5,
+      "questionModes": ["companion_type", "party_count", "age_constraint", "mobility_limit", "special_amenity"],
+      "role": "아이, 시니어, 반려동물, 보행 난이도 같은 실제 만족도 조건을 정한다."
+    },
+    {
+      "axis": "destination_intent",
+      "label": "장소 취향/목적",
+      "minimumVariantCount": 3,
+      "currentVariantCount": 3,
+      "questionModes": ["landscape", "activity", "mood"],
+      "role": "한국관광공사 API 검색 키워드와 후보 관광지 타입을 정한다."
+    }
+  ],
+  "generalQuestionPolicy": {
+    "minimumTagGroupCount": 10,
+    "currentTagGroupCount": 13,
+    "minimumQuestionsPerTagGroup": 30,
+    "currentQuestionsPerTagGroup": 30,
+    "fullQuestionBankFile": "data/general-question-bank.json",
+    "selectionRule": "한 실행에서는 tagGroup 5개를 먼저 고르고, 각 tagGroup에서 질문 1개씩 뽑는다. crowd 또는 mobility 중 하나는 되도록 포함한다.",
+    "scoringRule": "일반질문 답변은 장소 후보를 완전히 배제하기보다 점수 가중치로 반영한다. 단, accessibility/pet/indoor_required 같은 강한 제약은 필터로 승격할 수 있다."
+  },
+  "generalQuestionTagGroups": [
+    {
+      "tagGroup": "crowd",
+      "label": "인파/혼잡도",
+      "why": "DataLab 방문자수 기반 혼잡도 가중치와 직접 연결된다.",
+      "questions": [
+        {
+          "id": "gen_crowd_01",
+          "type": "select_2",
+          "question": "오늘은 한산한 곳이 좋아요, 활기찬 곳이 좋아요?",
+          "options": [
+            { "key": "A", "label": "한산한 곳", "tags": ["low_crowd", "quiet"], "scoreHints": { "crowdWeight": 1.3 } },
+            { "key": "B", "label": "활기찬 곳", "tags": ["hotplace", "crowd_ok"], "scoreHints": { "crowdWeight": 0.7 } }
+          ]
+        },
+        {
+          "id": "gen_crowd_02",
+          "type": "select_4",
+          "question": "혼잡도는 결과에서 어떻게 반영할까요?",
+          "options": [
+            { "key": "A", "label": "덜 붐비는 곳 우선", "tags": ["rank_low_crowd_first"] },
+            { "key": "B", "label": "보통이면 괜찮음", "tags": ["medium_crowd_ok"] },
+            { "key": "C", "label": "핫플이면 붐벼도 됨", "tags": ["crowd_ok", "hotplace"] },
+            { "key": "D", "label": "시간대만 피해가면 됨", "tags": ["off_peak", "crowd_flexible"] }
+          ]
+        },
+        {
+          "id": "gen_crowd_03",
+          "type": "select_2",
+          "question": "유명한 곳과 숨은 곳 중 어디가 더 끌려요?",
+          "options": [
+            { "key": "A", "label": "검증된 유명 명소", "tags": ["popular", "landmark"] },
+            { "key": "B", "label": "덜 알려진 숨은 명소", "tags": ["hidden", "low_crowd"] }
+          ]
+        },
+        {
+          "id": "gen_crowd_04",
+          "type": "select_2",
+          "question": "주말 북적임도 여행 감성으로 볼 수 있어요?",
+          "options": [
+            { "key": "A", "label": "북적이면 피곤함", "tags": ["avoid_weekend_crowd"] },
+            { "key": "B", "label": "북적여도 괜찮음", "tags": ["weekend_crowd_ok"] }
+          ]
+        },
+        {
+          "id": "gen_crowd_05",
+          "type": "select_4",
+          "question": "선호하는 사람 밀도는?",
+          "options": [
+            { "key": "A", "label": "거의 없는 수준", "tags": ["very_low_crowd"] },
+            { "key": "B", "label": "적당히 있는 수준", "tags": ["medium_crowd"] },
+            { "key": "C", "label": "인기 명소 수준", "tags": ["popular_crowd"] },
+            { "key": "D", "label": "축제처럼 붐비는 수준", "tags": ["festival_crowd_ok"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "mobility",
+      "label": "보행/접근성",
+      "why": "추천지가 실제로 갈 수 있는 장소인지 결정한다.",
+      "questions": [
+        {
+          "id": "gen_mobility_01",
+          "type": "select_4",
+          "question": "도착 후 걷는 건 어디까지 괜찮아요?",
+          "options": [
+            { "key": "A", "label": "주차 후 5분", "tags": ["minimal_walk", "parking_close"] },
+            { "key": "B", "label": "30분 산책", "tags": ["easy_walk"] },
+            { "key": "C", "label": "1시간 트레킹", "tags": ["long_walk", "trail"] },
+            { "key": "D", "label": "언덕/계단 가능", "tags": ["slope_ok", "active"] }
+          ]
+        },
+        {
+          "id": "gen_mobility_02",
+          "type": "select_2",
+          "question": "주차는 얼마나 중요해요?",
+          "options": [
+            { "key": "A", "label": "주차 편한 곳만", "tags": ["parking_required"] },
+            { "key": "B", "label": "조금 불편해도 괜찮음", "tags": ["parking_flexible"] }
+          ]
+        },
+        {
+          "id": "gen_mobility_03",
+          "type": "select_2",
+          "question": "대중교통 접근도 고려할까요?",
+          "options": [
+            { "key": "A", "label": "대중교통도 중요", "tags": ["public_transport_required"] },
+            { "key": "B", "label": "차로만 가도 됨", "tags": ["car_only_ok"] }
+          ]
+        },
+        {
+          "id": "gen_mobility_04",
+          "type": "select_2",
+          "question": "길이 조금 험해도 목적지가 좋으면 괜찮아요?",
+          "options": [
+            { "key": "A", "label": "편한 길만", "tags": ["easy_path_required"] },
+            { "key": "B", "label": "험해도 감수", "tags": ["rough_path_ok"] }
+          ]
+        },
+        {
+          "id": "gen_mobility_05",
+          "type": "select_4",
+          "question": "이동 방식은 어떤 느낌이면 좋아요?",
+          "options": [
+            { "key": "A", "label": "차에서 바로 풍경 보기", "tags": ["drive_view"] },
+            { "key": "B", "label": "짧게 내려 산책", "tags": ["short_walk"] },
+            { "key": "C", "label": "목적지 안에서 오래 걷기", "tags": ["inside_walk"] },
+            { "key": "D", "label": "자전거/탈것 연계", "tags": ["ride_link"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "weather",
+      "label": "날씨 대응",
+      "why": "실내/야외 후보와 비/더위 리스크를 조절한다.",
+      "questions": [
+        {
+          "id": "gen_weather_01",
+          "type": "select_4",
+          "question": "날씨가 애매하면 어떤 곳이 좋아요?",
+          "options": [
+            { "key": "A", "label": "실내 대안 필수", "tags": ["indoor_required"] },
+            { "key": "B", "label": "비 와도 운치 있는 곳", "tags": ["rain_ok"] },
+            { "key": "C", "label": "맑은 날 야외", "tags": ["sunny_outdoor"] },
+            { "key": "D", "label": "그늘 많은 곳", "tags": ["shade_required"] }
+          ]
+        },
+        {
+          "id": "gen_weather_02",
+          "type": "select_2",
+          "question": "실내가 섞여 있으면 좋아요?",
+          "options": [
+            { "key": "A", "label": "실내 섞인 곳", "tags": ["indoor_mix"] },
+            { "key": "B", "label": "완전 야외도 좋음", "tags": ["outdoor_only_ok"] }
+          ]
+        },
+        {
+          "id": "gen_weather_03",
+          "type": "select_2",
+          "question": "한여름 더위는 피하고 싶어요?",
+          "options": [
+            { "key": "A", "label": "시원한 곳 우선", "tags": ["summer_safe", "shade"] },
+            { "key": "B", "label": "더워도 풍경 우선", "tags": ["view_first"] }
+          ]
+        },
+        {
+          "id": "gen_weather_04",
+          "type": "select_2",
+          "question": "흐린 날에도 예쁜 곳이면 좋아요?",
+          "options": [
+            { "key": "A", "label": "흐려도 운치 있는 곳", "tags": ["cloudy_mood"] },
+            { "key": "B", "label": "맑아야 예쁜 곳", "tags": ["sunny_required"] }
+          ]
+        },
+        {
+          "id": "gen_weather_05",
+          "type": "select_4",
+          "question": "날씨에 맞춘 장소라면?",
+          "options": [
+            { "key": "A", "label": "숲 그늘", "tags": ["forest_shade"] },
+            { "key": "B", "label": "강바람/바닷바람", "tags": ["water_breeze"] },
+            { "key": "C", "label": "전시/박물관", "tags": ["indoor_culture"] },
+            { "key": "D", "label": "야경/저녁 산책", "tags": ["evening_walk"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "landscape",
+      "label": "풍경/지형",
+      "why": "관광지 검색 키워드의 핵심 축이다.",
+      "questions": [
+        {
+          "id": "gen_landscape_01",
+          "type": "select_4",
+          "question": "눈앞 풍경은 어느 쪽이면 좋겠어요?",
+          "options": [
+            { "key": "A", "label": "바다와 수평선", "tags": ["sea", "coast"] },
+            { "key": "B", "label": "숲과 나무 그늘", "tags": ["forest", "shade"] },
+            { "key": "C", "label": "호수와 데크길", "tags": ["lake", "deck_walk"] },
+            { "key": "D", "label": "도시 전망과 야경", "tags": ["city_view", "night_view"] }
+          ]
+        },
+        {
+          "id": "gen_landscape_02",
+          "type": "select_2",
+          "question": "물가라면 어느 쪽이 좋아요?",
+          "options": [
+            { "key": "A", "label": "잔잔한 호수/저수지", "tags": ["lake", "calm_water"] },
+            { "key": "B", "label": "흐르는 강/계곡", "tags": ["river", "valley"] }
+          ]
+        },
+        {
+          "id": "gen_landscape_03",
+          "type": "select_2",
+          "question": "숲이라면 어느 쪽이에요?",
+          "options": [
+            { "key": "A", "label": "정돈된 수목원", "tags": ["arboretum", "garden"] },
+            { "key": "B", "label": "자연 그대로의 숲길", "tags": ["raw_forest", "trail"] }
+          ]
+        },
+        {
+          "id": "gen_landscape_04",
+          "type": "select_2",
+          "question": "전망은 높은 곳이 좋아요, 넓은 곳이 좋아요?",
+          "options": [
+            { "key": "A", "label": "높은 곳에서 내려보기", "tags": ["altitude_view"] },
+            { "key": "B", "label": "평지에서 넓게 보기", "tags": ["open_plain"] }
+          ]
+        },
+        {
+          "id": "gen_landscape_05",
+          "type": "select_4",
+          "question": "풍경의 메인 색을 고르면?",
+          "options": [
+            { "key": "A", "label": "초록", "tags": ["green", "forest"] },
+            { "key": "B", "label": "파랑", "tags": ["blue", "water"] },
+            { "key": "C", "label": "노을", "tags": ["sunset"] },
+            { "key": "D", "label": "조명", "tags": ["light", "night_view"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "activity",
+      "label": "활동/체험",
+      "why": "관광지 타입과 체류 방식을 결정한다.",
+      "questions": [
+        {
+          "id": "gen_activity_01",
+          "type": "select_4",
+          "question": "가서 뭘 하면 만족할까요?",
+          "options": [
+            { "key": "A", "label": "천천히 산책", "tags": ["walk", "healing"] },
+            { "key": "B", "label": "사진 많이 찍기", "tags": ["photo"] },
+            { "key": "C", "label": "직접 체험하기", "tags": ["experience"] },
+            { "key": "D", "label": "맛집/카페까지 묶기", "tags": ["food", "cafe"] }
+          ]
+        },
+        {
+          "id": "gen_activity_02",
+          "type": "select_2",
+          "question": "오늘 텐션은 어느 쪽이에요?",
+          "options": [
+            { "key": "A", "label": "몸을 쓰는 액티비티", "tags": ["active", "leports"] },
+            { "key": "B", "label": "쉬면서 보는 힐링", "tags": ["rest", "healing"] }
+          ]
+        },
+        {
+          "id": "gen_activity_03",
+          "type": "select_2",
+          "question": "체험형 장소도 괜찮아요?",
+          "options": [
+            { "key": "A", "label": "체험이 있으면 좋음", "tags": ["experience_required"] },
+            { "key": "B", "label": "보기만 해도 좋음", "tags": ["viewing_ok"] }
+          ]
+        },
+        {
+          "id": "gen_activity_04",
+          "type": "select_2",
+          "question": "장소 하나에 오래 머물까요?",
+          "options": [
+            { "key": "A", "label": "한 곳에서 오래", "tags": ["single_destination"] },
+            { "key": "B", "label": "여러 곳을 짧게", "tags": ["multi_stop"] }
+          ]
+        },
+        {
+          "id": "gen_activity_05",
+          "type": "select_4",
+          "question": "가장 끌리는 콘텐츠는?",
+          "options": [
+            { "key": "A", "label": "전망/풍경", "tags": ["view"] },
+            { "key": "B", "label": "전시/문화", "tags": ["culture"] },
+            { "key": "C", "label": "생태/자연", "tags": ["eco"] },
+            { "key": "D", "label": "놀이/레포츠", "tags": ["leports"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "time_mood",
+      "label": "시간대/무드",
+      "why": "운영시간, 야경, 노을, 오전 방문 같은 추천 맥락을 만든다.",
+      "questions": [
+        {
+          "id": "gen_time_01",
+          "type": "select_4",
+          "question": "가장 예쁜 시간대는 언제였으면 해요?",
+          "options": [
+            { "key": "A", "label": "상쾌한 오전", "tags": ["morning"] },
+            { "key": "B", "label": "사진 잘 나오는 낮", "tags": ["daylight"] },
+            { "key": "C", "label": "노을 지는 저녁", "tags": ["sunset"] },
+            { "key": "D", "label": "조명 켜진 밤", "tags": ["night_view"] }
+          ]
+        },
+        {
+          "id": "gen_time_02",
+          "type": "select_2",
+          "question": "운영시간 리스크는 피하고 싶어요?",
+          "options": [
+            { "key": "A", "label": "상시 개방이면 좋음", "tags": ["always_open_preferred"] },
+            { "key": "B", "label": "예약/마감 있어도 괜찮음", "tags": ["reservation_ok"] }
+          ]
+        },
+        {
+          "id": "gen_time_03",
+          "type": "select_2",
+          "question": "일출/일몰 명소도 좋아요?",
+          "options": [
+            { "key": "A", "label": "시간 맞춰 가도 좋음", "tags": ["timed_view_ok"] },
+            { "key": "B", "label": "아무 때나 예쁜 곳", "tags": ["anytime_place"] }
+          ]
+        },
+        {
+          "id": "gen_time_04",
+          "type": "select_2",
+          "question": "밤까지 있을 수 있어요?",
+          "options": [
+            { "key": "A", "label": "밤까지 가능", "tags": ["night_ok"] },
+            { "key": "B", "label": "낮에 끝내고 싶음", "tags": ["daytime_only"] }
+          ]
+        },
+        {
+          "id": "gen_time_05",
+          "type": "select_4",
+          "question": "여행의 리듬은?",
+          "options": [
+            { "key": "A", "label": "아침 출발", "tags": ["early_start"] },
+            { "key": "B", "label": "점심 이후", "tags": ["late_start"] },
+            { "key": "C", "label": "노을 맞춰", "tags": ["sunset_target"] },
+            { "key": "D", "label": "야경 맞춰", "tags": ["night_target"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "culture_style",
+      "label": "문화/공간 스타일",
+      "why": "자연 외 후보를 추천할 때 장소의 성격을 구체화한다.",
+      "questions": [
+        {
+          "id": "gen_culture_01",
+          "type": "select_4",
+          "question": "공간 분위기는 어느 쪽이 좋아요?",
+          "options": [
+            { "key": "A", "label": "한옥과 전통 골목", "tags": ["traditional", "hanok"] },
+            { "key": "B", "label": "모던한 건축물", "tags": ["modern", "architecture"] },
+            { "key": "C", "label": "오래된 공간 재생", "tags": ["vintage", "culture_space"] },
+            { "key": "D", "label": "자연 그대로의 공간", "tags": ["raw_nature"] }
+          ]
+        },
+        {
+          "id": "gen_culture_02",
+          "type": "select_2",
+          "question": "장소 스토리는 어느 쪽이 좋아요?",
+          "options": [
+            { "key": "A", "label": "역사와 유래가 있는 곳", "tags": ["history", "heritage"] },
+            { "key": "B", "label": "요즘 새로 뜨는 곳", "tags": ["new_hotplace", "trend"] }
+          ]
+        },
+        {
+          "id": "gen_culture_03",
+          "type": "select_2",
+          "question": "전통 감성과 이국적 감성 중 어디예요?",
+          "options": [
+            { "key": "A", "label": "전통 감성", "tags": ["traditional"] },
+            { "key": "B", "label": "이국적 감성", "tags": ["exotic"] }
+          ]
+        },
+        {
+          "id": "gen_culture_04",
+          "type": "select_2",
+          "question": "전시나 해설이 있는 장소도 좋아요?",
+          "options": [
+            { "key": "A", "label": "배우는 재미도 좋음", "tags": ["learning", "exhibition"] },
+            { "key": "B", "label": "그냥 보는 곳이 좋음", "tags": ["simple_viewing"] }
+          ]
+        },
+        {
+          "id": "gen_culture_05",
+          "type": "select_4",
+          "question": "도심형 장소라면?",
+          "options": [
+            { "key": "A", "label": "전망대", "tags": ["observatory"] },
+            { "key": "B", "label": "전시관", "tags": ["gallery"] },
+            { "key": "C", "label": "골목/거리", "tags": ["street"] },
+            { "key": "D", "label": "복합 문화공간", "tags": ["culture_complex"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "food_link",
+      "label": "맛집/카페 연계",
+      "why": "관광지 하나만 추천할지 주변 코스까지 묶을지 결정한다.",
+      "questions": [
+        {
+          "id": "gen_food_01",
+          "type": "select_4",
+          "question": "주변에 같이 있으면 좋은 건 뭐예요?",
+          "options": [
+            { "key": "A", "label": "대형 카페", "tags": ["cafe"] },
+            { "key": "B", "label": "로컬 맛집", "tags": ["local_food"] },
+            { "key": "C", "label": "전통시장", "tags": ["market"] },
+            { "key": "D", "label": "아무것도 없어도 됨", "tags": ["destination_only"] }
+          ]
+        },
+        {
+          "id": "gen_food_02",
+          "type": "select_2",
+          "question": "식사는 어떻게 할까요?",
+          "options": [
+            { "key": "A", "label": "근처 맛집까지 추천", "tags": ["food_required"] },
+            { "key": "B", "label": "장소만 좋아도 됨", "tags": ["food_optional"] }
+          ]
+        },
+        {
+          "id": "gen_food_03",
+          "type": "select_2",
+          "question": "카페가 중요해요?",
+          "options": [
+            { "key": "A", "label": "카페까지 있어야 함", "tags": ["cafe_required"] },
+            { "key": "B", "label": "없어도 괜찮음", "tags": ["cafe_optional"] }
+          ]
+        },
+        {
+          "id": "gen_food_04",
+          "type": "select_2",
+          "question": "로컬한 맛을 찾아가도 괜찮아요?",
+          "options": [
+            { "key": "A", "label": "로컬 맛집 좋음", "tags": ["local_food"] },
+            { "key": "B", "label": "검증된 곳이 좋음", "tags": ["safe_food"] }
+          ]
+        },
+        {
+          "id": "gen_food_05",
+          "type": "select_4",
+          "question": "먹거리 분위기는?",
+          "options": [
+            { "key": "A", "label": "카페 거리", "tags": ["cafe_street"] },
+            { "key": "B", "label": "시장 먹거리", "tags": ["market_food"] },
+            { "key": "C", "label": "한적한 식당", "tags": ["quiet_food"] },
+            { "key": "D", "label": "먹거리 제외", "tags": ["no_food_focus"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "accessibility",
+      "label": "편의시설/무장애",
+      "why": "강한 제약으로 필터에 가까운 역할을 한다.",
+      "questions": [
+        {
+          "id": "gen_access_01",
+          "type": "select_4",
+          "question": "꼭 챙겨야 하는 편의 조건이 있어요?",
+          "options": [
+            { "key": "A", "label": "유모차/휠체어 동선", "tags": ["barrier_free", "flat_walk"] },
+            { "key": "B", "label": "반려동물 동반", "tags": ["pet_friendly"] },
+            { "key": "C", "label": "화장실/쉼터", "tags": ["restroom", "rest_area"] },
+            { "key": "D", "label": "특별히 없음", "tags": ["no_constraints"] }
+          ]
+        },
+        {
+          "id": "gen_access_02",
+          "type": "select_2",
+          "question": "계단이 많으면 곤란해요?",
+          "options": [
+            { "key": "A", "label": "계단 적은 곳", "tags": ["low_stairs"] },
+            { "key": "B", "label": "계단 괜찮음", "tags": ["stairs_ok"] }
+          ]
+        },
+        {
+          "id": "gen_access_03",
+          "type": "select_2",
+          "question": "아이 편의시설이 중요해요?",
+          "options": [
+            { "key": "A", "label": "중요함", "tags": ["kids_facility_required"] },
+            { "key": "B", "label": "크게 상관없음", "tags": ["kids_facility_optional"] }
+          ]
+        },
+        {
+          "id": "gen_access_04",
+          "type": "select_2",
+          "question": "반려동물 동반 가능 여부를 볼까요?",
+          "options": [
+            { "key": "A", "label": "반려동물 동반 필요", "tags": ["pet_required"] },
+            { "key": "B", "label": "필요 없음", "tags": ["pet_not_needed"] }
+          ]
+        },
+        {
+          "id": "gen_access_05",
+          "type": "select_4",
+          "question": "편의시설 1순위는?",
+          "options": [
+            { "key": "A", "label": "주차", "tags": ["parking"] },
+            { "key": "B", "label": "화장실", "tags": ["restroom"] },
+            { "key": "C", "label": "쉼터", "tags": ["rest_area"] },
+            { "key": "D", "label": "안내 표지", "tags": ["signage"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "season",
+      "label": "계절감",
+      "why": "꽃, 단풍, 물놀이, 온천 등 계절성 장소 추천에 필요하다.",
+      "questions": [
+        {
+          "id": "gen_season_01",
+          "type": "select_4",
+          "question": "계절감은 어느 쪽으로 잡을까요?",
+          "options": [
+            { "key": "A", "label": "꽃과 정원", "tags": ["flower", "garden"] },
+            { "key": "B", "label": "푸른 숲", "tags": ["green", "forest"] },
+            { "key": "C", "label": "단풍/갈대", "tags": ["autumn", "reed"] },
+            { "key": "D", "label": "눈/온천/실내", "tags": ["winter", "hot_spring", "indoor"] }
+          ]
+        },
+        {
+          "id": "gen_season_02",
+          "type": "select_2",
+          "question": "축제성 장소도 괜찮아요?",
+          "options": [
+            { "key": "A", "label": "기간 한정 축제도 좋음", "tags": ["festival_ok"] },
+            { "key": "B", "label": "언제 가도 좋은 곳", "tags": ["evergreen_place"] }
+          ]
+        },
+        {
+          "id": "gen_season_03",
+          "type": "select_2",
+          "question": "물놀이/수변 계절감이 좋아요?",
+          "options": [
+            { "key": "A", "label": "물가 계절감 좋음", "tags": ["water_season"] },
+            { "key": "B", "label": "물가는 아니어도 됨", "tags": ["non_water_ok"] }
+          ]
+        },
+        {
+          "id": "gen_season_04",
+          "type": "select_2",
+          "question": "꽃 명소처럼 시기가 중요한 곳도 괜찮아요?",
+          "options": [
+            { "key": "A", "label": "시기 맞추는 곳 좋음", "tags": ["timing_sensitive_ok"] },
+            { "key": "B", "label": "시기 안 타는 곳", "tags": ["seasonless"] }
+          ]
+        },
+        {
+          "id": "gen_season_05",
+          "type": "select_4",
+          "question": "지금 계절에 더 끌리는 건?",
+          "options": [
+            { "key": "A", "label": "봄꽃", "tags": ["spring_flower"] },
+            { "key": "B", "label": "여름 그늘", "tags": ["summer_shade"] },
+            { "key": "C", "label": "가을 풍경", "tags": ["autumn_view"] },
+            { "key": "D", "label": "겨울 실내/온천", "tags": ["winter_indoor"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "photo",
+      "label": "사진/공유성",
+      "why": "결과 카드와 SNS 공유에 적합한 장소를 고르는 데 쓰인다.",
+      "questions": [
+        {
+          "id": "gen_photo_01",
+          "type": "select_2",
+          "question": "사진이 잘 나오는 곳이 중요해요?",
+          "options": [
+            { "key": "A", "label": "사진 중요", "tags": ["photo_required"] },
+            { "key": "B", "label": "사진보다 휴식", "tags": ["rest_first"] }
+          ]
+        },
+        {
+          "id": "gen_photo_02",
+          "type": "select_4",
+          "question": "사진 배경은 어떤 쪽?",
+          "options": [
+            { "key": "A", "label": "자연 풍경", "tags": ["nature_photo"] },
+            { "key": "B", "label": "건축물", "tags": ["architecture_photo"] },
+            { "key": "C", "label": "야경", "tags": ["night_photo"] },
+            { "key": "D", "label": "감성 골목", "tags": ["street_photo"] }
+          ]
+        },
+        {
+          "id": "gen_photo_03",
+          "type": "select_2",
+          "question": "SNS에 공유하고 싶은 결과가 좋아요?",
+          "options": [
+            { "key": "A", "label": "공유하기 좋은 곳", "tags": ["shareable"] },
+            { "key": "B", "label": "나만 알고 싶은 곳", "tags": ["private_hidden"] }
+          ]
+        },
+        {
+          "id": "gen_photo_04",
+          "type": "select_2",
+          "question": "인물 사진과 풍경 사진 중 어디예요?",
+          "options": [
+            { "key": "A", "label": "인물 사진", "tags": ["portrait_photo"] },
+            { "key": "B", "label": "풍경 사진", "tags": ["landscape_photo"] }
+          ]
+        },
+        {
+          "id": "gen_photo_05",
+          "type": "select_4",
+          "question": "사진 톤은?",
+          "options": [
+            { "key": "A", "label": "청량한 톤", "tags": ["bright_photo"] },
+            { "key": "B", "label": "따뜻한 노을톤", "tags": ["warm_photo"] },
+            { "key": "C", "label": "차분한 숲톤", "tags": ["calm_photo"] },
+            { "key": "D", "label": "화려한 야경톤", "tags": ["vivid_night_photo"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "healing_energy",
+      "label": "힐링/에너지",
+      "why": "추천 문구와 페르소나를 여행지 중심으로 만드는 데 쓰인다.",
+      "questions": [
+        {
+          "id": "gen_healing_01",
+          "type": "select_2",
+          "question": "오늘은 회복이 필요해요, 자극이 필요해요?",
+          "options": [
+            { "key": "A", "label": "회복", "tags": ["healing", "rest"] },
+            { "key": "B", "label": "자극", "tags": ["active", "novelty"] }
+          ]
+        },
+        {
+          "id": "gen_healing_02",
+          "type": "select_4",
+          "question": "여행 후 남았으면 하는 감정은?",
+          "options": [
+            { "key": "A", "label": "편안함", "tags": ["comfort"] },
+            { "key": "B", "label": "설렘", "tags": ["romance"] },
+            { "key": "C", "label": "성취감", "tags": ["achievement"] },
+            { "key": "D", "label": "새로움", "tags": ["novelty"] }
+          ]
+        },
+        {
+          "id": "gen_healing_03",
+          "type": "select_2",
+          "question": "소리까지 조용한 곳이 좋아요?",
+          "options": [
+            { "key": "A", "label": "조용한 소리", "tags": ["silent", "nature_sound"] },
+            { "key": "B", "label": "활기찬 소리", "tags": ["lively_sound"] }
+          ]
+        },
+        {
+          "id": "gen_healing_04",
+          "type": "select_2",
+          "question": "목적지는 정돈된 곳이 좋아요, 날것의 자연이 좋아요?",
+          "options": [
+            { "key": "A", "label": "정돈된 곳", "tags": ["managed", "comfortable"] },
+            { "key": "B", "label": "날것의 자연", "tags": ["raw_nature"] }
+          ]
+        },
+        {
+          "id": "gen_healing_05",
+          "type": "select_4",
+          "question": "쉬는 방식은?",
+          "options": [
+            { "key": "A", "label": "숲길 걷기", "tags": ["forest_walk"] },
+            { "key": "B", "label": "물가 보기", "tags": ["water_view"] },
+            { "key": "C", "label": "카페에 앉기", "tags": ["cafe_rest"] },
+            { "key": "D", "label": "전시 보기", "tags": ["culture_rest"] }
+          ]
+        }
+      ]
+    },
+    {
+      "tagGroup": "route_style",
+      "label": "동선/코스",
+      "why": "단일 목적지 추천인지 주변 코스 묶음인지 결정한다.",
+      "questions": [
+        {
+          "id": "gen_route_01",
+          "type": "select_2",
+          "question": "목적지 하나만 갈까요, 주변도 묶을까요?",
+          "options": [
+            { "key": "A", "label": "목적지 하나", "tags": ["single_destination"] },
+            { "key": "B", "label": "주변까지 코스", "tags": ["multi_stop"] }
+          ]
+        },
+        {
+          "id": "gen_route_02",
+          "type": "select_2",
+          "question": "가는 길에 들를 곳이 있으면 좋아요?",
+          "options": [
+            { "key": "A", "label": "경유지 좋음", "tags": ["stopover_ok"] },
+            { "key": "B", "label": "바로 목적지", "tags": ["direct_route"] }
+          ]
+        },
+        {
+          "id": "gen_route_03",
+          "type": "select_4",
+          "question": "코스 밀도는?",
+          "options": [
+            { "key": "A", "label": "느슨하게 1곳", "tags": ["slow_route"] },
+            { "key": "B", "label": "2곳 정도", "tags": ["light_route"] },
+            { "key": "C", "label": "3곳 이상", "tags": ["packed_route"] },
+            { "key": "D", "label": "현장 즉흥", "tags": ["spontaneous_route"] }
+          ]
+        },
+        {
+          "id": "gen_route_04",
+          "type": "select_2",
+          "question": "차 안에서 보는 풍경도 중요해요?",
+          "options": [
+            { "key": "A", "label": "드라이브 풍경 중요", "tags": ["scenic_drive"] },
+            { "key": "B", "label": "도착지가 중요", "tags": ["destination_first"] }
+          ]
+        },
+        {
+          "id": "gen_route_05",
+          "type": "select_4",
+          "question": "마무리는 어떻게 하고 싶어요?",
+          "options": [
+            { "key": "A", "label": "카페", "tags": ["finish_cafe"] },
+            { "key": "B", "label": "맛집", "tags": ["finish_food"] },
+            { "key": "C", "label": "노을/야경", "tags": ["finish_view"] },
+            { "key": "D", "label": "바로 귀가", "tags": ["easy_return"] }
+          ]
+        }
+      ]
+    }
+  ]
+}

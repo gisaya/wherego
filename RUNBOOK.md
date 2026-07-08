@@ -66,6 +66,37 @@ Expected output:
 .vercel/output/static/terms/privacy/index.html
 ```
 
+## Question Bank And API Probe
+
+Validate script syntax:
+
+```powershell
+& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' --check scripts/probe-question-bank-result.cjs
+```
+
+Validate generated question-bank shape:
+
+```powershell
+& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -e "const fs=require('fs'); const bank=JSON.parse(fs.readFileSync('data/general-question-bank.json','utf8')); const counts=bank.tagGroups.map(g=>g.questions.length); console.log(JSON.stringify({tagGroups:bank.tagGroups.length,total:counts.reduce((a,b)=>a+b,0),min:Math.min(...counts),max:Math.max(...counts)}));"
+```
+
+Run the real KTO API probe with a stable date override:
+
+```powershell
+$env:WHEREGO_PROBE_TODAY='2026-07-09'
+& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts/probe-question-bank-result.cjs
+Remove-Item Env:\WHEREGO_PROBE_TODAY
+```
+
+Optional origin override for the probe:
+
+```powershell
+$env:WHEREGO_CURRENT_LAT='37.5665'
+$env:WHEREGO_CURRENT_LNG='126.978'
+$env:WHEREGO_CURRENT_LABEL='서울시청 테스트 위치'
+$env:WHEREGO_SEARCH_AREA_CODES='1,31,2'
+```
+
 ## Deployment
 
 Vercel project link file:
@@ -105,6 +136,7 @@ Minimum checklist:
 git status --short
 git diff --stat
 & 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts/build-vercel-terms.cjs
+& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' --check scripts/probe-question-bank-result.cjs
 git branch --show-current
 git remote -v
 git add .
