@@ -1,6 +1,6 @@
 # LLM 이어받기 요약
 
-최종 갱신: 2026-07-08 22:05 KST
+최종 갱신: 2026-07-08 22:16 KST
 
 ## 제품
 
@@ -32,6 +32,11 @@
   - `public/index.html`
   - `public/terms/service/index.html`
   - `public/terms/privacy/index.html`
+- Vercel 배포:
+  - `https://wherego-lake.vercel.app`
+  - `https://wherego-lake.vercel.app/terms/service`
+  - `https://wherego-lake.vercel.app/terms/privacy`
+  - GitHub 자동 연결은 실패했고 현재는 CLI 수동 배포 상태.
 - Vercel 정적 빌드:
   - `scripts/build-vercel-terms.cjs`
   - `vercel.json`
@@ -40,6 +45,7 @@
 - 최근 검증:
   - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
   - 2026-07-08 22:05 KST: `.env.local` Git 제외 확인, 커밋 대상 인증키 패턴 검사 통과, Vercel 정적 약관 빌드 성공.
+  - 2026-07-08 22:16 KST: Vercel production 배포 성공, `/`, `/terms/service`, `/terms/privacy` 모두 HTTP 200 확인.
 
 ## 운영 규칙
 
@@ -50,7 +56,7 @@
 
 ## 남은 우선순위
 
-1. Vercel 프로젝트 연결 및 약관 URL 확보.
+1. Vercel GitHub 자동 배포 연결.
 2. Apps in Toss/Granite 앱 구조 스캐폴딩.
 3. 한국관광공사 API 신청 및 서버 측 API 키 처리 방식 확정.
 4. Gemini 추천 프롬프트와 여행지 JSON/DB 구조 설계.

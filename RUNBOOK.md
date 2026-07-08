@@ -68,18 +68,32 @@ Expected output:
 
 ## Deployment
 
-Vercel is not linked yet if this file does not exist:
+Vercel project link file:
 
 ```text
 .vercel/project.json
 ```
 
-After Vercel is linked and deployed, the submission URLs should be:
+Current Vercel project:
 
 ```text
-https://<vercel-domain>/terms/service
-https://<vercel-domain>/terms/privacy
+joyai/wherego
 ```
+
+Production alias:
+
+```text
+https://wherego-lake.vercel.app
+```
+
+Submission URLs:
+
+```text
+https://wherego-lake.vercel.app/terms/service
+https://wherego-lake.vercel.app/terms/privacy
+```
+
+Note: the first CLI deploy created the Vercel project and deployed production, but GitHub repository auto-link failed. Connect GitHub auto-deploy from Vercel settings or use manual CLI deploys.
 
 ## Save
 
