@@ -16,6 +16,7 @@ Core flow:
 - App name: `어디고`
 - Git remote: `https://github.com/gisaya/wherego.git`
 - Initial recommendation data source direction: 한국관광공사 국문 관광정보 서비스_GW API.
+- Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
 - TMAP congestion API is not part of the MVP because of cost.
 - AI role: generate/word travel persona and recommendation copy. Do not put AI API keys in the client.
 - Apps in Toss direction: Granite/TDS style should be used for the actual app implementation.
@@ -72,13 +73,14 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - `.vercel/output/static/terms/privacy/index.html`
 - Latest save verification:
   - 2026-07-08 21:57 KST: terms-page build returned `Built static terms pages for Vercel.`
+  - 2026-07-08 22:05 KST: `.env.local` confirmed ignored, committed files checked for raw 64-char key patterns, and terms-page build returned `Built static terms pages for Vercel.`
 
 ## Current Blockers And Risks
 
 - Vercel project is not linked yet: `.vercel/project.json` is absent.
 - There is no public terms URL until Vercel is connected and deployed.
 - Future app implementation still needs Granite project scaffolding or reuse of the `toss_tomato` structure.
-- API keys for 한국관광공사 and AI services must stay out of client code and Git.
+- API keys for 한국관광공사 and AI services must stay out of client code and Git. `.env.local` is intentionally ignored.
 
 ## Operating Rules
 
@@ -93,4 +95,4 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 1. Link or create a Vercel project for the terms pages.
 2. Confirm the deployed `/terms/service` and `/terms/privacy` URLs.
 3. Scaffold the actual Apps in Toss/Granite app using the `toss_tomato` structure as the closest local reference.
-4. Implement 한국관광공사 API and AI calls server-side, keeping API keys out of the client bundle.
+4. Implement 한국관광공사 API and AI calls server-side, loading `PUBLIC_DATA_PORTAL_SERVICE_KEY` and endpoint URLs from environment variables.
