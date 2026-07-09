@@ -1,0 +1,162 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 987f4c7fcf3ff50a25020a1d7ead20bfc5a06530..2f84afe3cc7340492618e81c4697a396a535e2b5 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -328,6 +328,27 @@ var getSharedPackages = ({ reactNativeVersion }) => [
+   ...reactNativeVersion === "0.84" ? ["brick-module", "@react-navigation/elements"] : [],
+   ...reactNativeVersion === "0.72" ? ["react-native-fast-image", "lottie-react-native", "react-native-video"] : []
+ ];
++var eagerSharedPackages = /* @__PURE__ */ new Set([
++  "react-native",
++  "react",
++  "brick-module",
++  "@react-navigation/elements",
++  "@react-navigation/native",
++  "@react-navigation/native-stack",
++  "react-native-safe-area-context",
++  "react-native-screens",
++  "react-native-gesture-handler",
++  "react-native-svg",
++  "@shopify/flash-list",
++  "react-native-webview",
++  "@granite-js/image",
++  "@granite-js/lottie",
++  "@granite-js/video"
++]);
++var getSharedPackageConfig = (options) => Object.fromEntries(getSharedPackages(options).map((packageName) => [
++  packageName,
++  eagerSharedPackages.has(packageName) ? { eager: true } : {}
++]));
+ 
+ // src/log.ts
+ init_cjs_shims();
+@@ -693,11 +715,13 @@ var reactNativeModuleProxyContent = `
+   }
+ 
+   if (reactNative == null && typeof __bedrock_require__ === 'function') {
+-    reactNative = global.__bedrock_require__('react-native');
++    try {
++      reactNative = global.__bedrock_require__('react-native');
++    } catch {}
+   }
+ 
+   if (reactNative == null) {
+-    throw new Error('cannot get react-native in the global registry');
++    return;
+   }
+ 
+   global.__reactNativeProxy = createReactNativeProxy(reactNative);
+@@ -1422,6 +1446,23 @@ function setupHostRuntimeSetupScript(metadata) {
+ function getRuntimeSetupScript(metadata, identifier) {
+   const script = `
+   (function (global) {
++    if (global.console == null) {
++      var noop = function () {};
++      global.console = {
++        log: noop,
++        info: noop,
++        warn: noop,
++        error: noop,
++        debug: noop,
++        trace: noop,
++        group: noop,
++        groupCollapsed: noop,
++        groupEnd: noop,
++        createTask: function () {
++          return null;
++        }
++      };
++    }
+     ${getBedrockCompatScript()}
+     ${identifier === HOST_CONTEXT_IDENTIFIER ? "" : getMicroFrontendCompatScript()}
+     global.${identifier} = ${JSON.stringify(metadata)};
+@@ -1534,7 +1575,7 @@ function withAppsInTossCommon(plugins, options) {
+       exposes: {
+         [MICRO_FRONTEND_REMOTE_EXPOSE_PATH]: options.exposePath
+       },
+-      shared: getSharedPackages({
++      shared: getSharedPackageConfig({
+         reactNativeVersion
+       }),
+       reactNativeBasePath: options.reactNativeBasePath
+diff --git a/dist/index.js b/dist/index.js
+index b2b489a20dfeaf5662bcbc2201d445ba4ca0ff08..b64c57cb532b1264c21dccf9de60a3ac26255153 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -302,6 +302,27 @@ var getSharedPackages = ({ reactNativeVersion }) => [
+   ...reactNativeVersion === "0.84" ? ["brick-module", "@react-navigation/elements"] : [],
+   ...reactNativeVersion === "0.72" ? ["react-native-fast-image", "lottie-react-native", "react-native-video"] : []
+ ];
++var eagerSharedPackages = /* @__PURE__ */ new Set([
++  "react-native",
++  "react",
++  "brick-module",
++  "@react-navigation/elements",
++  "@react-navigation/native",
++  "@react-navigation/native-stack",
++  "react-native-safe-area-context",
++  "react-native-screens",
++  "react-native-gesture-handler",
++  "react-native-svg",
++  "@shopify/flash-list",
++  "react-native-webview",
++  "@granite-js/image",
++  "@granite-js/lottie",
++  "@granite-js/video"
++]);
++var getSharedPackageConfig = (options) => Object.fromEntries(getSharedPackages(options).map((packageName) => [
++  packageName,
++  eagerSharedPackages.has(packageName) ? { eager: true } : {}
++]));
+ 
+ // src/log.ts
+ init_esm_shims();
+@@ -667,11 +689,13 @@ var reactNativeModuleProxyContent = `
+   }
+ 
+   if (reactNative == null && typeof __bedrock_require__ === 'function') {
+-    reactNative = global.__bedrock_require__('react-native');
++    try {
++      reactNative = global.__bedrock_require__('react-native');
++    } catch {}
+   }
+ 
+   if (reactNative == null) {
+-    throw new Error('cannot get react-native in the global registry');
++    return;
+   }
+ 
+   global.__reactNativeProxy = createReactNativeProxy(reactNative);
+@@ -1396,6 +1420,23 @@ function setupHostRuntimeSetupScript(metadata) {
+ function getRuntimeSetupScript(metadata, identifier) {
+   const script = `
+   (function (global) {
++    if (global.console == null) {
++      var noop = function () {};
++      global.console = {
++        log: noop,
++        info: noop,
++        warn: noop,
++        error: noop,
++        debug: noop,
++        trace: noop,
++        group: noop,
++        groupCollapsed: noop,
++        groupEnd: noop,
++        createTask: function () {
++          return null;
++        }
++      };
++    }
+     ${getBedrockCompatScript()}
+     ${identifier === HOST_CONTEXT_IDENTIFIER ? "" : getMicroFrontendCompatScript()}
+     global.${identifier} = ${JSON.stringify(metadata)};
+@@ -1508,7 +1549,7 @@ function withAppsInTossCommon(plugins, options) {
+       exposes: {
+         [MICRO_FRONTEND_REMOTE_EXPOSE_PATH]: options.exposePath
+       },
+-      shared: getSharedPackages({
++      shared: getSharedPackageConfig({
+         reactNativeVersion
+       }),
+       reactNativeBasePath: options.reactNativeBasePath

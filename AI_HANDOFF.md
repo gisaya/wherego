@@ -20,14 +20,49 @@ Core flow:
 - Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
 - TMAP congestion API is not part of the MVP because of cost.
 - AI direction: Gemini Flash-Lite with function calling for search planning, persona copy, and result-card copy. Do not put AI API keys in the client.
-- Apps in Toss direction: Granite/TDS style should be used for the actual app implementation.
-- Question flow: required 3 questions plus random 5 questions. Random questions should be selected from different tag groups.
-- Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, and 15 minutes of buffer for drive-time constraints.
+- Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. TDS package is installed; current UI is custom React Native and should be reviewed against TDS before submission freeze.
+- Question flow: required 3 questions plus random 5 questions. Random questions must include `crowd` and one of `mobility`/`accessibility`, then fill the remaining three from different tag groups.
+- Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, 15 minutes of drive-time buffer, and 10km of distance buffer.
+- Map opening direction: use Naver Map web search links for the MVP, opened through `openURL`. No Naver Maps API key is needed unless embedding maps or calculating route/time data inside the app.
+
+## Current Apps in Toss App
+
+Granite/Apps in Toss build scaffold was added from the `뭐샀지` (`toss_tomato_public`) pattern:
+
+- `package.json`, `yarn.lock`, `.yarnrc.yml`, `.yarn/releases/`, `.yarn/patches/`
+- `granite.config.ts`
+- `index.ts`
+- `require.context.ts`
+- `src/_app.tsx`
+- `src/router.gen.ts`
+- `src/types/assets.d.ts`
+- `pages/index.tsx`
+- `pages/_404.tsx`
+- `scripts/ait-build.ps1`
+- `babel.config.js`, `tsconfig.json`, `react-native.config.js`
+
+Current app flow in `pages/index.tsx`:
+
+- intro screen with `어디고` logo
+- origin choice: current location via `useGeolocation` or selected region fallback
+- question flow: 3 required source questions plus 5 random general questions
+- banner ad placeholder during questions
+- rewarded-ad placeholder gate before result
+- result card with tourism info, card-save placeholder, Naver Map open button, and home reset
+
+`granite.config.ts` uses:
+
+- `appName: wherego`
+- display name `어디고`
+- icon URL `https://wherego-lake.vercel.app/assets/logo.png`
+- `geolocation` permission
+- Apps in Toss navigation bar with back/home buttons
 
 ## Current Assets
 
 - `assets/logo.png`: 600x600 app logo.
 - `assets/thumbnail.png`: 1932x828 Apps in Toss-style thumbnail.
+- `public/assets/logo.png`: public copy used by `granite.config.ts` icon URL after Vercel deployment.
 - Visual direction follows the existing `toss_tomato` asset pattern:
   - pale lavender-blue background
   - polished 3D object
@@ -88,16 +123,18 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-08 22:16 KST: production Vercel deployment succeeded and `/`, `/terms/service`, `/terms/privacy` all returned HTTP 200.
   - 2026-07-09 KST: `scripts/probe-question-bank-result.cjs` successfully exercised KTO KorService2, KTO DataLab locgo visitor rows, estimated drive-time filtering, parking-known filtering, and crowd labels.
   - 2026-07-09 KST save check: terms-page build succeeded, `scripts/probe-question-bank-result.cjs` syntax check passed, generated question bank shape confirmed as 13 groups / 390 questions / 30 per group, and no 64-char hex secret pattern was found in commit candidates.
+  - 2026-07-09 KST: Apps in Toss dependencies installed with committed Yarn 4 release/patches. `yarn typecheck` passed. `yarn build` produced local ignored artifact `wherego.ait` with deploymentId `019f4475-b925-7a22-bca3-fed52822aee1`. Terms-page build also passed.
 
 ## Current Question/API Work
 
 - `data/source-question-blueprint.json`: required source axes for movement scope, party constraints, and destination intent.
-- `data/general-question-bank.json`: generated general question bank, 13 tag groups x 30 questions = 390 questions.
+- `data/general-question-bank.json`: generated general question bank, 13 tag groups x 30 questions = 390 questions. Each group now has 12 source options that are recombined into 30 questions.
 - `data/question-bank-normalized.json`: normalized copy of the downloaded Gemini question candidate file.
 - `data/question-bank-additions.json`: curated additional question candidates and policy notes.
 - `scripts/build-general-question-bank.cjs`: deterministic generator for the general bank.
-- `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, distance filtering, parking filtering, and DataLab crowd labeling.
+- `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, min/max distance and time filtering, region-scope search, parking filtering, and DataLab crowd labeling.
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
+- `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad placeholder, rewarded-ad gate, Naver Map link, and result card with tourism info.
 
 Latest known probe result with the default Seoul City Hall test origin:
 
@@ -108,11 +145,12 @@ Latest known probe result with the default Seoul City Hall test origin:
 ## Current Blockers And Risks
 
 - Vercel project exists and terms URLs are live, but GitHub auto-deploy is not connected yet.
-- Future app implementation still needs Granite project scaffolding or reuse of the `toss_tomato` structure.
 - API keys for 한국관광공사 and AI services must stay out of client code and Git. `.env.local` is intentionally ignored.
 - The current drive-time filter is an estimate, not real routing. A map/routing API is needed for production-grade travel time.
 - DataLab visitor counts are regional, not place-level. Treat crowd labels as a weak supporting signal.
-- The generated question bank is large enough for MVP experiments, but should still be edited for repeated wording before final UI copy freeze.
+- The generated question bank is large enough for MVP experiments. The remaining copy risk is mostly repeated prompt templates, not missing tags or missing search hints.
+- Current Apps in Toss UI uses demo recommendation data in the client. Real Gemini/KTO calls must be moved behind a server/API boundary before production.
+- Rewarded ad and card-save buttons are placeholders in the first buildable app.
 
 ## Operating Rules
 
@@ -125,7 +163,7 @@ Latest known probe result with the default Seoul City Hall test origin:
 ## Next Recommended Steps
 
 1. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.
-2. Scaffold the actual Apps in Toss/Granite app using the `toss_tomato` structure as the closest local reference.
-3. Implement server routes for Gemini function calling, KTO KorService2 search/detail/image calls, and DataLab crowd signals.
-4. Convert the result-card probe output into the first Apps in Toss UI flow with a rewarded-ad gate before the result card.
-5. Review the question bank for repeated wording and user-facing tone before freezing the MVP copy.
+2. Replace the client demo result data with server-backed Gemini function calling, KTO KorService2 search/detail/image calls, and DataLab crowd signals.
+3. Wire real Apps in Toss rewarded ads and card capture/save behavior.
+4. Review the React Native UI against TDS requirements and replace custom primitives where needed.
+5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.

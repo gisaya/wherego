@@ -259,6 +259,50 @@
           ]
         },
         {
+          "id": "party_companion_binary_01",
+          "type": "select_2",
+          "mode": "companion_priority",
+          "question": "오늘은 내 취향 우선이에요, 동행자 편의 우선이에요?",
+          "options": [
+            {
+              "key": "A",
+              "label": "내 취향 우선",
+              "tags": ["self_priority", "flexible", "no_constraints"],
+              "constraints": { "partyConstraintLevel": "low" },
+              "searchHints": ["취향 여행", "자유 여행", "폭넓은 후보"]
+            },
+            {
+              "key": "B",
+              "label": "동행자 편의 우선",
+              "tags": ["companion_care", "safe", "easy_walk"],
+              "constraints": { "partyConstraintLevel": "high", "preferFlatWalk": true },
+              "searchHints": ["가족", "편한 동선", "화장실", "쉼터"]
+            }
+          ]
+        },
+        {
+          "id": "party_mobility_binary_01",
+          "type": "select_2",
+          "mode": "mobility_binary",
+          "question": "걷기 편한 곳이어야 해요?",
+          "options": [
+            {
+              "key": "A",
+              "label": "편한 동선 필수",
+              "tags": ["minimal_walk", "flat_walk", "parking_close"],
+              "constraints": { "maxWalkMinutes": 10, "preferFlatWalk": true },
+              "searchHints": ["주차장 가까움", "평지", "무장애", "데크길"]
+            },
+            {
+              "key": "B",
+              "label": "조금 걸어도 괜찮음",
+              "tags": ["walk_ok", "trail_ok", "activity_ok"],
+              "constraints": { "walkFlexible": true },
+              "searchHints": ["산책로", "숲길", "둘레길", "전망대"]
+            }
+          ]
+        },
+        {
           "id": "party_count_01",
           "type": "select_4",
           "mode": "party_count",
@@ -448,6 +492,50 @@
           ]
         },
         {
+          "id": "intent_nature_city_binary_01",
+          "type": "select_2",
+          "mode": "nature_or_city",
+          "question": "자연이 좋아요, 공간이 좋아요?",
+          "options": [
+            {
+              "key": "A",
+              "label": "자연 속으로",
+              "tags": ["nature", "forest", "waterfront"],
+              "constraints": { "contentPreference": "nature" },
+              "searchHints": ["숲", "수목원", "호수", "해변", "생태공원"]
+            },
+            {
+              "key": "B",
+              "label": "문화공간으로",
+              "tags": ["culture", "city", "indoor_ok"],
+              "constraints": { "contentPreference": "culture_city" },
+              "searchHints": ["박물관", "전시", "문화공간", "전망대", "건축명소"]
+            }
+          ]
+        },
+        {
+          "id": "intent_rest_active_binary_01",
+          "type": "select_2",
+          "mode": "rest_or_active",
+          "question": "쉬러 갈까요, 뭐 하러 갈까요?",
+          "options": [
+            {
+              "key": "A",
+              "label": "쉬러 가기",
+              "tags": ["rest", "healing", "walk"],
+              "constraints": { "activityPreference": "walk_rest" },
+              "searchHints": ["산책로", "수목원", "공원", "휴양림"]
+            },
+            {
+              "key": "B",
+              "label": "체험하러 가기",
+              "tags": ["experience", "activity", "photo"],
+              "constraints": { "activityPreference": "experience_photo" },
+              "searchHints": ["체험마을", "전시관", "포토존", "레포츠"]
+            }
+          ]
+        },
+        {
           "id": "intent_activity_01",
           "type": "select_4",
           "mode": "activity",
@@ -523,6 +611,11 @@
     }
   ],
   "recommendedRequiredSets": [
+    {
+      "id": "required_fast_binary",
+      "label": "빠른 2지선다형",
+      "questions": ["move_time_binary_01", "party_companion_binary_01", "intent_nature_city_binary_01"]
+    },
     {
       "id": "required_default",
       "label": "기본형",

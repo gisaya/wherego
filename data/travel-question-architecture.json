@@ -6,7 +6,7 @@
     "requiredQuestionCount": 3,
     "randomGeneralQuestionCount": 5,
     "totalQuestionsPerRun": 8,
-    "rule": "원천질문 3개는 항상 묻고, 일반질문은 서로 다른 tagGroup에서 5개를 뽑는다."
+    "rule": "원천질문 3개는 항상 묻고, 일반질문은 crowd 1개와 mobility/accessibility 중 1개를 포함한 뒤 서로 다른 tagGroup에서 총 5개를 뽑는다."
   },
   "requiredSourceAxes": [
     {
@@ -21,16 +21,24 @@
       "axis": "party_constraints",
       "label": "동행자/인원/제약",
       "minimumVariantCount": 3,
-      "currentVariantCount": 5,
-      "questionModes": ["companion_type", "party_count", "age_constraint", "mobility_limit", "special_amenity"],
+      "currentVariantCount": 7,
+      "questionModes": [
+        "companion_type",
+        "companion_priority",
+        "mobility_binary",
+        "party_count",
+        "age_constraint",
+        "mobility_limit",
+        "special_amenity"
+      ],
       "role": "아이, 시니어, 반려동물, 보행 난이도 같은 실제 만족도 조건을 정한다."
     },
     {
       "axis": "destination_intent",
       "label": "장소 취향/목적",
       "minimumVariantCount": 3,
-      "currentVariantCount": 3,
-      "questionModes": ["landscape", "activity", "mood"],
+      "currentVariantCount": 5,
+      "questionModes": ["landscape", "nature_or_city", "rest_or_active", "activity", "mood"],
       "role": "한국관광공사 API 검색 키워드와 후보 관광지 타입을 정한다."
     }
   ],
@@ -40,7 +48,7 @@
     "minimumQuestionsPerTagGroup": 30,
     "currentQuestionsPerTagGroup": 30,
     "fullQuestionBankFile": "data/general-question-bank.json",
-    "selectionRule": "한 실행에서는 tagGroup 5개를 먼저 고르고, 각 tagGroup에서 질문 1개씩 뽑는다. crowd 또는 mobility 중 하나는 되도록 포함한다.",
+    "selectionRule": "한 실행에서는 crowd 1개와 mobility/accessibility 중 1개를 먼저 포함한다. 나머지 3개는 아직 선택되지 않은 tagGroup에서 뽑고, 각 tagGroup에서는 질문 1개만 출제한다.",
     "scoringRule": "일반질문 답변은 장소 후보를 완전히 배제하기보다 점수 가중치로 반영한다. 단, accessibility/pet/indoor_required 같은 강한 제약은 필터로 승격할 수 있다."
   },
   "generalQuestionTagGroups": [

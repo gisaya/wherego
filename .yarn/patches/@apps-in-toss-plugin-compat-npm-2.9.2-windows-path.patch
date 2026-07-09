@@ -1,0 +1,36 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -1121,10 +1121,12 @@ function getReactCompatibilityByReactNativeVersion(reactNativeVersion) {
+ function getReactCompatScript() {
+   const reactUsePolyfillPath = require.resolve("react18-use");
+   const reactEffectEventPolyfillPath = require.resolve("use-effect-event");
++  const reactUsePolyfillPathLiteral = JSON.stringify(reactUsePolyfillPath);
++  const reactEffectEventPolyfillPathLiteral = JSON.stringify(reactEffectEventPolyfillPath);
+   return `
+     const React = require('react');
+-    const reactUsePolyfill = require('${reactUsePolyfillPath}');
+-    const reactEffectEventPolyfill = require('${reactEffectEventPolyfillPath}');
++    const reactUsePolyfill = require(${reactUsePolyfillPathLiteral});
++    const reactEffectEventPolyfill = require(${reactEffectEventPolyfillPathLiteral});
+   
+     function useOptimisticPolyfill(passthroughState, reducer) {
+       const [optimisticState, setOptimisticState] = React.useState(passthroughState);
+diff --git a/dist/index.js b/dist/index.js
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1092,10 +1092,12 @@ function getReactCompatibilityByReactNativeVersion(reactNativeVersion) {
+ function getReactCompatScript() {
+   const reactUsePolyfillPath = __require.resolve("react18-use");
+   const reactEffectEventPolyfillPath = __require.resolve("use-effect-event");
++  const reactUsePolyfillPathLiteral = JSON.stringify(reactUsePolyfillPath);
++  const reactEffectEventPolyfillPathLiteral = JSON.stringify(reactEffectEventPolyfillPath);
+   return `
+     const React = require('react');
+-    const reactUsePolyfill = require('${reactUsePolyfillPath}');
+-    const reactEffectEventPolyfill = require('${reactEffectEventPolyfillPath}');
++    const reactUsePolyfill = require(${reactUsePolyfillPathLiteral});
++    const reactEffectEventPolyfill = require(${reactEffectEventPolyfillPathLiteral});
+   
+     function useOptimisticPolyfill(passthroughState, reducer) {
+       const [optimisticState, setOptimisticState] = React.useState(passthroughState);

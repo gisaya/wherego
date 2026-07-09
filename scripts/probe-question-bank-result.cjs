@@ -18,6 +18,32 @@ const DEFAULT_ORIGIN = {
 const AVERAGE_DRIVE_KMH = 45;
 const ROAD_DISTANCE_FACTOR = 1.35;
 const DISTANCE_FILTER_BUFFER_MINUTES = 15;
+const DISTANCE_FILTER_BUFFER_KM = 10;
+const ALL_KTO_AREA_CODES = [
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '31',
+  '32',
+  '33',
+  '34',
+  '35',
+  '36',
+  '37',
+  '38',
+  '39',
+];
+const KTO_AREA_GROUPS = {
+  capital_area: ['1', '31', '2'],
+  central_area: ['32', '33', '34', '8', '3'],
+  southern_area: ['35', '36', '37', '38', '4', '5', '6', '7'],
+  island: ['39'],
+};
 
 if (!SERVICE_KEY) throw new Error('PUBLIC_DATA_PORTAL_SERVICE_KEY is missing');
 
@@ -104,11 +130,25 @@ function selectOption(question, key) {
 function buildSelectedAnswers() {
   const blueprint = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/source-question-blueprint.json'), 'utf8'));
   const bank = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/general-question-bank.json'), 'utf8'));
+  const requiredSelection = {
+    movement: {
+      id: process.env.WHEREGO_REQUIRED_MOVE_ID || 'move_time_binary_01',
+      option: process.env.WHEREGO_REQUIRED_MOVE_OPTION || 'A',
+    },
+    party: {
+      id: process.env.WHEREGO_REQUIRED_PARTY_ID || 'party_companion_01',
+      option: process.env.WHEREGO_REQUIRED_PARTY_OPTION || 'C',
+    },
+    intent: {
+      id: process.env.WHEREGO_REQUIRED_INTENT_ID || 'intent_landscape_01',
+      option: process.env.WHEREGO_REQUIRED_INTENT_OPTION || 'A',
+    },
+  };
 
   const required = [
-    selectOption(findVariant(blueprint, 'move_time_binary_01'), 'A'),
-    selectOption(findVariant(blueprint, 'party_companion_01'), 'C'),
-    selectOption(findVariant(blueprint, 'intent_landscape_01'), 'A'),
+    selectOption(findVariant(blueprint, requiredSelection.movement.id), requiredSelection.movement.option),
+    selectOption(findVariant(blueprint, requiredSelection.party.id), requiredSelection.party.option),
+    selectOption(findVariant(blueprint, requiredSelection.intent.id), requiredSelection.intent.option),
   ];
 
   const general = [
@@ -189,51 +229,123 @@ function roundNullable(value, digits = 1) {
 
 function deriveDistanceConstraint(selected) {
   const constraints = Object.assign({}, ...selected.required.map((answer) => answer.constraints));
-  if (Number.isFinite(constraints.maxDistanceKm)) {
-    return {
-      type: 'road_distance',
-      maxDistanceKm: constraints.maxDistanceKm,
-    };
+  const travelConstraint = {
+    type: 'travel_constraints',
+    maxDistanceKm: constraints.maxDistanceKm,
+    minDistanceKm: constraints.minDistanceKm,
+    maxOneWayMinutes: constraints.maxOneWayMinutes,
+    minOneWayMinutes: constraints.minOneWayMinutes,
+    maxRoundTripMinutes: constraints.maxRoundTripMinutes,
+    minRoundTripMinutes: constraints.minRoundTripMinutes,
+    regionScope: constraints.regionScope,
+    preferredRegionGroup: constraints.preferredRegionGroup,
+    stayType: constraints.stayType,
+  };
+
+  if (travelConstraint.regionScope === 'same_city' && !Number.isFinite(travelConstraint.maxDistanceKm)) {
+    travelConstraint.maxDistanceKm = 30;
   }
-  if (Number.isFinite(constraints.maxOneWayMinutes)) {
-    return {
-      type: 'one_way_drive_time',
-      maxOneWayMinutes: constraints.maxOneWayMinutes,
-    };
+  if (travelConstraint.regionScope === 'nearby_city' && !Number.isFinite(travelConstraint.maxDistanceKm)) {
+    travelConstraint.maxDistanceKm = 80;
   }
-  if (Number.isFinite(constraints.maxRoundTripMinutes)) {
-    return {
-      type: 'round_trip_drive_time',
-      maxRoundTripMinutes: constraints.maxRoundTripMinutes,
-    };
+  if (
+    travelConstraint.regionScope === 'metro_area' &&
+    !Number.isFinite(travelConstraint.maxRoundTripMinutes)
+  ) {
+    travelConstraint.maxRoundTripMinutes = 240;
   }
-  return { type: 'none' };
+  if (
+    travelConstraint.stayType === 'overnight_ok' &&
+    !Number.isFinite(travelConstraint.minRoundTripMinutes)
+  ) {
+    travelConstraint.minRoundTripMinutes = 180;
+  }
+
+  const hasTravelConstraint =
+    Number.isFinite(travelConstraint.maxDistanceKm) ||
+    Number.isFinite(travelConstraint.minDistanceKm) ||
+    Number.isFinite(travelConstraint.maxOneWayMinutes) ||
+    Number.isFinite(travelConstraint.minOneWayMinutes) ||
+    Number.isFinite(travelConstraint.maxRoundTripMinutes) ||
+    Number.isFinite(travelConstraint.minRoundTripMinutes) ||
+    travelConstraint.regionScope ||
+    travelConstraint.preferredRegionGroup ||
+    travelConstraint.stayType;
+
+  return hasTravelConstraint ? travelConstraint : { type: 'none' };
+}
+
+function deriveSearchAreaCodes(origin, constraint) {
+  if (!constraint || constraint.type === 'none') return origin.areaCodes;
+
+  if (constraint.preferredRegionGroup && KTO_AREA_GROUPS[constraint.preferredRegionGroup]) {
+    return KTO_AREA_GROUPS[constraint.preferredRegionGroup];
+  }
+
+  if (constraint.regionScope === 'nationwide' || constraint.stayType === 'overnight_ok') {
+    return ALL_KTO_AREA_CODES;
+  }
+
+  if (
+    Number.isFinite(constraint.minDistanceKm) ||
+    Number.isFinite(constraint.minOneWayMinutes) ||
+    Number.isFinite(constraint.minRoundTripMinutes)
+  ) {
+    return unique([...origin.areaCodes, ...KTO_AREA_GROUPS.central_area]);
+  }
+
+  return origin.areaCodes;
 }
 
 function passesDistanceConstraint(candidate, constraint) {
   if (!constraint || constraint.type === 'none') return true;
 
-  if (constraint.type === 'road_distance') {
-    return (
-      Number.isFinite(candidate.estimatedRoadDistanceKm) &&
-      candidate.estimatedRoadDistanceKm <= constraint.maxDistanceKm
-    );
+  if (!Number.isFinite(candidate.estimatedRoadDistanceKm)) return false;
+
+  if (
+    Number.isFinite(constraint.maxDistanceKm) &&
+    candidate.estimatedRoadDistanceKm > constraint.maxDistanceKm + DISTANCE_FILTER_BUFFER_KM
+  ) {
+    return false;
   }
 
-  if (constraint.type === 'one_way_drive_time') {
-    return (
-      Number.isFinite(candidate.estimatedOneWayDriveMinutes) &&
-      candidate.estimatedOneWayDriveMinutes <=
-        constraint.maxOneWayMinutes + DISTANCE_FILTER_BUFFER_MINUTES
-    );
+  if (
+    Number.isFinite(constraint.minDistanceKm) &&
+    candidate.estimatedRoadDistanceKm + DISTANCE_FILTER_BUFFER_KM < constraint.minDistanceKm
+  ) {
+    return false;
   }
 
-  if (constraint.type === 'round_trip_drive_time') {
-    return (
-      Number.isFinite(candidate.estimatedRoundTripDriveMinutes) &&
-      candidate.estimatedRoundTripDriveMinutes <=
-        constraint.maxRoundTripMinutes + DISTANCE_FILTER_BUFFER_MINUTES
-    );
+  if (
+    Number.isFinite(constraint.maxOneWayMinutes) &&
+    candidate.estimatedOneWayDriveMinutes >
+      constraint.maxOneWayMinutes + DISTANCE_FILTER_BUFFER_MINUTES
+  ) {
+    return false;
+  }
+
+  if (
+    Number.isFinite(constraint.minOneWayMinutes) &&
+    candidate.estimatedOneWayDriveMinutes + DISTANCE_FILTER_BUFFER_MINUTES <
+      constraint.minOneWayMinutes
+  ) {
+    return false;
+  }
+
+  if (
+    Number.isFinite(constraint.maxRoundTripMinutes) &&
+    candidate.estimatedRoundTripDriveMinutes >
+      constraint.maxRoundTripMinutes + DISTANCE_FILTER_BUFFER_MINUTES
+  ) {
+    return false;
+  }
+
+  if (
+    Number.isFinite(constraint.minRoundTripMinutes) &&
+    candidate.estimatedRoundTripDriveMinutes + DISTANCE_FILTER_BUFFER_MINUTES <
+      constraint.minRoundTripMinutes
+  ) {
+    return false;
   }
 
   return true;
@@ -244,6 +356,7 @@ function buildGeminiLikePlan(selected) {
   const searchHints = unique(selected.all.flatMap((answer) => answer.searchHints));
   const origin = getOrigin();
   const distanceConstraint = deriveDistanceConstraint(selected);
+  const areaCodes = deriveSearchAreaCodes(origin, distanceConstraint);
 
   const keywords = unique([
     '수목원',
@@ -263,17 +376,18 @@ function buildGeminiLikePlan(selected) {
     toolPlan: {
       searchTourPlaces: {
         keywords,
-        areaCodes: origin.areaCodes,
+        areaCodes,
         contentTypeId: '12',
         arrange: 'Q',
       },
       locationFilter: {
         origin,
         distanceConstraint,
-        distanceMode: distanceConstraint.type === 'none' ? 'none' : 'estimated_drive_radius',
+        distanceMode: distanceConstraint.type === 'none' ? 'none' : 'estimated_drive_constraints',
         averageDriveKmh: AVERAGE_DRIVE_KMH,
         roadDistanceFactor: ROAD_DISTANCE_FACTOR,
         bufferMinutes: DISTANCE_FILTER_BUFFER_MINUTES,
+        bufferKm: DISTANCE_FILTER_BUFFER_KM,
       },
       rankingWeights: {
         forest: 30,
@@ -496,10 +610,8 @@ async function crowdSignal(place) {
 }
 
 function mapLink(place) {
-  if (Number.isFinite(place.mapX) && Number.isFinite(place.mapY)) {
-    return `https://map.kakao.com/link/map/${encodeURIComponent(place.title)},${place.mapY},${place.mapX}`;
-  }
-  return `https://map.kakao.com/link/search/${encodeURIComponent(place.title)}`;
+  const query = encodeURIComponent([place.title, place.address].filter(Boolean).join(' '));
+  return `https://map.naver.com/p/search/${query}`;
 }
 
 async function main() {

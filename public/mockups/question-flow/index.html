@@ -1,0 +1,1402 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>어디고 질문 플로우 목업</title>
+    <style>
+      :root {
+        --bg: #eef3ff;
+        --surface: #ffffff;
+        --surface-soft: #f6f8ff;
+        --ink: #202438;
+        --muted: #67708a;
+        --line: #e3e8f7;
+        --blue: #2b84fc;
+        --blue-dark: #1e63d6;
+        --mint: #54cca6;
+        --yellow: #ffd25c;
+        --pink: #ff9fba;
+        --purple: #8b7cf6;
+        --shadow: 0 18px 48px rgba(31, 45, 82, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.9), transparent 34%),
+          linear-gradient(135deg, #dce5ff 0%, #f7f9ff 100%);
+        color: var(--ink);
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .page {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .phone {
+        width: min(430px, 100%);
+        height: min(900px, calc(100vh - 48px));
+        min-height: 720px;
+        border: 1px solid rgba(124, 140, 184, 0.25);
+        border-radius: 34px;
+        background: var(--bg);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .app {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 18px 18px 0;
+        position: relative;
+      }
+
+      .topbar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 44px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--blue), var(--mint));
+        box-shadow: 0 8px 18px rgba(43, 132, 252, 0.28);
+      }
+
+      .brand-name {
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .counter {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .progress {
+        flex: 0 0 auto;
+        height: 8px;
+        margin: 8px 0 16px;
+        border-radius: 999px;
+        background: #dfe6fb;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        width: 12.5%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--blue), var(--mint));
+        transition: width 280ms ease;
+      }
+
+      .stage {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 82px;
+      }
+
+      .stage.no-bottom-ad {
+        padding-bottom: 0;
+      }
+
+      .question-view {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .question-view.enter {
+        animation: enter 260ms ease both;
+      }
+
+      .intro-view {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-bottom: 0;
+        animation: enter 260ms ease both;
+      }
+
+      .intro-panel {
+        border-radius: 28px;
+        padding: 26px 22px;
+        background:
+          radial-gradient(circle at 82% 16%, rgba(84, 204, 166, 0.24), transparent 30%),
+          linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(239, 244, 255, 0.92));
+        box-shadow: 0 16px 38px rgba(31, 45, 82, 0.12);
+      }
+
+      .intro-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(43, 132, 252, 0.1);
+        color: var(--blue-dark);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .intro-title {
+        margin: 18px 0 12px;
+        font-size: 34px;
+        line-height: 1.12;
+        font-weight: 950;
+        letter-spacing: 0;
+        word-break: keep-all;
+      }
+
+      .intro-copy {
+        margin: 0 0 22px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.5;
+        font-weight: 700;
+        word-break: keep-all;
+      }
+
+      .location-view {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        animation: enter 260ms ease both;
+      }
+
+      .location-panel {
+        border-radius: 28px;
+        padding: 22px;
+        background: var(--surface);
+        box-shadow: 0 16px 38px rgba(31, 45, 82, 0.12);
+      }
+
+      .location-title {
+        margin: 12px 0 8px;
+        font-size: 29px;
+        line-height: 1.14;
+        font-weight: 950;
+        letter-spacing: 0;
+        word-break: keep-all;
+      }
+
+      .location-copy,
+      .location-status {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+        font-weight: 700;
+        word-break: keep-all;
+      }
+
+      .location-status {
+        min-height: 20px;
+        margin-top: 10px;
+        color: var(--blue-dark);
+      }
+
+      .location-actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .ghost {
+        width: 100%;
+        min-height: 52px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface-soft);
+        color: var(--ink);
+        font-size: 16px;
+        font-weight: 850;
+        cursor: pointer;
+      }
+
+      .region-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+        margin-top: 16px;
+      }
+
+      .region-option {
+        min-height: 62px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(135deg, #ffffff, #f6f8ff);
+        color: var(--ink);
+        text-align: left;
+        padding: 11px;
+        cursor: pointer;
+      }
+
+      .region-name {
+        display: block;
+        font-size: 15px;
+        font-weight: 900;
+      }
+
+      .region-desc {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 750;
+      }
+
+      .origin-chip {
+        align-self: flex-start;
+        min-height: 26px;
+        margin: 0 2px 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(43, 132, 252, 0.1);
+        color: var(--blue-dark);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .question-view.exit {
+        animation: exit 180ms ease both;
+      }
+
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateX(24px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes exit {
+        to {
+          opacity: 0;
+          transform: translateX(-20px);
+        }
+      }
+
+      .eyebrow {
+        margin: 2px 2px 7px;
+        color: var(--blue-dark);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .question {
+        margin: 0 2px;
+        font-size: clamp(22px, 6.4vw, 29px);
+        line-height: 1.16;
+        font-weight: 900;
+        letter-spacing: 0;
+        word-break: keep-all;
+      }
+
+      .subcopy {
+        min-height: 0;
+        margin: 8px 2px 12px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+        font-weight: 650;
+        word-break: keep-all;
+      }
+
+      .options {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: grid;
+        gap: 12px;
+      }
+
+      .options.two {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+      }
+
+      .options.four {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+      }
+
+      .option {
+        min-height: 0;
+        border: 1px solid rgba(255, 255, 255, 0.78);
+        border-radius: 24px;
+        padding: 16px;
+        background:
+          radial-gradient(circle at 82% 15%, rgba(255, 255, 255, 0.68), transparent 34%),
+          linear-gradient(135deg, var(--card-a), var(--card-b));
+        color: var(--ink);
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 13px 26px rgba(31, 45, 82, 0.11);
+        cursor: pointer;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .option:hover,
+      .option:focus-visible {
+        border-color: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 18px 34px rgba(43, 132, 252, 0.18);
+        outline: none;
+        transform: translateY(-3px);
+      }
+
+      .option.selected {
+        border-color: rgba(255, 255, 255, 0.98);
+        box-shadow:
+          0 0 0 4px rgba(43, 132, 252, 0.2),
+          0 18px 34px rgba(43, 132, 252, 0.22);
+        transform: scale(0.985);
+      }
+
+      .option::after {
+        content: "";
+        position: absolute;
+        right: -42px;
+        bottom: -52px;
+        width: 170px;
+        height: 170px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.28);
+      }
+
+      .option-index {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        display: grid;
+        place-items: center;
+        color: rgba(32, 36, 56, 0.78);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .option-copy {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+      }
+
+      .option-label {
+        display: block;
+        font-size: clamp(21px, 6.1vw, 28px);
+        line-height: 1.12;
+        font-weight: 950;
+        letter-spacing: 0;
+        word-break: keep-all;
+      }
+
+      .option-caption {
+        display: block;
+        margin-top: 8px;
+        color: currentColor;
+        opacity: 0.68;
+        font-size: 13px;
+        line-height: 1.3;
+        font-weight: 800;
+        word-break: keep-all;
+      }
+
+      .banner-ad {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 16px;
+        height: 58px;
+        border: 1px dashed #b7c2df;
+        border-radius: 16px;
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.86), rgba(246, 248, 255, 0.86)),
+          repeating-linear-gradient(135deg, transparent 0 8px, rgba(43, 132, 252, 0.05) 8px 16px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #7c86a0;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .reward-view,
+      .result-view {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 22px;
+        animation: enter 260ms ease both;
+      }
+
+      .reward-view {
+        justify-content: center;
+        padding-bottom: 0;
+      }
+
+      .reward-panel {
+        border-radius: 24px;
+        background: var(--surface);
+        padding: 22px;
+        text-align: center;
+        box-shadow: 0 12px 30px rgba(31, 45, 82, 0.1);
+      }
+
+      .reward-panel .persona {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        margin: 0 auto 12px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(43, 132, 252, 0.1);
+      }
+
+      .reward-title {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.18;
+        font-weight: 900;
+      }
+
+      .reward-copy {
+        margin: 10px 0 18px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.48;
+        font-weight: 650;
+      }
+
+      .primary {
+        width: 100%;
+        min-height: 56px;
+        border: 0;
+        border-radius: 16px;
+        color: white;
+        background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+        font-size: 17px;
+        font-weight: 850;
+        cursor: pointer;
+        box-shadow: 0 12px 24px rgba(43, 132, 252, 0.24);
+      }
+
+      .reward-ad-screen {
+        flex: 1 1 auto;
+        display: grid;
+        place-items: center;
+        padding-bottom: 86px;
+        animation: enter 260ms ease both;
+      }
+
+      .ad-box {
+        width: 100%;
+        min-height: 420px;
+        border-radius: 24px;
+        background:
+          radial-gradient(circle at 50% 28%, rgba(255, 210, 92, 0.38), transparent 30%),
+          linear-gradient(160deg, #25345f, #546ee8);
+        color: white;
+        padding: 26px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        text-align: center;
+      }
+
+      .ad-label {
+        align-self: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.17);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .ad-message {
+        font-size: 25px;
+        line-height: 1.25;
+        font-weight: 900;
+      }
+
+      .countdown {
+        color: rgba(255, 255, 255, 0.84);
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .result-card {
+        margin-top: auto;
+        border-radius: 24px;
+        background: var(--surface);
+        overflow: hidden;
+        box-shadow: 0 16px 36px rgba(31, 45, 82, 0.12);
+      }
+
+      .result-art {
+        height: 162px;
+        background:
+          radial-gradient(circle at 78% 24%, rgba(255, 210, 92, 0.72), transparent 20%),
+          linear-gradient(135deg, #cde7ff, #eaf7ed);
+        position: relative;
+      }
+
+      .hill {
+        position: absolute;
+        left: 34px;
+        right: 34px;
+        bottom: 24px;
+        height: 78px;
+        border-radius: 48% 52% 0 0;
+        background: linear-gradient(135deg, #54cca6, #55b873);
+      }
+
+      .result-body {
+        padding: 18px;
+      }
+
+      .persona {
+        margin: 0;
+        color: var(--blue-dark);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .place {
+        margin: 5px 0 8px;
+        font-size: 28px;
+        line-height: 1.16;
+        font-weight: 950;
+      }
+
+      .reason {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.46;
+        font-weight: 650;
+      }
+
+      .tour-info {
+        margin-top: 14px;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .info-row {
+        display: grid;
+        grid-template-columns: 74px minmax(0, 1fr);
+        gap: 10px;
+        padding: 9px 0;
+        border-top: 1px solid rgba(227, 232, 247, 0.75);
+      }
+
+      .info-row:first-child {
+        border-top: 0;
+      }
+
+      .info-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .info-value {
+        color: var(--ink);
+        font-size: 13px;
+        line-height: 1.36;
+        font-weight: 850;
+        word-break: keep-all;
+      }
+
+      .source-note {
+        margin: 10px 0 0;
+        color: #7c86a0;
+        font-size: 12px;
+        line-height: 1.38;
+        font-weight: 750;
+      }
+
+      .result-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .secondary {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 50px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-soft);
+        color: var(--ink);
+        font-weight: 850;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .secondary:visited {
+        color: var(--ink);
+      }
+
+      .home-button {
+        min-height: 48px;
+        margin: 12px 4px 0;
+        border: 0;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 850;
+        cursor: pointer;
+      }
+
+      @media (max-width: 430px) {
+        .page {
+          padding: 0;
+        }
+
+        .phone {
+          width: 100%;
+          height: 100vh;
+          min-height: 100vh;
+          border: 0;
+          border-radius: 0;
+        }
+
+        .app {
+          padding: max(14px, env(safe-area-inset-top)) 14px 0;
+        }
+
+        .banner-ad {
+          left: 14px;
+          right: 14px;
+          bottom: max(12px, env(safe-area-inset-bottom));
+        }
+
+        .question {
+          font-size: clamp(22px, 6.8vw, 28px);
+        }
+
+        .option {
+          padding: 15px;
+        }
+
+        .option-label {
+          font-size: clamp(20px, 5.8vw, 26px);
+        }
+
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="phone" aria-label="어디고 질문 플로우 목업">
+        <div class="app">
+          <header class="topbar">
+            <div class="brand">
+              <div class="brand-mark" aria-hidden="true"></div>
+              <div class="brand-name">어디고</div>
+            </div>
+            <div class="counter" id="counter">1 / 8</div>
+          </header>
+
+          <div class="progress" aria-hidden="true">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+
+          <section class="stage" id="stage"></section>
+
+          <div class="banner-ad">배너 광고 영역</div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const cardPalettes = [
+        ["#ffffff", "#dceaff"],
+        ["#fff7db", "#e4f8ef"],
+        ["#f0eaff", "#dff7ff"],
+        ["#ffe8ef", "#eef2ff"],
+      ];
+
+      const sourceQuestionPool = [
+        {
+          type: "source",
+          id: "move_time_binary_01",
+          eyebrow: "첫 질문",
+          question: "오늘은 가볍게 갈까요, 멀리 제대로 갈까요?",
+          subcopy: "출발지 기준으로 후보 지역을 먼저 좁힙니다.",
+          layout: "two",
+          options: [
+            { label: "가볍게 근교로", caption: "왕복 2시간 안쪽" },
+            { label: "멀리 제대로", caption: "목적지 우선" },
+          ],
+        },
+        {
+          type: "source",
+          id: "party_companion_01",
+          eyebrow: "동행",
+          question: "누구랑 가는 여행이에요?",
+          subcopy: "같은 장소도 누구와 가는지에 따라 만족도가 달라집니다.",
+          layout: "four",
+          options: [
+            { label: "혼자 조용히", caption: "한산한 산책" },
+            { label: "연인/친구와", caption: "사진과 카페" },
+            { label: "아이와 가족끼리", caption: "안전한 동선" },
+            { label: "부모님/시니어와", caption: "편한 길" },
+          ],
+        },
+        {
+          type: "source",
+          id: "intent_landscape_01",
+          eyebrow: "목적지",
+          question: "오늘 끌리는 풍경은 어느 쪽이에요?",
+          subcopy: "한국관광공사 검색 키워드를 정하는 핵심 질문입니다.",
+          layout: "four",
+          options: [
+            { label: "숲과 수목원", caption: "그늘과 산책" },
+            { label: "바다와 해안", caption: "시원한 전망" },
+            { label: "호수와 강변", caption: "데크길" },
+            { label: "도심과 문화공간", caption: "전시와 카페" },
+          ],
+        },
+      ];
+
+      const generalQuestionPool = [
+        {
+          type: "general",
+          tag: "crowd",
+          eyebrow: "혼잡도",
+          question: "인파는 어느 쪽이 더 좋아요?",
+          subcopy: "지역별 방문자수 데이터를 결과 보조 신호로 씁니다.",
+          layout: "two",
+          options: [
+            { label: "한산한 숨은 곳", caption: "여유 우선" },
+            { label: "활기찬 인기 명소", caption: "핫플 우선" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "mood",
+          eyebrow: "무드",
+          question: "오늘 여행의 온도는 어느 쪽이에요?",
+          subcopy: "결과 카드의 한 줄 평과 장소 분위기를 맞춥니다.",
+          layout: "four",
+          options: [
+            { label: "차분한 힐링", caption: "쉬러 가기" },
+            { label: "사진 남기기", caption: "예쁜 장면" },
+            { label: "새로운 경험", caption: "이색 코스" },
+            { label: "맛있는 하루", caption: "먹거리 중심" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "mobility",
+          eyebrow: "접근성",
+          question: "도착 후 걷는 건 어디까지 괜찮아요?",
+          subcopy: "주차, 보행, 계단 조건을 추천 점수에 반영합니다.",
+          layout: "four",
+          options: [
+            { label: "주차 후 5분 컷", caption: "최소 보행" },
+            { label: "30분 산책 정도", caption: "가벼운 코스" },
+            { label: "1시간 이상 걷기", caption: "트레킹 가능" },
+            { label: "언덕/계단도 가능", caption: "전망대 가능" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "budget",
+          eyebrow: "예산",
+          question: "오늘 지출은 어느 정도가 편해요?",
+          subcopy: "입장료와 주변 소비가 큰 후보를 조절합니다.",
+          layout: "two",
+          options: [
+            { label: "가볍게 무료 위주", caption: "공원/산책" },
+            { label: "괜찮으면 유료도", caption: "전시/체험" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "weather",
+          eyebrow: "날씨",
+          question: "날씨가 애매하면 어떤 곳이 좋아요?",
+          subcopy: "실내 대안과 그늘 조건을 후보 필터에 더합니다.",
+          layout: "four",
+          options: [
+            { label: "실내 대안 필수", caption: "비 와도 안정" },
+            { label: "비 와도 운치", caption: "감성 우선" },
+            { label: "맑은 날 야외", caption: "전망 우선" },
+            { label: "그늘 많은 곳", caption: "더위 대응" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "food",
+          eyebrow: "먹거리",
+          question: "밥이나 카페는 얼마나 중요해요?",
+          subcopy: "목적지 주변 상권과 체류 방식을 함께 봅니다.",
+          layout: "four",
+          options: [
+            { label: "맛집까지 중요", caption: "식사 포함" },
+            { label: "카페가 있으면 좋음", caption: "쉬는 시간" },
+            { label: "간식 정도면 충분", caption: "가벼운 소비" },
+            { label: "장소만 좋으면 됨", caption: "목적지 우선" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "accessibility",
+          eyebrow: "편의",
+          question: "꼭 챙겨야 하는 편의 조건이 있어요?",
+          subcopy: "강한 제약은 결과에서 필터처럼 반영합니다.",
+          layout: "four",
+          options: [
+            { label: "아이 편의시설", caption: "가족 동선" },
+            { label: "반려동물 동반", caption: "펫 가능" },
+            { label: "화장실/쉼터", caption: "쉬운 체류" },
+            { label: "특별히 없음", caption: "넓게 추천" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "photo",
+          eyebrow: "기록",
+          question: "사진은 어느 정도 챙길까요?",
+          subcopy: "전망, 계절감, 포토존 성격을 추천에 더합니다.",
+          layout: "two",
+          options: [
+            { label: "사진 잘 나와야 함", caption: "장면 우선" },
+            { label: "눈으로 보면 충분", caption: "체류 우선" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "route_style",
+          eyebrow: "동선",
+          question: "오늘 동선은 어떤 쪽이 좋아요?",
+          subcopy: "결과 카드에서 단일 목적지인지 주변 코스인지 결정합니다.",
+          layout: "two",
+          options: [
+            { label: "목적지 하나", caption: "한 곳에 오래" },
+            { label: "주변까지 코스", caption: "여러 곳 묶기" },
+          ],
+        },
+        {
+          type: "general",
+          tag: "time_slot",
+          eyebrow: "시간대",
+          question: "출발 타이밍은 어느 쪽에 가까워요?",
+          subcopy: "오전형, 오후형, 야경형 후보를 다르게 잡습니다.",
+          layout: "four",
+          options: [
+            { label: "아침부터 출발", caption: "긴 체류" },
+            { label: "점심 먹고 출발", caption: "반나절" },
+            { label: "해질녘 맞춰", caption: "노을" },
+            { label: "밤 분위기", caption: "야경" },
+          ],
+        },
+      ];
+
+      const regionOptions = [
+        {
+          label: "서울/수도권",
+          description: "서울·경기·인천",
+          lat: 37.5665,
+          lng: 126.978,
+          areaCodes: ["1", "31", "2"],
+        },
+        {
+          label: "경기 남부",
+          description: "수원·용인·화성",
+          lat: 37.2636,
+          lng: 127.0286,
+          areaCodes: ["31"],
+        },
+        {
+          label: "경기 북부",
+          description: "파주·양주·포천",
+          lat: 37.7599,
+          lng: 126.7802,
+          areaCodes: ["31"],
+        },
+        {
+          label: "인천",
+          description: "섬·해안·도심",
+          lat: 37.4563,
+          lng: 126.7052,
+          areaCodes: ["2"],
+        },
+        {
+          label: "대전/충청",
+          description: "세종·충북·충남",
+          lat: 36.3504,
+          lng: 127.3845,
+          areaCodes: ["3", "8", "33", "34"],
+        },
+        {
+          label: "부산/경남",
+          description: "부산·울산·경남",
+          lat: 35.1796,
+          lng: 129.0756,
+          areaCodes: ["6", "7", "36"],
+        },
+      ];
+
+      const demoResultsByRegion = {
+        "서울/수도권": {
+          persona: "아이와 함께하는 근교 숲 힐링 드라이버",
+          place: "일월수목원",
+          reason: "짧게 이동해서 주차 부담 없이 숲 그늘과 산책을 즐기기 좋은 후보입니다.",
+          region: "경기 수원 · 수목원/산책",
+          address: "수원시 장안구 일월로 일대",
+          travel: "서울/수도권 기준 약 1시간 내외",
+          signal: "지역 방문자수 보통 · 오전 추천",
+          comfort: "가벼운 산책, 그늘, 주차 정보 확인",
+        },
+        "경기 남부": {
+          persona: "가까운 숲길을 고르는 여유형 드라이버",
+          place: "일월수목원",
+          reason: "경기 남부에서 부담 없이 다녀오기 좋고 산책 동선이 단순한 후보입니다.",
+          region: "경기 수원 · 수목원/산책",
+          address: "수원시 장안구 일월로 일대",
+          travel: "경기 남부 기준 짧은 이동",
+          signal: "지역 방문자수 보통 · 오전 추천",
+          comfort: "평지 산책, 그늘, 가족 동선 확인",
+        },
+        "경기 북부": {
+          persona: "사진과 산책을 같이 챙기는 근교 탐색가",
+          place: "벽초지수목원",
+          reason: "경기 북부 출발에서 자연 풍경과 사진 포인트를 함께 챙기기 좋습니다.",
+          region: "경기 파주 · 정원/수목원",
+          address: "경기 파주시 광탄면 일대",
+          travel: "경기 북부 기준 근교 후보",
+          signal: "지역 방문자수 보통 · 오후 분산 추천",
+          comfort: "정원 산책, 포토존, 주차 정보 확인",
+        },
+        "인천": {
+          persona: "가볍게 쉬는 도심 자연 산책러",
+          place: "인천대공원",
+          reason: "멀리 가지 않아도 넓은 녹지와 산책 코스를 안정적으로 즐길 수 있습니다.",
+          region: "인천 남동구 · 공원/산책",
+          address: "인천광역시 남동구 장수동 일대",
+          travel: "인천 기준 짧은 이동",
+          signal: "지역 방문자수 보통 · 평일 추천",
+          comfort: "넓은 산책로, 가족 동선, 주차 정보 확인",
+        },
+        "대전/충청": {
+          persona: "숲속에서 쉬는 반나절 힐링러",
+          place: "장태산자연휴양림",
+          reason: "메타세쿼이아 숲길과 데크 산책이 있어 쉬는 여행에 잘 맞습니다.",
+          region: "대전 서구 · 휴양림/숲길",
+          address: "대전광역시 서구 장안동 일대",
+          travel: "대전/충청 기준 근교 후보",
+          signal: "지역 방문자수 보통 · 오전 추천",
+          comfort: "숲길, 데크, 주차 정보 확인",
+        },
+        "부산/경남": {
+          persona: "초록 풍경을 찾는 조용한 드라이버",
+          place: "아홉산숲",
+          reason: "부산권에서 숲의 밀도와 이색적인 산책감을 함께 느끼기 좋은 후보입니다.",
+          region: "부산 기장 · 숲/산책",
+          address: "부산광역시 기장군 철마면 일대",
+          travel: "부산/경남 기준 근교 후보",
+          signal: "지역 방문자수 보통 · 이른 시간 추천",
+          comfort: "숲길, 사진 포인트, 운영 정보 확인",
+        },
+      };
+
+      const stage = document.getElementById("stage");
+      const counter = document.getElementById("counter");
+      const progress = document.querySelector(".progress");
+      const progressFill = document.getElementById("progressFill");
+      const bannerAd = document.querySelector(".banner-ad");
+      const GENERAL_QUESTION_COUNT = 5;
+      let questions = [];
+      let index = 0;
+      let selected = [];
+      let currentOrigin = null;
+      let rewardTimer = null;
+
+      function shuffle(items) {
+        return [...items]
+          .map((item) => ({ item, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ item }) => item);
+      }
+
+      function buildQuestionSet() {
+        const crowdQuestion = generalQuestionPool.find((question) => question.tag === "crowd");
+        const accessQuestion = shuffle(
+          generalQuestionPool.filter((question) => ["mobility", "accessibility"].includes(question.tag))
+        )[0];
+        const requiredGeneralQuestions = [crowdQuestion, accessQuestion].filter(Boolean);
+        const remainingGeneralQuestions = shuffle(
+          generalQuestionPool.filter((question) => !requiredGeneralQuestions.includes(question))
+        ).slice(0, GENERAL_QUESTION_COUNT - requiredGeneralQuestions.length);
+        const generalQuestions = [...requiredGeneralQuestions, ...remainingGeneralQuestions];
+        return shuffle([...sourceQuestionPool, ...generalQuestions]);
+      }
+
+      function nearestRegionLabel(origin) {
+        if (!origin || !Number.isFinite(origin.lat) || !Number.isFinite(origin.lng)) {
+          return "서울/수도권";
+        }
+
+        return regionOptions
+          .map((region) => ({
+            label: region.label,
+            distance: Math.hypot(origin.lat - region.lat, origin.lng - region.lng),
+          }))
+          .sort((a, b) => a.distance - b.distance)[0].label;
+      }
+
+      function getDemoResult() {
+        const regionLabel =
+          currentOrigin?.type === "current_location"
+            ? nearestRegionLabel(currentOrigin)
+            : currentOrigin?.label;
+        return demoResultsByRegion[regionLabel] || demoResultsByRegion["서울/수도권"];
+      }
+
+      function naverSearchLink(keyword) {
+        return `https://map.naver.com/p/search/${encodeURIComponent(keyword)}`;
+      }
+
+      function startFlowWithOrigin(origin) {
+        currentOrigin = origin;
+        index = 0;
+        selected = [];
+        questions = buildQuestionSet();
+        renderQuestion(true);
+      }
+
+      function renderIntro() {
+        counter.textContent = "";
+        progress.style.visibility = "hidden";
+        progressFill.style.width = "0%";
+        bannerAd.style.display = "none";
+        stage.classList.add("no-bottom-ad");
+        currentOrigin = null;
+        questions = [];
+        selected = [];
+        clearInterval(rewardTimer);
+        stage.innerHTML = `
+          <div class="intro-view">
+            <div class="intro-panel">
+              <span class="intro-badge">한국관광공사 관광정보 기반</span>
+              <h1 class="intro-title">AI가 형님 취향에 맞는 여행지를 골라드려요.</h1>
+              <p class="intro-copy">8개만 고르면 관광정보와 방문자수 신호를 바탕으로 오늘 갈 만한 곳을 추천합니다.</p>
+              <button class="primary" type="button" id="startFlow">시작하기</button>
+            </div>
+          </div>
+        `;
+        document.getElementById("startFlow").addEventListener("click", () => {
+          renderLocationChoice();
+        });
+      }
+
+      function renderLocationChoice(message = "") {
+        counter.textContent = "출발 기준";
+        progress.style.visibility = "hidden";
+        progressFill.style.width = "0%";
+        bannerAd.style.display = "none";
+        stage.classList.add("no-bottom-ad");
+        stage.innerHTML = `
+          <div class="location-view">
+            <div class="location-panel">
+              <span class="intro-badge">위치 기반 추천</span>
+              <h1 class="location-title">어디에서 출발하세요?</h1>
+              <p class="location-copy">현재 위치를 허용하면 근처 후보를 먼저 보고, 아니면 지역을 골라서 바로 시작할 수 있어요.</p>
+              <div class="location-actions">
+                <button class="primary" type="button" id="useCurrentLocation">현재 위치로 추천</button>
+                <button class="ghost" type="button" id="skipLocation">지역 선택으로 시작</button>
+              </div>
+              <p class="location-status" id="locationStatus">${message}</p>
+              <div class="region-grid" id="regionGrid" aria-label="출발 지역 선택">
+                ${regionOptions
+                  .map(
+                    (region, regionIndex) => `
+                      <button class="region-option" type="button" data-region="${regionIndex}">
+                        <span class="region-name">${region.label}</span>
+                        <span class="region-desc">${region.description}</span>
+                      </button>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("useCurrentLocation").addEventListener("click", requestCurrentLocation);
+        document.getElementById("skipLocation").addEventListener("click", () => {
+          document.getElementById("regionGrid").scrollIntoView({ block: "nearest" });
+        });
+        stage.querySelectorAll("[data-region]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const region = regionOptions[Number(button.dataset.region)];
+            startFlowWithOrigin({ ...region, type: "selected_region" });
+          });
+        });
+      }
+
+      function requestCurrentLocation() {
+        const status = document.getElementById("locationStatus");
+        const button = document.getElementById("useCurrentLocation");
+        if (!navigator.geolocation) {
+          status.textContent = "이 브라우저에서는 현재 위치를 받을 수 없어요. 아래 지역을 골라주세요.";
+          return;
+        }
+
+        status.textContent = "현재 위치를 확인하고 있어요.";
+        button.disabled = true;
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            startFlowWithOrigin({
+              type: "current_location",
+              label: "현재 위치",
+              description: "권한 허용 위치",
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              areaCodes: [],
+            });
+          },
+          () => {
+            button.disabled = false;
+            status.textContent = "위치 권한이 없으면 아래 지역을 골라서 추천받을 수 있어요.";
+          },
+          { enableHighAccuracy: false, timeout: 7000, maximumAge: 600000 }
+        );
+      }
+
+      function renderQuestion(animate = true) {
+        if (!questions.length) questions = buildQuestionSet();
+        const item = questions[index];
+        stage.classList.remove("no-bottom-ad");
+        progress.style.visibility = "visible";
+        bannerAd.style.display = "flex";
+        counter.textContent = `${index + 1} / ${questions.length}`;
+        progressFill.style.width = `${((index + 1) / questions.length) * 100}%`;
+
+        stage.innerHTML = `
+          <div class="question-view ${animate ? "enter" : ""}">
+            <div class="origin-chip">출발 기준: ${currentOrigin?.label || "지역 미선택"}</div>
+            <div class="eyebrow">${item.eyebrow}</div>
+            <h1 class="question">${item.question}</h1>
+            <p class="subcopy">${item.subcopy}</p>
+            <div class="options ${item.layout}">
+              ${item.options
+                .map(
+                  (option, optionIndex) => `
+                    <button
+                      class="option"
+                      type="button"
+                      data-option="${optionIndex}"
+                      style="--card-a: ${cardPalettes[optionIndex % cardPalettes.length][0]}; --card-b: ${cardPalettes[optionIndex % cardPalettes.length][1]};"
+                    >
+                      <span class="option-index">${optionIndex + 1}</span>
+                      <span class="option-copy">
+                        <span class="option-label">${option.label}</span>
+                        <span class="option-caption">${option.caption}</span>
+                      </span>
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+        `;
+
+        stage.querySelectorAll(".option").forEach((button) => {
+          button.addEventListener("click", () => choose(button));
+        });
+      }
+
+      function choose(button) {
+        const optionIndex = Number(button.dataset.option);
+        const item = questions[index];
+        selected.push({
+          question: item.question,
+          answer: item.options[optionIndex].label,
+        });
+        button.classList.add("selected");
+        stage.querySelectorAll(".option").forEach((option) => {
+          option.disabled = true;
+        });
+
+        const view = stage.querySelector(".question-view");
+        setTimeout(() => {
+          view.classList.remove("enter");
+          view.classList.add("exit");
+        }, 110);
+
+        setTimeout(() => {
+          if (index < questions.length - 1) {
+            index += 1;
+            renderQuestion(true);
+          } else {
+            renderRewardGate();
+          }
+        }, 310);
+      }
+
+      function renderRewardGate() {
+        counter.textContent = "결과 준비";
+        progressFill.style.width = "100%";
+        bannerAd.style.display = "none";
+        stage.classList.add("no-bottom-ad");
+        stage.innerHTML = `
+          <div class="reward-view">
+            <div class="reward-panel">
+              <p class="persona">취향 분석 완료</p>
+              <h1 class="reward-title">형님 취향에 맞는 여행지를 골라뒀어요.</h1>
+              <p class="reward-copy">짧은 광고를 보면 AI 추천 카드와 지도 연결을 바로 열어드릴게요.</p>
+              <button class="primary" type="button" id="watchReward">광고 보고 결과 보기</button>
+            </div>
+          </div>
+        `;
+        document.getElementById("watchReward").addEventListener("click", renderRewardAd);
+      }
+
+      function renderRewardAd() {
+        let seconds = 3;
+        bannerAd.style.display = "none";
+        stage.classList.add("no-bottom-ad");
+        stage.innerHTML = `
+          <div class="reward-ad-screen">
+            <div class="ad-box">
+              <div class="ad-label">리워드 광고</div>
+              <div class="ad-message">여행지 추천 카드를 준비하고 있어요</div>
+              <div class="countdown" id="countdown">${seconds}초 후 결과 열기</div>
+            </div>
+          </div>
+        `;
+        clearInterval(rewardTimer);
+        rewardTimer = setInterval(() => {
+          seconds -= 1;
+          if (seconds <= 0) {
+            clearInterval(rewardTimer);
+            renderResult();
+            return;
+          }
+          document.getElementById("countdown").textContent = `${seconds}초 후 결과 열기`;
+        }, 850);
+      }
+
+      function renderResult() {
+        const result = getDemoResult();
+        counter.textContent = "추천 완료";
+        bannerAd.style.display = "none";
+        stage.classList.add("no-bottom-ad");
+        stage.innerHTML = `
+          <div class="result-view">
+            <div class="result-card">
+              <div class="result-art">
+                <div class="hill"></div>
+              </div>
+              <div class="result-body">
+                <p class="persona">${result.persona}</p>
+                <h1 class="place">${result.place}</h1>
+                <p class="reason">${result.reason}</p>
+                <div class="tour-info" aria-label="관광지 정보">
+                  <div class="info-row">
+                    <span class="info-label">지역</span>
+                    <strong class="info-value">${result.region}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">주소</span>
+                    <strong class="info-value">${result.address}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">이동</span>
+                    <strong class="info-value">${result.travel}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">방문 신호</span>
+                    <strong class="info-value">${result.signal}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">편의</span>
+                    <strong class="info-value">${result.comfort}</strong>
+                  </div>
+                </div>
+                <p class="source-note">한국관광공사 관광정보와 지역별 방문자수 데이터를 함께 반영했어요.</p>
+                <div class="result-actions">
+                  <button class="secondary" type="button">카드 저장하기</button>
+                  <a class="secondary" href="${naverSearchLink(result.place)}" target="_blank" rel="noopener">지도 열기</a>
+                </div>
+              </div>
+            </div>
+            <button class="home-button" type="button" id="restartFlow">처음으로 돌아가기</button>
+          </div>
+        `;
+        document.getElementById("restartFlow").addEventListener("click", renderIntro);
+      }
+
+      renderIntro();
+    </script>
+  </body>
+</html>

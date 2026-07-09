@@ -1,0 +1,26 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 666b7c60886f3d8861c7809631e603129b9a1796..0f59c5c0b8d672c7a05aae1a5b4018824f062470 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -47,7 +47,7 @@ function getPreludeConfig(options) {
+ 	const exposeStatements = Object.entries(options.exposes ?? {}).map(([exposeName, modulePath], index) => {
+ 		const identifier = `__expose${index}`;
+ 		return `
+-    import * as ${identifier} from '${path.default.resolve(modulePath)}';
++    import * as ${identifier} from '${path.default.resolve(modulePath).replaceAll(path.default.sep, "/")}';
+     exposeModule(__container, '${exposeName}', ${identifier});
+     `;
+ 	});
+diff --git a/dist/index.js b/dist/index.js
+index f490ab92f74f5a4a5d6c4160f0f935ebf8fddc3a..642bb7acd11955b4d00dbd73f4970a815eadc8a9 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -17,7 +17,7 @@ function getPreludeConfig(options) {
+ 	const exposeStatements = Object.entries(options.exposes ?? {}).map(([exposeName, modulePath], index) => {
+ 		const identifier = `__expose${index}`;
+ 		return `
+-    import * as ${identifier} from '${path.resolve(modulePath)}';
++    import * as ${identifier} from '${path.resolve(modulePath).replaceAll(path.sep, "/")}';
+     exposeModule(__container, '${exposeName}', ${identifier});
+     `;
+ 	});
