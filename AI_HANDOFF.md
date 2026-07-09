@@ -46,8 +46,9 @@ Current app flow in `pages/index.tsx`:
 - intro screen with 한국관광공사 관광정보 기반 copy and a start CTA; the top app logo is intentionally omitted from the first viewport, and the text block is lowered toward the vertical center instead of hugging the top
 - origin choice: current location via `useGeolocation` only after the user taps the current-location CTA, or selected region fallback
 - question flow: 3 required source questions plus 5 random general questions
+- question-card taps now show the selected card and a short 1s loading state before advancing
 - Apps in Toss inline banner ad during questions
-- rewarded ad gate before result using Apps in Toss integrated ads
+- rewarded ad gate before result using Apps in Toss integrated ads; recommendation analysis starts only after the user taps the rewarded-ad CTA, not on the final question tap
 - result card with tourism info, Apps in Toss card-save action, Naver Map open button, and home reset
 - result screen intentionally hides the top `어디고 / 추천 완료` header so the card is easier to save/share
 
@@ -55,7 +56,7 @@ Rewarded ad:
 
 - production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
 - production banner ad group ID: `ait.v2.live.67b07bf813d74267`
-- `pages/index.tsx` loads the ad with `loadFullScreenAd`, shows it with `showFullScreenAd`, and opens the result only after `userEarnedReward`.
+- `pages/index.tsx` loads the ad with `loadFullScreenAd`, starts recommendation analysis when the rewarded-ad CTA is tapped, shows the ad with `showFullScreenAd`, and opens the result only after both reward access and recommendation completion.
 - `pages/index.tsx` renders the question-screen banner with `InlineAd`.
 - Non-Toss/local unsupported environments fall back to a development preview result path.
 
@@ -153,6 +154,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-09 KST save check: result screen header removal, question-card two-column layout, reward-gate loading indicator, and initial SVG card-save flow were implemented. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4666-aafa-7a02-b955-c802dffc027d`. Browser mockup confirmed the result header is hidden and `카드 저장하기` created `C:\Users\ESOL\Downloads\wherego-일월수목원.svg`.
   - 2026-07-09 KST fix check: card save was changed from SVG file output to PNG output using `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data(image/png)`. `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4675-4c16-7bf2-b6a2-caef2741f1f7`.
   - 2026-07-10 KST save check: first-screen intro copy was lowered toward the vertical center in both the app and mockup. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4916-8162-7022-8180-1e354788acc6`.
+  - 2026-07-10 KST save check: question-card tap delay was reduced to 1s, reward-gate top header/progress stays hidden, and recommendation analysis now starts from the rewarded-ad CTA while the ad flow is running. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f492e-81c6-7044-986f-2f3028a34528`.
 
 ## Current Question/API Work
 
@@ -164,7 +166,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 - `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, min/max distance and time filtering, region-scope search, parking filtering, and DataLab crowd labeling.
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
 - `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad position, rewarded-ad gate, Naver Map link, and result card with tourism info.
-- Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, the reward gate shows a loading spinner while recommendation data is being prepared, result fallback copy is explicitly marked as temporary when the server recommendation fails, and the final result hides the top header.
+- Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, result fallback copy is explicitly marked as temporary when the server recommendation fails, and the final result hides the top header.
 
 Latest known probe result with the default Seoul City Hall test origin:
 

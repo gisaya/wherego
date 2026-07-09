@@ -97,8 +97,10 @@
   - `granite.config.ts`의 `brand.icon`은 사용자 제공 Toss static 로고 URL `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`를 사용한다.
   - 첫 화면은 상단 로고 없이 한국관광공사 기반 추천 문구와 시작 버튼을 보여준다. 문구 블록은 화면 위쪽에 붙지 않도록 중앙 쪽으로 내렸다.
   - 결과 화면 상단 `어디고 / 추천 완료` 헤더는 숨긴다. 결과 카드 저장/공유 중심 화면으로 보이게 하기 위한 의도적 처리다.
+  - 질문 카드는 선택 직후 선택 상태와 1초 로딩을 보여준 뒤 다음 질문이나 광고 안내 화면으로 이동한다.
+  - 마지막 질문 선택은 추천 API를 호출하지 않는다. 추천/관광공사 분석은 `광고 보고 결과 보기` CTA를 누르는 시점에 시작하고, 광고 시청과 분석 완료가 모두 끝난 뒤 결과를 연다.
   - `카드 저장하기`는 숨겨진 `react-native-svg` 결과 카드를 `toDataURL`로 캡처한 뒤 Apps in Toss `saveBase64Data`로 1080x1350 PNG 결과 카드를 저장한다. Android `5.218.0`, iOS `5.216.0` 미만에서는 Apps in Toss `share` 텍스트로 fallback한다.
-  - 리워드 게이트는 추천 API/관광정보 준비 중 로딩 스피너를 보여준다.
+  - 리워드 게이트는 상단 헤더/진행 바를 숨기고, 추천 API/관광정보 준비가 시작된 뒤 로딩 스피너를 보여준다.
 - 최근 검증:
   - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
   - 2026-07-08 22:05 KST: `.env.local` Git 제외 확인, 커밋 대상 인증키 패턴 검사 통과, Vercel 정적 약관 빌드 성공.
@@ -116,6 +118,7 @@
   - 2026-07-09 KST 저장 검증: 결과 화면 헤더 제거, 질문 카드 2열 고정, 리워드 게이트 로딩 표시, 초기 SVG 카드 저장 기능 구현. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4666-aafa-7a02-b955-c802dffc027d`이며 Git 제외. 목업 브라우저 테스트에서 결과 헤더가 숨겨졌고 `C:\Users\ESOL\Downloads\wherego-일월수목원.svg` 저장을 확인했다.
   - 2026-07-09 KST 저장 오류 수정 검증: 카드 저장을 SVG 파일 저장에서 `react-native-svg` `toDataURL` 기반 PNG 저장으로 변경했다. `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4675-4c16-7bf2-b6a2-caef2741f1f7`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 첫 화면 문구 블록을 앱과 목업 모두 중앙 쪽으로 내렸다. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4916-8162-7022-8180-1e354788acc6`이며 Git 제외.
+  - 2026-07-10 KST 저장 검증: 선택 카드 전환 로딩을 1초로 조정하고, 광고 전 화면 상단 헤더/진행 바 제거와 광고 CTA 시점 추천 분석 시작 흐름을 반영했다. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f492e-81c6-7044-986f-2f3028a34528`이며 Git 제외.
 
 ## 운영 규칙
 

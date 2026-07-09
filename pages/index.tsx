@@ -672,20 +672,25 @@ const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
+const QUESTION_ADVANCE_DELAY_MS = 1000;
 
 function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
   const resultCardSvgRef = useRef<Svg | null>(null);
+  const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [questionSet, setQuestionSet] = useState<Question[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<SelectedAnswer[]>([]);
+  const [selectedOptionLabel, setSelectedOptionLabel] = useState<string | null>(null);
+  const [isQuestionAdvancing, setIsQuestionAdvancing] = useState(false);
   const [waitingForLocation, setWaitingForLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
   const [isRewardAdLoaded, setIsRewardAdLoaded] = useState(false);
   const [rewardAdStatus, setRewardAdStatus] = useState<RewardAdStatus>('idle');
   const [rewardAdMessage, setRewardAdMessage] = useState('');
+  const [hasRewardAccess, setHasRewardAccess] = useState(false);
   const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
@@ -696,8 +701,20 @@ function Index() {
     return () => {
       rewardAdUnregisterRef.current?.();
       rewardAdUnregisterRef.current = null;
+      clearQuestionAdvanceTimer();
     };
   }, []);
+
+  useEffect(() => {
+    if (step !== 'rewardGate' || !hasRewardAccess) {
+      return;
+    }
+
+    if (recommendationStatus === 'ready' || recommendationStatus === 'error') {
+      setRewardAdMessage('');
+      setStep('result');
+    }
+  }, [hasRewardAccess, recommendationStatus, step]);
 
   useEffect(() => {
     if (!waitingForLocation) {
@@ -727,14 +744,27 @@ function Index() {
     });
   }
 
+  function clearQuestionAdvanceTimer() {
+    if (questionAdvanceTimeoutRef.current == null) {
+      return;
+    }
+
+    clearTimeout(questionAdvanceTimeoutRef.current);
+    questionAdvanceTimeoutRef.current = null;
+  }
+
   function resetToIntro() {
+    clearQuestionAdvanceTimer();
     setStep('intro');
     setOrigin(null);
     setQuestionSet([]);
     setQuestionIndex(0);
     setSelectedAnswers([]);
+    setSelectedOptionLabel(null);
+    setIsQuestionAdvancing(false);
     setWaitingForLocation(false);
     setLocationStatus('');
+    setHasRewardAccess(false);
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
@@ -775,14 +805,29 @@ function Index() {
     });
   }
 
-  function showRewardAd() {
-    if (rewardAdStatus === 'unsupported') {
-      setStep('result');
+  function startRecommendationAnalysis() {
+    if (recommendationStatus !== 'idle') {
       return;
     }
 
-    if (rewardAdStatus === 'error' || !isRewardAdLoaded) {
+    void prepareRecommendation(selectedAnswers);
+  }
+
+  function showRewardAd() {
+    if (rewardAdStatus === 'error' || (!isRewardAdLoaded && rewardAdStatus !== 'unsupported')) {
       loadRewardAd();
+      return;
+    }
+
+    startRecommendationAnalysis();
+
+    if (rewardAdStatus === 'unsupported') {
+      setHasRewardAccess(true);
+      setRewardAdMessage('AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
+      return;
+    }
+
+    if (rewardAdStatus === 'loading' || rewardAdStatus === 'showing') {
       return;
     }
 
@@ -790,7 +835,7 @@ function Index() {
     let unregisterShowAd: (() => void) | null = null;
 
     setRewardAdStatus('showing');
-    setRewardAdMessage('광고를 여는 중이에요.');
+    setRewardAdMessage('광고를 여는 중이에요. 동시에 추천 결과를 만들고 있어요.');
 
     unregisterShowAd = showFullScreenAd({
       options: {
@@ -809,8 +854,8 @@ function Index() {
 
         if (event.type === 'userEarnedReward') {
           didEarnReward = true;
-          setRewardAdMessage('');
-          setStep('result');
+          setHasRewardAccess(true);
+          setRewardAdMessage('광고 시청 완료. 추천 결과를 마무리하고 있어요.');
           return;
         }
 
@@ -842,12 +887,16 @@ function Index() {
   }
 
   function startFlowWithOrigin(nextOrigin: Origin) {
+    clearQuestionAdvanceTimer();
     setOrigin(nextOrigin);
     setQuestionSet(buildQuestionSet());
     setQuestionIndex(0);
     setSelectedAnswers([]);
+    setSelectedOptionLabel(null);
+    setIsQuestionAdvancing(false);
     setWaitingForLocation(false);
     setLocationStatus('');
+    setHasRewardAccess(false);
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
@@ -860,9 +909,11 @@ function Index() {
   }
 
   function chooseOption(option: Option) {
-    if (currentQuestion == null) {
+    if (currentQuestion == null || isQuestionAdvancing) {
       return;
     }
+
+    clearQuestionAdvanceTimer();
 
     const metadata = optionMetadataByQuestionId[currentQuestion.id]?.[option.label] || {};
     const nextAnswers = [
@@ -880,19 +931,29 @@ function Index() {
     ];
 
     setSelectedAnswers(nextAnswers);
+    setSelectedOptionLabel(option.label);
+    setIsQuestionAdvancing(true);
 
     if (questionIndex < questionSet.length - 1) {
-      setQuestionIndex((index) => index + 1);
+      questionAdvanceTimeoutRef.current = setTimeout(() => {
+        questionAdvanceTimeoutRef.current = null;
+        setSelectedOptionLabel(null);
+        setIsQuestionAdvancing(false);
+        setQuestionIndex((index) => index + 1);
+      }, QUESTION_ADVANCE_DELAY_MS);
       return;
     }
-
-    void prepareRecommendation(nextAnswers);
 
     if (!isRewardAdLoaded && rewardAdStatus !== 'loading') {
       loadRewardAd();
     }
 
-    setStep('rewardGate');
+    questionAdvanceTimeoutRef.current = setTimeout(() => {
+      questionAdvanceTimeoutRef.current = null;
+      setSelectedOptionLabel(null);
+      setIsQuestionAdvancing(false);
+      setStep('rewardGate');
+    }, QUESTION_ADVANCE_DELAY_MS);
   }
 
   async function prepareRecommendation(answers: SelectedAnswer[]) {
@@ -944,9 +1005,7 @@ function Index() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.phone}>
-            {step !== 'intro' && step !== 'origin' && step !== 'result' ? (
-              <Header counter={step === 'question' ? `${questionIndex + 1} / ${questionSet.length}` : headerLabel(step)} />
-            ) : null}
+            {step === 'question' ? <Header counter={`${questionIndex + 1} / ${questionSet.length}`} /> : null}
             {step === 'question' ? <ProgressBar progress={progress} /> : null}
             {step === 'intro' ? <IntroScreen onStart={() => setStep('origin')} /> : null}
             {step === 'origin' ? (
@@ -959,13 +1018,16 @@ function Index() {
             ) : null}
             {step === 'question' && currentQuestion != null ? (
               <QuestionScreen
+                advancing={isQuestionAdvancing}
                 origin={origin}
                 question={currentQuestion}
+                selectedOptionLabel={selectedOptionLabel}
                 onChoose={chooseOption}
               />
             ) : null}
             {step === 'rewardGate' ? (
               <RewardGate
+                hasRewardAccess={hasRewardAccess}
                 message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
                 recommendationStatus={recommendationStatus}
                 status={rewardAdStatus}
@@ -1148,13 +1210,17 @@ function RegionPickerModal({
 }
 
 function QuestionScreen({
+  advancing,
   onChoose,
   origin,
   question,
+  selectedOptionLabel,
 }: {
+  advancing: boolean;
   onChoose: (option: Option) => void;
   origin: Origin | null;
   question: Question;
+  selectedOptionLabel: string | null;
 }) {
   const optionRows = chunkOptions(question.options, 2);
 
@@ -1173,32 +1239,44 @@ function QuestionScreen({
                 <OptionCard
                   key={option.label}
                   columnIndex={columnIndex}
+                  disabled={advancing}
                   layout={question.layout}
                   number={optionIndex + 1}
                   onPress={() => onChoose(option)}
                   option={option}
+                  selected={selectedOptionLabel === option.label}
                 />
               );
             })}
           </View>
         ))}
       </View>
+      {advancing ? (
+        <View style={styles.questionLoadingBox}>
+          <ActivityIndicator color="#2B84FC" size="small" />
+          <Text style={styles.questionLoadingText}>다음 질문을 준비하고 있어요.</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 function OptionCard({
   columnIndex,
+  disabled,
   layout,
   number,
   onPress,
   option,
+  selected,
 }: {
   columnIndex: number;
+  disabled: boolean;
   layout: QuestionLayout;
   number: number;
   onPress: () => void;
   option: Option;
+  selected: boolean;
 }) {
   const toneStyle = optionToneStyles[(number - 1) % optionToneStyles.length];
   const accentStyle = optionAccentStyles[(number - 1) % optionAccentStyles.length];
@@ -1207,12 +1285,15 @@ function OptionCard({
     <Pressable
       accessibilityLabel={`${number}번 선택지, ${option.label}, ${option.caption}`}
       accessibilityRole="button"
+      disabled={disabled}
       style={({ pressed }) => [
         styles.optionCard,
         toneStyle,
         layout === 'four' ? styles.optionCardGrid : styles.optionCardStack,
         styles.optionCardHalf,
         columnIndex > 0 ? styles.optionCardRight : null,
+        selected ? styles.optionCardSelected : null,
+        disabled && !selected ? styles.optionCardDisabled : null,
         pressed ? styles.cardPressed : null,
       ]}
       onPress={onPress}
@@ -1228,25 +1309,41 @@ function OptionCard({
 }
 
 function RewardGate({
+  hasRewardAccess,
   message,
   onWatchAd,
   recommendationStatus,
   status,
 }: {
+  hasRewardAccess: boolean;
   message: string;
   onWatchAd: () => void;
   recommendationStatus: RecommendationStatus;
   status: RewardAdStatus;
 }) {
   const isRecommendationLoading = recommendationStatus === 'loading';
-  const isButtonDisabled = isRecommendationLoading || status === 'loading' || status === 'showing';
+  const isRecommendationDone = recommendationStatus === 'ready' || recommendationStatus === 'error';
+  const hasStartedRecommendation = recommendationStatus !== 'idle';
+  const isButtonDisabled = hasRewardAccess || status === 'loading' || status === 'showing';
+  const buttonLabel = hasRewardAccess ? '추천 마무리 중' : rewardButtonLabel(status, isRecommendationLoading);
+  const pillLabel = isRecommendationDone ? '추천 준비 완료' : hasStartedRecommendation ? 'AI 추천 준비' : '결과 확인 전';
+  const title = isRecommendationDone
+    ? '추천 카드 준비가 끝났어요.'
+    : hasStartedRecommendation
+      ? 'AI가 맞춤 여행지를 고르고 있어요.'
+      : '광고를 보면 맞춤 여행지를 추천해드려요.';
+  const copy = isRecommendationDone
+    ? '광고 시청을 완료하면 추천 카드와 지도 연결을 바로 열어드릴게요.'
+    : hasStartedRecommendation
+      ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
+      : '광고를 시작하면 AI 분석도 함께 시작되고, 완료되면 추천 카드와 지도 연결을 열어드릴게요.';
 
   return (
     <View style={styles.centerScreen}>
       <View style={styles.panelCentered}>
-        <Pill label="취향 분석 완료" />
-        <Text style={styles.panelTitle}>취향에 맞는 여행지를 골라뒀어요.</Text>
-        <Text style={styles.panelCopy}>짧은 광고를 보면 AI 추천 카드와 지도 연결을 바로 열어드릴게요.</Text>
+        <Pill label={pillLabel} />
+        <Text style={styles.panelTitle}>{title}</Text>
+        <Text style={styles.panelCopy}>{copy}</Text>
         {isRecommendationLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color="#2B84FC" size="small" />
@@ -1256,7 +1353,7 @@ function RewardGate({
         {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
         <PrimaryButton
           disabled={isButtonDisabled}
-          label={isRecommendationLoading ? '추천 준비 중' : rewardButtonLabel(status)}
+          label={buttonLabel}
           onPress={onWatchAd}
         />
       </View>
@@ -1856,12 +1953,12 @@ function naverSearchLink(keyword: string) {
   return `https://map.naver.com/p/search/${encodeURIComponent(keyword)}`;
 }
 
-function rewardButtonLabel(status: RewardAdStatus) {
+function rewardButtonLabel(status: RewardAdStatus, isRecommendationLoading = false) {
   if (status === 'loading') return '광고 준비 중';
   if (status === 'showing') return '광고 여는 중';
-  if (status === 'unsupported') return '결과 보기';
+  if (status === 'unsupported') return isRecommendationLoading ? '추천 마무리 중' : '결과 보기';
   if (status === 'error') return '광고 다시 불러오기';
-  return '광고 보고 결과 보기';
+  return isRecommendationLoading ? '광고 보고 기다리기' : '광고 보고 결과 보기';
 }
 
 function toErrorMessage(error: unknown) {
@@ -1874,13 +1971,6 @@ function toErrorMessage(error: unknown) {
   }
 
   return '잠시 후 다시 시도해주세요.';
-}
-
-function headerLabel(step: Step) {
-  if (step === 'origin') return '출발 기준';
-  if (step === 'rewardGate') return '결과 준비';
-  if (step === 'result') return '추천 완료';
-  return '';
 }
 
 const cardBase: ViewStyle = {
@@ -1959,16 +2049,16 @@ const styles = StyleSheet.create({
   },
   introScreen: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     minHeight: 580,
-    paddingBottom: 10,
-    paddingTop: 96,
+    paddingBottom: 58,
+    paddingTop: 18,
   },
   introHero: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    paddingTop: 10,
+    paddingTop: 0,
   },
   panel: {
     ...cardBase,
@@ -2010,7 +2100,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   introActions: {
-    paddingTop: 28,
+    marginTop: 34,
+    paddingTop: 0,
   },
   panelTitle: {
     color: '#191F28',
@@ -2185,6 +2276,13 @@ const styles = StyleSheet.create({
   optionCardRight: {
     marginLeft: 12,
   },
+  optionCardSelected: {
+    borderColor: '#2B84FC',
+    borderWidth: 2,
+  },
+  optionCardDisabled: {
+    opacity: 0.58,
+  },
   optionToneBlue: {
     backgroundColor: '#EAF3FF',
     borderColor: '#B8D8FF',
@@ -2244,6 +2342,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 7,
     textAlign: 'center',
+  },
+  questionLoadingBox: {
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E8EB',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  questionLoadingText: {
+    color: '#4E5968',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
+    marginLeft: 10,
   },
   rewardStatus: {
     color: '#1E63D6',

@@ -154,8 +154,9 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
-        padding: 96px 0 10px;
+        justify-content: center;
+        gap: 34px;
+        padding: 0 0 24px;
         animation: enter 260ms ease both;
       }
 
@@ -674,6 +675,21 @@
         line-height: 1.38;
         font-weight: 800;
         text-align: left;
+      }
+
+      .question-loading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 2px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-soft);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.38;
+        font-weight: 800;
       }
 
       .spinner {
@@ -1702,10 +1718,15 @@
         });
 
         const view = stage.querySelector(".question-view");
+        const loading = document.createElement("div");
+        loading.className = "question-loading";
+        loading.innerHTML = '<span class="spinner" aria-hidden="true"></span><span>다음 질문을 준비하고 있어요.</span>';
+        view.appendChild(loading);
+
         setTimeout(() => {
           view.classList.remove("enter");
           view.classList.add("exit");
-        }, 110);
+        }, 800);
 
         setTimeout(() => {
           if (index < questions.length - 1) {
@@ -1714,24 +1735,22 @@
           } else {
             renderRewardGate();
           }
-        }, 310);
+        }, 1000);
       }
 
       function renderRewardGate() {
-        counter.textContent = "결과 준비";
-        progressFill.style.width = "100%";
+        document.querySelector(".topbar").style.display = "none";
+        counter.textContent = "";
+        progress.style.visibility = "hidden";
+        progressFill.style.width = "0%";
         bannerAd.style.display = "none";
         stage.classList.add("no-bottom-ad");
         stage.innerHTML = `
           <div class="reward-view">
             <div class="reward-panel">
-              <p class="persona">취향 분석 완료</p>
-              <h1 class="reward-title">취향에 맞는 여행지를 골라뒀어요.</h1>
-              <p class="reward-copy">짧은 광고를 보면 AI 추천 카드와 지도 연결을 바로 열어드릴게요.</p>
-              <div class="loading-box">
-                <span class="spinner" aria-hidden="true"></span>
-                <span>AI가 관광정보와 방문자수 데이터를 비교하고 있어요.</span>
-              </div>
+              <p class="persona">결과 확인 전</p>
+              <h1 class="reward-title">광고를 보면 맞춤 여행지를 추천해드려요.</h1>
+              <p class="reward-copy">광고를 시작하면 AI 분석도 함께 시작되고, 완료되면 추천 카드와 지도 연결을 열어드릴게요.</p>
               <button class="primary" type="button" id="watchReward">광고 보고 결과 보기</button>
             </div>
           </div>
@@ -1741,13 +1760,21 @@
 
       function renderRewardAd() {
         let seconds = 3;
+        document.querySelector(".topbar").style.display = "none";
+        counter.textContent = "";
+        progress.style.visibility = "hidden";
+        progressFill.style.width = "0%";
         bannerAd.style.display = "none";
         stage.classList.add("no-bottom-ad");
         stage.innerHTML = `
           <div class="reward-ad-screen">
             <div class="ad-box">
               <div class="ad-label">리워드 광고</div>
-              <div class="ad-message">여행지 추천 카드를 준비하고 있어요</div>
+              <div class="ad-message">AI가 관광정보와 방문자수를 비교하고 있어요</div>
+              <div class="loading-box">
+                <span class="spinner" aria-hidden="true"></span>
+                <span>광고가 끝나면 결과 카드를 열어드릴게요.</span>
+              </div>
               <div class="countdown" id="countdown">${seconds}초 후 결과 열기</div>
             </div>
           </div>

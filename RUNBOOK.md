@@ -114,6 +114,8 @@ Submission-sensitive config:
 - Before launch submission, confirm in Apps in Toss Console/device preview that the navigation logo and console logo/thumbnail match the intended assets.
 - The main UI uses `@toss/tds-react-native` through `TDSProvider`, TDS `Text`, and TDS `Button`. Selection and region cards use React Native `Pressable` with stable card dimensions.
 - Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
+- Question-card selection shows the selected card and a 1s loading state before advancing.
+- Recommendation analysis starts only when the user taps the rewarded-ad CTA. The final question tap should not call the recommendation API.
 - The final result screen hides the top app header. This is intentional so the result card and actions are the focus.
 - `카드 저장하기` uses `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data` to save a generated PNG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions fall back to Apps in Toss text sharing.
 - The saved card format is PNG. Run real-device save/gallery/share checks before launch.
@@ -125,7 +127,7 @@ production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
 production banner ad group ID: ait.v2.live.67b07bf813d74267
 ```
 
-`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, `showFullScreenAd` on the CTA, and `userEarnedReward` before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
+`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, recommendation API start on the reward CTA, `showFullScreenAd` on the same CTA, and `userEarnedReward` plus recommendation completion before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
 
@@ -283,9 +285,10 @@ The mockup uses:
 - required 3 source questions plus random 5 general questions
 - random general questions always include `crowd` and one of `mobility`/`accessibility`
 - two large cards for `select_2`, a 2x2 card grid for `select_4`
+- selected cards show a 1s loading state before the next question or reward gate
 - fixed bottom banner ad during questions
 - rewarded-ad gate before the result card
-- rewarded-gate loading spinner while recommendation data is being prepared
+- recommendation loading appears after the rewarded-ad CTA, while the mock rewarded-ad flow is running
 - result card with tourism info, PNG card-download button, Naver Map open button, and home reset
 - result screen hides the top `어디고 / 추천 완료` header
 
