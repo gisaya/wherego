@@ -63,7 +63,7 @@
   - 검색 호출은 요청당 6회 기본값이며, `nationwide` 검색은 areaCode 없이 키워드 중심으로 호출한다.
   - 최종 선택 1개에만 상세 API를 조회하고, 검색/상세/DataLab 응답은 서버 메모리 캐시로 재사용한다.
   - 일부 관광공사 검색 호출이 타임아웃되어도 다른 호출에서 후보가 있으면 계속 진행한다.
-  - 어디고 클라이언트는 `src/api/wheregoApi.ts`에서 이 API를 호출하고 45초 지연/실패 시 demo 결과로 fallback한다.
+  - 어디고 클라이언트는 `src/api/wheregoApi.ts`에서 이 API를 호출하고 45초 지연/실패 시 결과 화면으로 넘어가지 않는다. 리워드 게이트에 남아 `추천 다시 시도`를 보여준다.
 - Vercel 정적 빌드:
   - `scripts/build-vercel-terms.cjs`
   - `vercel.json`
@@ -85,6 +85,7 @@
 - 첫 Granite 앱 화면:
   - `pages/index.tsx`
   - 현재 위치 또는 지역 선택 fallback
+  - `지역 직접 선택` 버튼은 TDS Button 대신 커스텀 `Pressable`을 써서 토스 화면에서 한글이 잘리지 않게 했다.
   - 현재 위치 권한은 첫 진입 즉시가 아니라 `현재 위치로 추천` 버튼을 누른 뒤에만 요청
   - 질문 8개 랜덤 생성
   - 질문 중 Apps in Toss 배너 광고
@@ -99,7 +100,9 @@
   - 결과 화면 상단 `어디고 / 추천 완료` 헤더는 숨긴다. 결과 카드 저장/공유 중심 화면으로 보이게 하기 위한 의도적 처리다.
   - 질문 카드는 선택 직후 선택 상태와 1초 로딩을 보여준 뒤 다음 질문이나 광고 안내 화면으로 이동한다.
   - 마지막 질문 선택은 추천 API를 호출하지 않는다. 추천/관광공사 분석은 `광고 보고 결과 보기` CTA를 누르는 시점에 시작하고, 광고 시청과 분석 완료가 모두 끝난 뒤 결과를 연다.
-  - `카드 저장하기`는 숨겨진 `react-native-svg` 결과 카드를 `toDataURL`로 캡처한 뒤 Apps in Toss `saveBase64Data`로 1080x1350 PNG 결과 카드를 저장한다. Android `5.218.0`, iOS `5.216.0` 미만에서는 Apps in Toss `share` 텍스트로 fallback한다.
+  - 추천 API 실패 시 임시/demo 결과를 열지 않는다. 리워드 게이트에서 `추천 다시 시도` 버튼을 보여준다.
+  - `카드 저장하기`는 숨겨진 `react-native-svg` 결과 카드를 `toDataURL`로 캡처한 뒤 Apps in Toss `saveBase64Data`로 1080x1350 PNG 결과 카드를 저장한다. Android `5.218.0`, iOS `5.216.0` 미만에서는 저장 미지원 메시지만 보여주며 공유창은 열지 않는다.
+  - 저장용 SVG는 Arial 고정 폰트를 제거했고, 화면 밖이 아니라 투명 상태로 화면 안에 렌더해 PNG 저장 깨짐 위험을 줄였다.
   - 리워드 게이트는 상단 헤더/진행 바를 숨기고, 추천 API/관광정보 준비가 시작된 뒤 로딩 스피너를 보여준다.
 - 최근 검증:
   - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
@@ -115,10 +118,11 @@
   - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`, `/api/wherego/recommend` HTTP 200, `source.planner=metadata`, `source.curator=gemini`, 추천 1개, 첫 추천 `서울어린이대공원`, 네이버 지도 링크 존재.
   - 2026-07-09 KST Apps in Toss 가이드 재검토: MCP transport가 닫혀 공식 개발자센터 문서를 직접 확인했다. 비게임 TDS 적용, 위치 권한 요청 시점, 배너/리워드 광고 배치, 빌드/배포, 브랜드 아이콘 요구사항을 재점검했다. TDS 적용과 버튼 이후 위치 요청은 코드에 반영했고, Vercel은 약관 URL 전용으로 유지한다. 남은 출시 리스크는 `brand.icon`의 콘솔 로고 URL 확정과 실기기 Toss 앱 검수다.
   - 2026-07-09 KST 저장 검증: Vercel 약관 정적 빌드, `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45e3-a0de-7e80-a3f8-464868942345`이며 Git 제외.
-  - 2026-07-09 KST 저장 검증: 결과 화면 헤더 제거, 질문 카드 2열 고정, 리워드 게이트 로딩 표시, 초기 SVG 카드 저장 기능 구현. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4666-aafa-7a02-b955-c802dffc027d`이며 Git 제외. 목업 브라우저 테스트에서 결과 헤더가 숨겨졌고 `C:\Users\ESOL\Downloads\wherego-일월수목원.svg` 저장을 확인했다.
+  - 2026-07-09 KST 저장 검증: 결과 화면 헤더 제거, 질문 카드 2열 고정, 리워드 게이트 로딩 표시, 초기 SVG 카드 저장 기능 구현. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4666-aafa-7a02-b955-c802dffc027d`이며 Git 제외. 목업 브라우저 테스트에서 결과 헤더가 숨겨졌고 legacy SVG 카드 저장을 확인했다.
   - 2026-07-09 KST 저장 오류 수정 검증: 카드 저장을 SVG 파일 저장에서 `react-native-svg` `toDataURL` 기반 PNG 저장으로 변경했다. `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4675-4c16-7bf2-b6a2-caef2741f1f7`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 첫 화면 문구 블록을 앱과 목업 모두 중앙 쪽으로 내렸다. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4916-8162-7022-8180-1e354788acc6`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 선택 카드 전환 로딩을 1초로 조정하고, 광고 전 화면 상단 헤더/진행 바 제거와 광고 CTA 시점 추천 분석 시작 흐름을 반영했다. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f492e-81c6-7044-986f-2f3028a34528`이며 Git 제외.
+  - 2026-07-10 KST 저장 검증: 지역 직접 선택 버튼/지역 카드 텍스트 클리핑 수정, 추천 실패 시 결과 fallback 차단, `추천 다시 시도` 흐름, 카드 저장 공유 fallback 제거, 저장용 SVG 폰트/렌더링 수정 반영. Render smoke는 HTTP 200, `source.curator=gemini`, 추천 `서울어린이대공원`, 이미지 URL 존재. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f494b-cb34-72b1-a1f3-1ee8f64da56c`이며 Git 제외.
 
 ## 운영 규칙
 
@@ -131,6 +135,6 @@
 
 1. 실제 Apps in Toss 앱에서 Render 추천 API 연동 흐름 테스트.
 2. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
-3. PNG 카드 저장이 Toss 실기기와 주요 공유처에서 정상 동작하는지 확인한다.
+3. PNG 카드 저장이 Toss 실기기에서 정상 저장되고 공유창이 열리지 않는지 확인한다.
 4. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 리워드 광고, 결과 카드, 네이버지도 열기 검수.
 5. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.

@@ -4,7 +4,6 @@ import {
   isMinVersionSupported,
   loadFullScreenAd,
   saveBase64Data,
-  share,
   showFullScreenAd,
   useGeolocation,
 } from '@apps-in-toss/framework';
@@ -554,26 +553,25 @@ const cityAnchors: CityAnchor[] = [
 
 const demoResultsByRegion: Record<string, DemoResult> = {
   '서울/수도권': {
-    persona: '아이와 함께하는 근교 숲 힐링 드라이버',
-    place: '일월수목원',
-    reason: '짧게 이동해서 주차 부담 없이 숲 그늘과 산책을 즐기기 좋은 후보입니다.',
-    region: '경기 수원 · 수목원/산책',
-    address: '수원시 장안구 일월로 일대',
-    travel: '서울/수도권 기준 약 1시간 내외',
+    persona: '아이와 함께하는 도심 속 힐링 큐레이터',
+    place: '서울어린이대공원',
+    reason: '아이와 함께 넓은 녹지와 산책 동선을 편하게 즐기기 좋은 후보입니다.',
+    region: '서울 광진구 · 공원/산책',
+    address: '서울특별시 광진구 능동로 216',
+    travel: '서울/수도권 기준 짧은 이동',
     signal: '지역 방문자수 보통 · 오전 추천',
-    comfort: '가벼운 산책, 그늘, 주차 정보 확인',
-    imageUrl: 'http://tong.visitkorea.or.kr/cms/resource/21/3386921_image2_1.JPG',
+    comfort: '넓은 녹지, 가족 동선, 편의시설 확인',
+    imageUrl: 'http://tong.visitkorea.or.kr/cms/resource/61/3355161_image2_1.JPG',
   },
   '경기 남부': {
-    persona: '가까운 숲길을 고르는 여유형 드라이버',
-    place: '일월수목원',
-    reason: '경기 남부에서 부담 없이 다녀오기 좋고 산책 동선이 단순한 후보입니다.',
-    region: '경기 수원 · 수목원/산책',
-    address: '수원시 장안구 일월로 일대',
+    persona: '가까운 물가 산책을 고르는 여유형 드라이버',
+    place: '광교호수공원',
+    reason: '경기 남부에서 부담 없이 다녀오기 좋고 호수 산책 동선이 단순한 후보입니다.',
+    region: '경기 수원 · 호수공원/산책',
+    address: '경기 수원시 영통구 광교호수로 일대',
     travel: '경기 남부 기준 짧은 이동',
     signal: '지역 방문자수 보통 · 오전 추천',
-    comfort: '평지 산책, 그늘, 가족 동선 확인',
-    imageUrl: 'http://tong.visitkorea.or.kr/cms/resource/21/3386921_image2_1.JPG',
+    comfort: '평지 산책, 호수 전망, 가족 동선 확인',
   },
   '경기 북부': {
     persona: '사진과 산책을 같이 챙기는 근교 탐색가',
@@ -678,6 +676,7 @@ function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
   const resultCardSvgRef = useRef<Svg | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedAnswersRef = useRef<SelectedAnswer[]>([]);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [questionSet, setQuestionSet] = useState<Question[]>([]);
@@ -710,7 +709,7 @@ function Index() {
       return;
     }
 
-    if (recommendationStatus === 'ready' || recommendationStatus === 'error') {
+    if (recommendationStatus === 'ready') {
       setRewardAdMessage('');
       setStep('result');
     }
@@ -760,6 +759,7 @@ function Index() {
     setQuestionSet([]);
     setQuestionIndex(0);
     setSelectedAnswers([]);
+    selectedAnswersRef.current = [];
     setSelectedOptionLabel(null);
     setIsQuestionAdvancing(false);
     setWaitingForLocation(false);
@@ -806,16 +806,15 @@ function Index() {
   }
 
   function startRecommendationAnalysis() {
-    if (recommendationStatus !== 'idle') {
+    if (recommendationStatus === 'loading' || recommendationStatus === 'ready') {
       return;
     }
 
-    void prepareRecommendation(selectedAnswers);
+    void prepareRecommendation(selectedAnswersRef.current);
   }
 
   function showRewardAd() {
-    if (rewardAdStatus === 'error' || (!isRewardAdLoaded && rewardAdStatus !== 'unsupported')) {
-      loadRewardAd();
+    if (rewardAdStatus === 'loading' || rewardAdStatus === 'showing') {
       return;
     }
 
@@ -827,7 +826,9 @@ function Index() {
       return;
     }
 
-    if (rewardAdStatus === 'loading' || rewardAdStatus === 'showing') {
+    if (rewardAdStatus === 'error' || !isRewardAdLoaded) {
+      loadRewardAd();
+      setRewardAdMessage('광고를 다시 준비하고 있어요. 추천 결과도 함께 만들고 있어요.');
       return;
     }
 
@@ -892,6 +893,7 @@ function Index() {
     setQuestionSet(buildQuestionSet());
     setQuestionIndex(0);
     setSelectedAnswers([]);
+    selectedAnswersRef.current = [];
     setSelectedOptionLabel(null);
     setIsQuestionAdvancing(false);
     setWaitingForLocation(false);
@@ -931,6 +933,7 @@ function Index() {
     ];
 
     setSelectedAnswers(nextAnswers);
+    selectedAnswersRef.current = nextAnswers;
     setSelectedOptionLabel(option.label);
     setIsQuestionAdvancing(true);
 
@@ -961,6 +964,13 @@ function Index() {
       return;
     }
 
+    if (answers.length === 0) {
+      setRecommendation(null);
+      setRecommendationStatus('error');
+      setRewardAdMessage('답변 정보를 확인하지 못했어요. 처음부터 다시 진행해주세요.');
+      return;
+    }
+
     setRecommendationStatus('loading');
     setResultMessage('');
 
@@ -974,8 +984,13 @@ function Index() {
     } catch (error) {
       setRecommendation(null);
       setRecommendationStatus('error');
-      setResultMessage(`서버 추천을 불러오지 못해 임시 추천을 보여드려요. ${toErrorMessage(error)}`);
+      setRewardAdMessage(`추천을 완료하지 못했어요. ${toErrorMessage(error)}`);
     }
+  }
+
+  function retryRecommendation() {
+    setRewardAdMessage('');
+    startRecommendationAnalysis();
   }
 
   function openMap() {
@@ -987,16 +1002,12 @@ function Index() {
 
   function saveCard() {
     setResultMessage('카드 이미지를 저장하고 있어요.');
-    void saveResultCard(result, origin, resultCardSvgRef.current)
-      .then((mode) => {
-        if (mode === 'saved') {
-          setResultMessage('공유하기 좋은 PNG 카드 이미지로 저장했어요.');
-          return;
-        }
-        setResultMessage('현재 토스 앱 버전은 파일 저장을 지원하지 않아 공유 문구를 열었어요.');
+    void saveResultCard(result, resultCardSvgRef.current)
+      .then(() => {
+        setResultMessage('PNG 카드 이미지로 저장했어요.');
       })
-      .catch(() => {
-        setResultMessage('카드 저장을 완료하지 못했어요. 잠시 후 다시 시도해주세요.');
+      .catch((error) => {
+        setResultMessage(`카드 저장을 완료하지 못했어요. ${toErrorMessage(error)}`);
       });
   }
 
@@ -1031,6 +1042,7 @@ function Index() {
                 message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
                 recommendationStatus={recommendationStatus}
                 status={rewardAdStatus}
+                onRetryRecommendation={retryRecommendation}
                 onWatchAd={showRewardAd}
               />
             ) : null}
@@ -1139,11 +1151,14 @@ function OriginScreen({
             label={waitingForLocation ? '위치 확인 중' : '현재 위치로 추천'}
             onPress={onUseCurrentLocation}
           />
-          <SecondaryButton
-            label="지역 선택으로 시작"
+          <Pressable
+            accessibilityLabel="지역 직접 선택"
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.originRegionButton, pressed ? styles.cardPressed : null]}
             onPress={() => setIsRegionModalOpen(true)}
-            viewStyle={styles.originSecondaryButton}
-          />
+          >
+            <Text style={styles.originRegionButtonText}>지역 직접 선택</Text>
+          </Pressable>
         </View>
         <Text style={styles.statusText}>
           {locationStatus || '현재 위치 권한은 버튼을 누른 뒤에만 요청돼요.'}
@@ -1311,28 +1326,45 @@ function OptionCard({
 function RewardGate({
   hasRewardAccess,
   message,
+  onRetryRecommendation,
   onWatchAd,
   recommendationStatus,
   status,
 }: {
   hasRewardAccess: boolean;
   message: string;
+  onRetryRecommendation: () => void;
   onWatchAd: () => void;
   recommendationStatus: RecommendationStatus;
   status: RewardAdStatus;
 }) {
   const isRecommendationLoading = recommendationStatus === 'loading';
-  const isRecommendationDone = recommendationStatus === 'ready' || recommendationStatus === 'error';
+  const isRecommendationError = recommendationStatus === 'error';
+  const isRecommendationDone = recommendationStatus === 'ready';
   const hasStartedRecommendation = recommendationStatus !== 'idle';
-  const isButtonDisabled = hasRewardAccess || status === 'loading' || status === 'showing';
-  const buttonLabel = hasRewardAccess ? '추천 마무리 중' : rewardButtonLabel(status, isRecommendationLoading);
-  const pillLabel = isRecommendationDone ? '추천 준비 완료' : hasStartedRecommendation ? 'AI 추천 준비' : '결과 확인 전';
-  const title = isRecommendationDone
+  const isButtonDisabled = status === 'loading' || status === 'showing' || (hasRewardAccess && !isRecommendationError);
+  const buttonLabel = isRecommendationError
+    ? '추천 다시 시도'
+    : hasRewardAccess
+      ? '추천 마무리 중'
+      : rewardButtonLabel(status, isRecommendationLoading);
+  const pillLabel = isRecommendationError
+    ? '추천 재시도 필요'
+    : isRecommendationDone
+      ? '추천 준비 완료'
+      : hasStartedRecommendation
+        ? 'AI 추천 준비'
+        : '결과 확인 전';
+  const title = isRecommendationError
+    ? '추천을 다시 시도해주세요.'
+    : isRecommendationDone
     ? '추천 카드 준비가 끝났어요.'
     : hasStartedRecommendation
       ? 'AI가 맞춤 여행지를 고르고 있어요.'
       : '광고를 보면 맞춤 여행지를 추천해드려요.';
-  const copy = isRecommendationDone
+  const copy = isRecommendationError
+    ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
+    : isRecommendationDone
     ? '광고 시청을 완료하면 추천 카드와 지도 연결을 바로 열어드릴게요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
@@ -1354,7 +1386,7 @@ function RewardGate({
         <PrimaryButton
           disabled={isButtonDisabled}
           label={buttonLabel}
-          onPress={onWatchAd}
+          onPress={isRecommendationError ? onRetryRecommendation : onWatchAd}
         />
       </View>
     </View>
@@ -1458,7 +1490,7 @@ const ResultCardPngSource = React.forwardRef<
           fill="#86D1F2"
           opacity={0.72}
         />
-        <SvgText fill="#1E63D6" fontFamily="Arial" fontSize={34} fontWeight="800" x={112} y={150}>
+        <SvgText fill="#1E63D6" fontSize={34} fontWeight="800" x={112} y={150}>
           어디고 추천 카드
         </SvgText>
         <SvgTextBlock color="#191F28" lineHeight={64} lines={placeLines} weight="800" x={112} y={234} />
@@ -1471,7 +1503,7 @@ const ResultCardPngSource = React.forwardRef<
         <SvgInfoRow label="이동" value={result.travel} y={992} />
         <SvgInfoRow label="방문 신호" value={result.signal} y={1068} />
         <Rect fill="#F9FAFB" height={112} rx={28} stroke="#E5E8EB" width={856} x={112} y={1112} />
-        <SvgText fill="#1E63D6" fontFamily="Arial" fontSize={27} fontWeight="800" x={146} y={1160}>
+        <SvgText fill="#1E63D6" fontSize={27} fontWeight="800" x={146} y={1160}>
           AI 선택 근거
         </SvgText>
         <SvgTextBlock color="#191F28" lineHeight={29} lines={factorLines} weight="700" x={146} y={1198} />
@@ -1484,7 +1516,7 @@ const ResultCardPngSource = React.forwardRef<
 function SvgInfoRow({ label, value, y }: { label: string; value: string; y: number }) {
   return (
     <>
-      <SvgText fill="#8B95A1" fontFamily="Arial" fontSize={27} fontWeight="800" x={112} y={y}>
+      <SvgText fill="#8B95A1" fontSize={27} fontWeight="800" x={112} y={y}>
         {label}
       </SvgText>
       <SvgTextBlock color="#191F28" lineHeight={31} lines={svgTextLines(value, 32, 2)} weight="800" x={300} y={y} />
@@ -1513,7 +1545,6 @@ function SvgTextBlock({
         <SvgText
           key={`${x}-${y}-${index}-${line}`}
           fill={color}
-          fontFamily="Arial"
           fontSize={Math.round(lineHeight * 0.78)}
           fontWeight={weight}
           x={x}
@@ -1799,7 +1830,7 @@ function rewardGateMessage(adMessage: string, status: RecommendationStatus) {
       : status === 'ready'
         ? '추천 카드 준비가 끝났어요.'
         : status === 'error'
-          ? '서버 추천이 지연되어 임시 추천을 준비했어요.'
+          ? '추천 요청이 완료되지 않았어요. 다시 시도해주세요.'
           : '';
 
   return [recommendationMessage, adMessage].filter(Boolean).join('\n');
@@ -1813,16 +1844,14 @@ function resultSourceNote(result: DemoResult, answerCount: number) {
   return `AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. ${answerCount}개 답변 기준 추천입니다.`;
 }
 
-async function saveResultCard(result: DemoResult, origin: Origin | null, cardRef: Svg | null): Promise<'saved' | 'shared'> {
-  const shareText = resultCardShareText(result, origin);
+async function saveResultCard(result: DemoResult, cardRef: Svg | null): Promise<void> {
   const canSaveFile = isMinVersionSupported({
     android: '5.218.0',
     ios: '5.216.0',
   });
 
   if (!canSaveFile) {
-    await share({ message: shareText });
-    return 'shared';
+    throw new Error('현재 토스 앱 버전은 이미지 저장을 지원하지 않아요.');
   }
 
   if (cardRef == null) {
@@ -1835,25 +1864,6 @@ async function saveResultCard(result: DemoResult, origin: Origin | null, cardRef
     fileName: `wherego-${safeFileName(result.place)}.png`,
     mimeType: 'image/png',
   });
-  return 'saved';
-}
-
-function resultCardShareText(result: DemoResult, origin: Origin | null) {
-  return [
-    '어디고 추천 카드',
-    '',
-    result.persona,
-    result.place,
-    result.reason,
-    '',
-    `출발: ${origin?.label || '지역 미선택'}`,
-    `지역: ${result.region}`,
-    `주소: ${result.address}`,
-    `이동: ${result.travel}`,
-    `방문 신호: ${result.signal}`,
-    '',
-    result.mapLink || naverSearchLink(result.place),
-  ].join('\n');
 }
 
 function captureResultCardPng(cardRef: Svg) {
@@ -1998,10 +2008,12 @@ const styles = StyleSheet.create({
   },
   hiddenCardRenderer: {
     height: RESULT_CARD_IMAGE_HEIGHT,
-    left: -RESULT_CARD_IMAGE_WIDTH - 100,
+    left: 0,
+    opacity: 0.01,
     position: 'absolute',
     top: 0,
     width: RESULT_CARD_IMAGE_WIDTH,
+    zIndex: -1,
   },
   header: {
     alignItems: 'center',
@@ -2123,8 +2135,23 @@ const styles = StyleSheet.create({
   actionStack: {
     marginTop: 6,
   },
-  originSecondaryButton: {
+  originRegionButton: {
+    ...cardBase,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
     marginTop: 14,
+    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  originRegionButtonText: {
+    color: '#191F28',
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 22,
+    textAlign: 'center',
   },
   statusText: {
     color: '#1E63D6',
@@ -2141,11 +2168,13 @@ const styles = StyleSheet.create({
   },
   regionButton: {
     ...cardBase,
+    alignItems: 'flex-start',
     backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     margin: 5,
-    height: 64,
-    padding: 12,
+    minHeight: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     width: '46.8%',
   },
   cardPressed: {
@@ -2156,11 +2185,13 @@ const styles = StyleSheet.create({
     color: '#191F28',
     fontSize: 15,
     fontWeight: '800',
+    lineHeight: 20,
   },
   regionDesc: {
     color: '#6B7684',
     fontSize: 12,
     fontWeight: '700',
+    lineHeight: 17,
     marginTop: 4,
   },
   regionModalBackdrop: {

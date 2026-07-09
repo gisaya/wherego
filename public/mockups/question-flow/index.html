@@ -275,13 +275,17 @@
 
       .ghost {
         width: 100%;
-        min-height: 52px;
+        min-height: 56px;
         border: 1px solid var(--line);
         border-radius: 14px;
         background: var(--surface);
         color: var(--ink);
         font-size: 16px;
+        line-height: 1.35;
         font-weight: 850;
+        padding: 12px 16px;
+        white-space: normal;
+        word-break: keep-all;
         cursor: pointer;
       }
 
@@ -292,19 +296,21 @@
       }
 
       .region-option {
-        min-height: 62px;
+        min-height: 76px;
         border: 1px solid var(--line);
         border-radius: 14px;
         background: #f9fafb;
         color: var(--ink);
         text-align: left;
-        padding: 11px;
+        padding: 12px;
+        word-break: keep-all;
         cursor: pointer;
       }
 
       .region-name {
         display: block;
         font-size: 15px;
+        line-height: 1.32;
         font-weight: 800;
       }
 
@@ -313,6 +319,7 @@
         margin-top: 3px;
         color: #6b7684;
         font-size: 12px;
+        line-height: 1.4;
         font-weight: 750;
       }
 
@@ -1312,24 +1319,24 @@
 
       const demoResultsByRegion = {
         "서울/수도권": {
-          persona: "아이와 함께하는 근교 숲 힐링 드라이버",
-          place: "일월수목원",
-          reason: "짧게 이동해서 주차 부담 없이 숲 그늘과 산책을 즐기기 좋은 후보입니다.",
-          region: "경기 수원 · 수목원/산책",
-          address: "수원시 장안구 일월로 일대",
-          travel: "서울/수도권 기준 약 1시간 내외",
+          persona: "아이와 함께하는 도심 속 힐링 큐레이터",
+          place: "서울어린이대공원",
+          reason: "아이와 함께 넓은 녹지와 산책 동선을 편하게 즐기기 좋은 후보입니다.",
+          region: "서울 광진구 · 공원/산책",
+          address: "서울특별시 광진구 능동로 216",
+          travel: "서울/수도권 기준 짧은 이동",
           signal: "지역 방문자수 보통 · 오전 추천",
-          comfort: "가벼운 산책, 그늘, 주차 정보 확인",
+          comfort: "넓은 녹지, 가족 동선, 편의시설 확인",
         },
         "경기 남부": {
-          persona: "가까운 숲길을 고르는 여유형 드라이버",
-          place: "일월수목원",
-          reason: "경기 남부에서 부담 없이 다녀오기 좋고 산책 동선이 단순한 후보입니다.",
-          region: "경기 수원 · 수목원/산책",
-          address: "수원시 장안구 일월로 일대",
+          persona: "가까운 물가 산책을 고르는 여유형 드라이버",
+          place: "광교호수공원",
+          reason: "경기 남부에서 부담 없이 다녀오기 좋고 호수 산책 동선이 단순한 후보입니다.",
+          region: "경기 수원 · 호수공원/산책",
+          address: "경기 수원시 영통구 광교호수로 일대",
           travel: "경기 남부 기준 짧은 이동",
           signal: "지역 방문자수 보통 · 오전 추천",
-          comfort: "평지 산책, 그늘, 가족 동선 확인",
+          comfort: "평지 산책, 호수 전망, 가족 동선 확인",
         },
         "경기 북부": {
           persona: "사진과 산책을 같이 챙기는 근교 탐색가",
@@ -1573,7 +1580,7 @@
               <p class="location-copy">현재 위치를 허용하면 근처 후보를 먼저 보고, 아니면 지역을 골라서 바로 시작할 수 있어요.</p>
               <div class="location-actions">
                 <button class="primary" type="button" id="useCurrentLocation">현재 위치로 추천</button>
-                <button class="ghost" type="button" id="skipLocation">지역 선택으로 시작</button>
+                <button class="ghost" type="button" id="skipLocation">지역 직접 선택</button>
               </div>
               <p class="location-status" id="locationStatus">${message}</p>
             </div>
@@ -1916,7 +1923,7 @@
   <circle cx="856" cy="184" r="92" fill="#FFE1A3"/>
   <path d="M64 340 C210 244 327 298 438 238 C592 154 746 276 1016 172 L1016 394 L64 394 Z" fill="#B9E6CF"/>
   <path d="M64 376 C232 298 352 352 500 300 C640 252 766 350 1016 268 L1016 394 L64 394 Z" fill="#86D1F2" opacity="0.72"/>
-  <text x="112" y="150" fill="#1E63D6" font-family="Arial, sans-serif" font-size="34" font-weight="800">어디고 추천 카드</text>
+  <text x="112" y="150" fill="#1E63D6" font-size="34" font-weight="800">어디고 추천 카드</text>
   ${svgMultilineText(placeLines, 112, 234, 66, "#191F28", 800)}
   ${svgMultilineText(personaLines, 112, 482, 34, "#1E63D6", 800)}
   ${svgMultilineText(reasonLines, 112, 570, 36, "#4E5968", 700)}
@@ -1927,16 +1934,16 @@
   ${svgInfoRow("방문 신호", result.signal, 112, 992)}
   ${svgInfoRow("편의", result.comfort, 112, 1068)}
   <rect x="112" y="1118" width="856" height="106" rx="28" fill="#F9FAFB" stroke="#E5E8EB"/>
-  <text x="146" y="1164" fill="#1E63D6" font-family="Arial, sans-serif" font-size="27" font-weight="800">AI 선택 근거</text>
+  <text x="146" y="1164" fill="#1E63D6" font-size="27" font-weight="800">AI 선택 근거</text>
   ${svgMultilineText(factorLines, 146, 1202, 29, "#191F28", 700)}
-  <text x="112" y="1262" fill="#8B95A1" font-family="Arial, sans-serif" font-size="25" font-weight="700">한국관광공사 관광정보와 지역별 방문자수 데이터를 함께 비교했어요.</text>
+  <text x="112" y="1262" fill="#8B95A1" font-size="25" font-weight="700">한국관광공사 관광정보와 지역별 방문자수 데이터를 함께 비교했어요.</text>
 </svg>`;
       }
 
       function svgInfoRow(label, value, x, y) {
         const lines = svgTextLines(value, 32, 2);
         return `
-  <text x="${x}" y="${y}" fill="#8B95A1" font-family="Arial, sans-serif" font-size="27" font-weight="800">${escapeSvgText(label)}</text>
+  <text x="${x}" y="${y}" fill="#8B95A1" font-size="27" font-weight="800">${escapeSvgText(label)}</text>
   ${svgMultilineText(lines, x + 188, y, 31, "#191F28", 800)}`;
       }
 
@@ -1944,7 +1951,7 @@
         return lines
           .map(
             (line, lineIndex) =>
-              `<text x="${x}" y="${y + lineIndex * lineHeight}" fill="${color}" font-family="Arial, sans-serif" font-size="${Math.round(
+              `<text x="${x}" y="${y + lineIndex * lineHeight}" fill="${color}" font-size="${Math.round(
                 lineHeight * 0.78
               )}" font-weight="${weight}">${escapeSvgText(line)}</text>`
           )

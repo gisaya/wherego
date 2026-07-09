@@ -44,7 +44,7 @@ Granite/Apps in Toss build scaffold was added from the `뭐샀지` (`toss_tomato
 Current app flow in `pages/index.tsx`:
 
 - intro screen with 한국관광공사 관광정보 기반 copy and a start CTA; the top app logo is intentionally omitted from the first viewport, and the text block is lowered toward the vertical center instead of hugging the top
-- origin choice: current location via `useGeolocation` only after the user taps the current-location CTA, or selected region fallback
+- origin choice: current location via `useGeolocation` only after the user taps the current-location CTA, or direct region selection fallback. The direct region button is a custom `Pressable` to avoid clipped Korean text in Toss.
 - question flow: 3 required source questions plus 5 random general questions
 - question-card taps now show the selected card and a short 1s loading state before advancing
 - Apps in Toss inline banner ad during questions
@@ -56,15 +56,15 @@ Rewarded ad:
 
 - production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
 - production banner ad group ID: `ait.v2.live.67b07bf813d74267`
-- `pages/index.tsx` loads the ad with `loadFullScreenAd`, starts recommendation analysis when the rewarded-ad CTA is tapped, shows the ad with `showFullScreenAd`, and opens the result only after both reward access and recommendation completion.
+- `pages/index.tsx` loads the ad with `loadFullScreenAd`, starts recommendation analysis when the rewarded-ad CTA is tapped, shows the ad with `showFullScreenAd`, and opens the result only after both reward access and successful recommendation completion. Recommendation errors stay on the reward gate with a retry CTA instead of showing local demo data.
 - `pages/index.tsx` renders the question-screen banner with `InlineAd`.
 - Non-Toss/local unsupported environments fall back to a development preview result path.
 
 Card save:
 
 - `pages/index.tsx` renders a hidden `react-native-svg` result card, captures it with `toDataURL`, and uses Apps in Toss `saveBase64Data` to save a 1080x1350 PNG result-card image.
-- Minimum checked app support is Android `5.218.0` and iOS `5.216.0`. Older Toss app versions fall back to the Apps in Toss `share` API with text/map-link content.
-- The save output is now PNG. Before submission, test on real Toss devices because `saveBase64Data` depends on native Toss app support.
+- Minimum checked app support is Android `5.218.0` and iOS `5.216.0`. Older Toss app versions show a save-not-supported message; the app no longer opens the Apps in Toss `share` fallback from the save button.
+- The save output is PNG only. The hidden SVG card uses the system font instead of forcing Arial, and is kept transparently mounted in-bounds to reduce malformed image output risk. Before submission, test on real Toss devices because `saveBase64Data` depends on native Toss app support.
 
 `granite.config.ts` uses:
 
@@ -149,12 +149,13 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-09 KST Apps in Toss guideline recheck: MCP transport closed, so official developer docs were checked directly. Non-game/TDS, location permission timing, banner/reward ad placement, build/deploy, and brand icon requirements were reviewed. Code uses TDS primitives where practical, requests location only after CTA tap, keeps the banner at 100% x 96, and keeps Vercel terms-only.
   - 2026-07-09 KST save check: terms-page build, `yarn typecheck`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f45e3-a0de-7e80-a3f8-464868942345`.
   - 2026-07-09 KST live recommendation check: Render `POST /api/wherego/recommend` returned HTTP 200 in 2.57s with `source.planner=metadata`, `source.curator=gemini`, `source.kto=KorService2`, `source.crowd=DataLabService locgoRegnVisitrDDList`, selected `우면산자연생태공원`, and an image URL present.
-  - 2026-07-09 KST KTO image check for `일월수목원`: `searchKeyword2` returned `firstimage`, while `detailCommon2` and `detailImage2` returned no image. Keep using search-result image fallback for this place.
+  - 2026-07-09 KST KTO image check for a legacy local fallback place: `searchKeyword2` returned `firstimage`, while `detailCommon2` and `detailImage2` returned no image. Keep using search-result image fallback when detail images are unavailable.
   - 2026-07-09 KST save check: `yarn typecheck` passed and `yarn build` passed with ignored AIT artifact deploymentId `019f460a-8635-7ca9-897a-8df0d676cf9d`.
-  - 2026-07-09 KST save check: result screen header removal, question-card two-column layout, reward-gate loading indicator, and initial SVG card-save flow were implemented. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4666-aafa-7a02-b955-c802dffc027d`. Browser mockup confirmed the result header is hidden and `카드 저장하기` created `C:\Users\ESOL\Downloads\wherego-일월수목원.svg`.
+  - 2026-07-09 KST save check: result screen header removal, question-card two-column layout, reward-gate loading indicator, and initial SVG card-save flow were implemented. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4666-aafa-7a02-b955-c802dffc027d`. Browser mockup confirmed the result header is hidden and a legacy SVG card file could be created.
   - 2026-07-09 KST fix check: card save was changed from SVG file output to PNG output using `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data(image/png)`. `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4675-4c16-7bf2-b6a2-caef2741f1f7`.
   - 2026-07-10 KST save check: first-screen intro copy was lowered toward the vertical center in both the app and mockup. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4916-8162-7022-8180-1e354788acc6`.
   - 2026-07-10 KST save check: question-card tap delay was reduced to 1s, reward-gate top header/progress stays hidden, and recommendation analysis now starts from the rewarded-ad CTA while the ad flow is running. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f492e-81c6-7044-986f-2f3028a34528`.
+  - 2026-07-10 KST save check: direct-region text clipping was fixed with a custom Pressable button and taller region cards; recommendation errors now stay on the reward gate with `추천 다시 시도`; local demo/fallback results no longer open after server failure; card save no longer opens share fallback and uses system-font PNG rendering. Render smoke returned HTTP 200 with `source.curator=gemini`, selected `서울어린이대공원`, and an image URL. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f494b-cb34-72b1-a1f3-1ee8f64da56c`.
 
 ## Current Question/API Work
 
@@ -166,12 +167,13 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 - `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, min/max distance and time filtering, region-scope search, parking filtering, and DataLab crowd labeling.
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
 - `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad position, rewarded-ad gate, Naver Map link, and result card with tourism info.
-- Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, result fallback copy is explicitly marked as temporary when the server recommendation fails, and the final result hides the top header.
+- Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, direct-region text no longer clips, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, recommendation failure stays on the retry gate instead of opening a demo result, and the final result hides the top header.
 
-Latest known probe result with the default Seoul City Hall test origin:
+Latest known Render smoke result with the Seoul City Hall test origin:
 
-- Persona: 아이와 함께하는 근교 숲 힐링 드라이버.
-- Recommended places: 일월수목원, 일영허브랜드(숲길정원), 무릉도원수목원.
+- Persona: 아이와 함께하는 도심 속 힐링 큐레이터.
+- Recommended place: 서울어린이대공원.
+- Source: `planner=metadata`, `curator=gemini`, `kto=KorService2`, `crowd=DataLabService locgoRegnVisitrDDList`.
 - Crowd data latest base date observed: `20260609`.
 
 ## Current Blockers And Risks
@@ -182,12 +184,12 @@ Latest known probe result with the default Seoul City Hall test origin:
 - The current drive-time filter is an estimate, not real routing. A map/routing API is needed for production-grade travel time.
 - DataLab visitor counts are regional, not place-level. Treat crowd labels as a weak supporting signal.
 - The generated question bank is large enough for MVP experiments. The remaining copy risk is mostly repeated prompt templates, not missing tags or missing search hints.
-- Apps in Toss UI now calls the `jbg` Render-backed recommendation API and falls back to demo recommendation data when the server is unavailable or slow.
+- Apps in Toss UI now calls the `jbg` Render-backed recommendation API. Server/API/Gemini failures stay on the reward gate with a retry CTA; demo data is retained only as a defensive local fallback and should not surface in the normal result flow.
 - KTO `searchKeyword2` can intermittently time out on some nationwide keyword calls; the server now skips single failed search calls, but live monitoring should watch empty-candidate rates.
 - Card-save now writes a PNG card file through Apps in Toss `saveBase64Data`, but real-device validation is still needed.
 - `brand.icon` now uses the Toss static logo URL supplied by the user. Still confirm in the Apps in Toss Console/device preview that the same icon appears in the Toss navigation surface before launch submission.
 - The UI is now TDS-based, but the final pass still needs a real Toss app device check for typography, hit areas, ad rendering, and permission prompts.
-- The fallback/demo recommendation can still appear if the server/API/Gemini request exceeds the client timeout or fails. The UI now labels fallback results as temporary and prevents entering the result while recommendation status is still loading.
+- Recommendation failures no longer open a fallback/demo result. The user remains on the reward gate and can retry the recommendation request.
 
 ## Current Server Direction
 
@@ -199,7 +201,7 @@ Wherego now reuses the existing `뭐샀지`/`jbg` Render FastAPI service instead
 - server route file: `apps/server/backend/app/interfaces/http/routes/wherego.py`
 - client API wrapper: `src/api/wheregoApi.ts`
 
-The endpoint accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, and asks Gemini to choose the final single place from those candidates. DataLab regional visitor counts are included as a crowd signal before the Gemini final selection. If the server call fails in the client, `pages/index.tsx` falls back to the local demo result.
+The endpoint accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, and asks Gemini to choose the final single place from those candidates. DataLab regional visitor counts are included as a crowd signal before the Gemini final selection. If the server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
 
 Quota/runtime guardrails:
 
@@ -210,7 +212,7 @@ Quota/runtime guardrails:
 - Single KTO search timeouts/errors are skipped when other calls return candidates; the request only fails if every search call fails or no fallback candidate can be built.
 - `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false` skips the extra `detailImage2` call unless explicitly enabled.
 - The server keeps an in-memory KTO response cache: search 6h, detail 7d, DataLab 24h by default.
-- `src/api/wheregoApi.ts` times out recommendation requests after 45s. This reduces false fallback on Render cold starts or slow Gemini/KTO calls while still keeping a bounded wait.
+- `src/api/wheregoApi.ts` times out recommendation requests after 45s. This keeps the wait bounded; timeout errors now lead to reward-gate retry instead of local fallback result display.
 
 Required Render env additions:
 
@@ -238,8 +240,8 @@ Required Render env additions:
 
 ## Next Recommended Steps
 
-1. Test the live Apps in Toss app flow on device: logo in navigation, location permission, region fallback, banner ad, rewarded ad, result rendering, fallback labeling, and Naver Map open.
+1. Test the live Apps in Toss app flow on device: logo in navigation, location permission, region fallback, banner ad, rewarded ad, retry-on-failure behavior, result rendering, and Naver Map open.
 2. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
-3. Test the PNG card-save flow on real Toss devices and confirm it appears in the expected save/share destination.
-4. Watch Render recommendation latency and fallback rate after the 45s timeout change; if response time is still unstable, add server-side prewarming or tighter KTO/Gemini timeout tuning.
+3. Test the PNG card-save flow on real Toss devices and confirm it saves without opening the share sheet.
+4. Watch Render recommendation latency and retry rate after the 45s timeout change; if response time is still unstable, add server-side prewarming or tighter KTO/Gemini timeout tuning.
 5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.

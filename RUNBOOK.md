@@ -114,11 +114,13 @@ Submission-sensitive config:
 - Before launch submission, confirm in Apps in Toss Console/device preview that the navigation logo and console logo/thumbnail match the intended assets.
 - The main UI uses `@toss/tds-react-native` through `TDSProvider`, TDS `Text`, and TDS `Button`. Selection and region cards use React Native `Pressable` with stable card dimensions.
 - Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
+- The direct-region button is a custom `Pressable` rather than a TDS button so Korean text does not clip in the Toss surface.
 - Question-card selection shows the selected card and a 1s loading state before advancing.
 - Recommendation analysis starts only when the user taps the rewarded-ad CTA. The final question tap should not call the recommendation API.
+- Recommendation errors stay on the reward gate and show `추천 다시 시도`; do not open local demo results after API failure.
 - The final result screen hides the top app header. This is intentional so the result card and actions are the focus.
-- `카드 저장하기` uses `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data` to save a generated PNG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions fall back to Apps in Toss text sharing.
-- The saved card format is PNG. Run real-device save/gallery/share checks before launch.
+- `카드 저장하기` uses `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data` to save a generated PNG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions show a save-not-supported message.
+- The saved card format is PNG only. The save button must not open the share sheet. Run real-device save/gallery checks before launch.
 
 Rewarded ad:
 
@@ -127,7 +129,7 @@ production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
 production banner ad group ID: ait.v2.live.67b07bf813d74267
 ```
 
-`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, recommendation API start on the reward CTA, `showFullScreenAd` on the same CTA, and `userEarnedReward` plus recommendation completion before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
+`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, recommendation API start on the reward CTA, `showFullScreenAd` on the same CTA, and `userEarnedReward` plus successful recommendation completion before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
 
@@ -198,7 +200,7 @@ Quota/runtime behavior:
 - A single KTO search timeout is skipped if other search calls return candidates.
 - `detailImage2` is disabled by default; use search/detail common image fields first.
 - KTO search responses are cached in server memory for 6 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.
-- The Apps in Toss client waits up to 45 seconds for the recommendation API, then falls back to the local demo recommendation. Fallback results are labeled as temporary in the result card.
+- The Apps in Toss client waits up to 45 seconds for the recommendation API. Timeout or API errors keep the user on the reward gate with `추천 다시 시도`; local demo data should not appear as the normal result after failure.
 
 Server route smoke checks:
 
@@ -227,7 +229,7 @@ $body = @{
 Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/recommend' -ContentType 'application/json' -Body $body -TimeoutSec 90
 ```
 
-Expected: HTTP 200, `recommendedPlaces` has exactly one item, `source.planner` is `metadata`, and `source.curator` is `gemini` when the Gemini model env is valid. If `source.curator` returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first.
+Expected: HTTP 200, `recommendedPlaces` has exactly one item, `source.planner` is `metadata`, and `source.curator` is `gemini` when the Gemini model env is valid. A recent successful smoke returned `서울어린이대공원` with an image URL. If `source.curator` returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first.
 
 ## Question Bank And API Probe
 
@@ -282,6 +284,7 @@ public/mockups/question-flow/index.html
 The mockup uses:
 
 - current-location or selected-region origin choice
+- custom direct-region button and taller region cards to avoid Korean text clipping
 - required 3 source questions plus random 5 general questions
 - random general questions always include `crowd` and one of `mobility`/`accessibility`
 - two large cards for `select_2`, a 2x2 card grid for `select_4`
@@ -289,7 +292,7 @@ The mockup uses:
 - fixed bottom banner ad during questions
 - rewarded-ad gate before the result card
 - recommendation loading appears after the rewarded-ad CTA, while the mock rewarded-ad flow is running
-- result card with tourism info, PNG card-download button, Naver Map open button, and home reset
+- result card with tourism info, PNG card-download button, Naver Map open button, and home reset. The mock save flow downloads PNG only and does not open share.
 - result screen hides the top `어디고 / 추천 완료` header
 
 
