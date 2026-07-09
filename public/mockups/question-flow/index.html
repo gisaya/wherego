@@ -419,6 +419,12 @@
         }
       }
 
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       .origin-chip {
         align-self: flex-start;
         min-height: 26px;
@@ -482,6 +488,7 @@
 
       .options {
         flex: 0 0 auto;
+        width: 100%;
         display: grid;
         gap: 10px;
         margin-top: 10px;
@@ -499,6 +506,7 @@
 
       .option {
         min-height: 0;
+        width: 100%;
         border: 1px solid var(--card-line);
         border-radius: 18px;
         padding: 14px;
@@ -650,6 +658,32 @@
         font-size: 15px;
         line-height: 1.48;
         font-weight: 650;
+      }
+
+      .loading-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 14px 0 16px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-soft);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.38;
+        font-weight: 800;
+        text-align: left;
+      }
+
+      .spinner {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        border: 2px solid rgba(43, 132, 252, 0.18);
+        border-top-color: var(--blue);
+        border-radius: 50%;
+        animation: spin 780ms linear infinite;
       }
 
       .primary {
@@ -1694,6 +1728,10 @@
               <p class="persona">취향 분석 완료</p>
               <h1 class="reward-title">취향에 맞는 여행지를 골라뒀어요.</h1>
               <p class="reward-copy">짧은 광고를 보면 AI 추천 카드와 지도 연결을 바로 열어드릴게요.</p>
+              <div class="loading-box">
+                <span class="spinner" aria-hidden="true"></span>
+                <span>AI가 관광정보와 방문자수 데이터를 비교하고 있어요.</span>
+              </div>
               <button class="primary" type="button" id="watchReward">광고 보고 결과 보기</button>
             </div>
           </div>
@@ -1729,7 +1767,8 @@
       function renderResult() {
         const result = getDemoResult();
         const aiHighlights = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 4);
-        counter.textContent = "추천 완료";
+        document.querySelector(".topbar").style.display = "none";
+        counter.textContent = "";
         bannerAd.style.display = "none";
         stage.classList.add("no-bottom-ad");
         stage.innerHTML = `
@@ -1779,7 +1818,7 @@
                 </div>
                 <p class="source-note">AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요.</p>
                 <div class="result-actions">
-                  <button class="secondary" type="button">카드 저장하기</button>
+                  <button class="secondary" type="button" id="saveResultCard">카드 저장하기</button>
                   <a class="secondary" href="${naverSearchLink(result.place)}" target="_blank" rel="noopener">지도 열기</a>
                 </div>
               </div>
@@ -1787,7 +1826,122 @@
             <button class="home-button" type="button" id="restartFlow">처음으로 돌아가기</button>
           </div>
         `;
+        document.getElementById("saveResultCard").addEventListener("click", () => saveMockResultCard(result));
         document.getElementById("restartFlow").addEventListener("click", renderIntro);
+      }
+
+      function saveMockResultCard(result) {
+        const svg = buildMockResultCardSvg(result);
+        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `wherego-${safeFileName(result.place)}.svg`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      function buildMockResultCardSvg(result) {
+        const width = 1080;
+        const height = 1350;
+        const placeLines = svgTextLines(result.place, 17, 2);
+        const personaLines = svgTextLines(result.persona, 24, 2);
+        const reasonLines = svgTextLines(result.reason, 30, 3);
+        const factors = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 3);
+        const factorLines = svgTextLines(factors.join(" · ") || result.comfort, 35, 2);
+
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="${width}" height="${height}" fill="#F5F7FA"/>
+  <rect x="64" y="64" width="952" height="1222" rx="48" fill="#FFFFFF"/>
+  <rect x="64" y="64" width="952" height="1222" rx="48" fill="none" stroke="#E5E8EB" stroke-width="2"/>
+  <rect x="64" y="64" width="952" height="330" rx="48" fill="#EAF3FF"/>
+  <circle cx="856" cy="184" r="92" fill="#FFE1A3"/>
+  <path d="M64 340 C210 244 327 298 438 238 C592 154 746 276 1016 172 L1016 394 L64 394 Z" fill="#B9E6CF"/>
+  <path d="M64 376 C232 298 352 352 500 300 C640 252 766 350 1016 268 L1016 394 L64 394 Z" fill="#86D1F2" opacity="0.72"/>
+  <text x="112" y="150" fill="#1E63D6" font-family="Arial, sans-serif" font-size="34" font-weight="800">어디고 추천 카드</text>
+  ${svgMultilineText(placeLines, 112, 234, 66, "#191F28", 800)}
+  ${svgMultilineText(personaLines, 112, 482, 34, "#1E63D6", 800)}
+  ${svgMultilineText(reasonLines, 112, 570, 36, "#4E5968", 700)}
+  <rect x="112" y="704" width="856" height="2" fill="#E5E8EB"/>
+  ${svgInfoRow("지역", result.region, 112, 764)}
+  ${svgInfoRow("주소", result.address, 112, 840)}
+  ${svgInfoRow("이동", result.travel, 112, 916)}
+  ${svgInfoRow("방문 신호", result.signal, 112, 992)}
+  ${svgInfoRow("편의", result.comfort, 112, 1068)}
+  <rect x="112" y="1118" width="856" height="106" rx="28" fill="#F9FAFB" stroke="#E5E8EB"/>
+  <text x="146" y="1164" fill="#1E63D6" font-family="Arial, sans-serif" font-size="27" font-weight="800">AI 선택 근거</text>
+  ${svgMultilineText(factorLines, 146, 1202, 29, "#191F28", 700)}
+  <text x="112" y="1262" fill="#8B95A1" font-family="Arial, sans-serif" font-size="25" font-weight="700">한국관광공사 관광정보와 지역별 방문자수 데이터를 함께 비교했어요.</text>
+</svg>`;
+      }
+
+      function svgInfoRow(label, value, x, y) {
+        const lines = svgTextLines(value, 32, 2);
+        return `
+  <text x="${x}" y="${y}" fill="#8B95A1" font-family="Arial, sans-serif" font-size="27" font-weight="800">${escapeSvgText(label)}</text>
+  ${svgMultilineText(lines, x + 188, y, 31, "#191F28", 800)}`;
+      }
+
+      function svgMultilineText(lines, x, y, lineHeight, color, weight) {
+        return lines
+          .map(
+            (line, lineIndex) =>
+              `<text x="${x}" y="${y + lineIndex * lineHeight}" fill="${color}" font-family="Arial, sans-serif" font-size="${Math.round(
+                lineHeight * 0.78
+              )}" font-weight="${weight}">${escapeSvgText(line)}</text>`
+          )
+          .join("\n  ");
+      }
+
+      function svgTextLines(text, maxChars, maxLines) {
+        const words = String(text || "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .split(" ")
+          .flatMap((word) => {
+            if (word.length <= maxChars) return [word];
+            const chunks = [];
+            for (let index = 0; index < word.length; index += maxChars) {
+              chunks.push(word.slice(index, index + maxChars));
+            }
+            return chunks;
+          });
+        const lines = [];
+        let current = "";
+
+        words.forEach((word) => {
+          const next = current ? `${current} ${word}` : word;
+          if (next.length <= maxChars) {
+            current = next;
+            return;
+          }
+          if (current) lines.push(current);
+          current = word;
+        });
+
+        if (current) lines.push(current);
+        if (lines.length > maxLines) {
+          const visible = lines.slice(0, maxLines);
+          visible[maxLines - 1] = `${visible[maxLines - 1].slice(0, Math.max(0, maxChars - 1))}…`;
+          return visible;
+        }
+
+        return lines;
+      }
+
+      function escapeSvgText(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function safeFileName(value) {
+        return String(value || "result").replace(/[\\/:*?"<>|]/g, "-").slice(0, 40);
       }
 
       renderIntro();

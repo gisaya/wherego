@@ -20,9 +20,9 @@
 - 초기 데이터 소스는 한국관광공사 국문 관광정보 서비스_GW API가 적합하다.
 - 지역 혼잡도는 한국관광공사 빅데이터 지역별 방문자수_GW API를 보조 신호로 쓴다.
 - 공공데이터포털 개인 API 인증키와 한국관광공사 API 엔드포인트는 로컬 `.env.local`에 저장했다. 원문 키는 문서나 Git에 남기지 않는다.
-- AI는 Gemini Flash-Lite를 사용할 예정이며, 여행 성향 문장과 추천 카피 생성 및 관광지 API function calling 계획에 사용한다.
+- AI는 Render 서버의 Gemini Flash-Lite를 최종 큐레이터로 사용한다. 클라이언트 선택지 메타데이터를 서버가 검색 계획으로 바꾸고, 관광지 후보를 5개 이하로 압축한 뒤 Gemini가 최종 1개 장소와 추천 카피를 고른다.
 - AI/API 키는 클라이언트에 넣지 않는다.
-- 실제 Apps in Toss 앱 구현은 Granite React Native 기준이다. 메인 앱은 TDS Provider로 감싸고 TDS `Text`, `Button`, `PressableEffect` 중심으로 바꿨다. 제출 전 실기기 시각 검수는 아직 필요하다.
+- 실제 Apps in Toss 앱 구현은 Granite React Native 기준이다. 메인 앱은 TDS Provider로 감싸고 TDS `Text`/`Button`을 사용한다. 선택/지역 카드는 React Native `Pressable` 기반 고정 크기 카드다. 제출 전 실기기 시각 검수는 아직 필요하다.
 - 질문은 필수 3개 + 랜덤 5개 구조로 간다. 랜덤 5개는 `crowd` 1개와 `mobility`/`accessibility` 중 1개를 포함하고, 나머지 3개는 서로 다른 태그 그룹에서 뽑는다.
 - 위치 필터는 현재 위치 또는 사용자가 선택한 출발지를 기준으로 한다. MVP에서는 직선거리 x 1.35, 평균 45km/h, 15분 주행시간 버퍼, 10km 거리 버퍼로 이동 조건을 추정한다.
 - 거리/지역 제약은 `max*`뿐 아니라 `min*`, `regionScope`, `preferredRegionGroup`, `stayType`까지 추천 프로브에서 해석한다.
@@ -63,7 +63,7 @@
   - 검색 호출은 요청당 6회 기본값이며, `nationwide` 검색은 areaCode 없이 키워드 중심으로 호출한다.
   - 최종 선택 1개에만 상세 API를 조회하고, 검색/상세/DataLab 응답은 서버 메모리 캐시로 재사용한다.
   - 일부 관광공사 검색 호출이 타임아웃되어도 다른 호출에서 후보가 있으면 계속 진행한다.
-  - 어디고 클라이언트는 `src/api/wheregoApi.ts`에서 이 API를 호출하고 15초 지연/실패 시 demo 결과로 fallback한다.
+  - 어디고 클라이언트는 `src/api/wheregoApi.ts`에서 이 API를 호출하고 45초 지연/실패 시 demo 결과로 fallback한다.
 - Vercel 정적 빌드:
   - `scripts/build-vercel-terms.cjs`
   - `vercel.json`
@@ -94,7 +94,10 @@
   - 배너 광고 그룹 ID: `ait.v2.live.67b07bf813d74267`
   - `loadFullScreenAd`로 미리 로드하고 `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 결과 화면을 연다.
   - 질문 화면 하단 배너는 `InlineAd`로 렌더한다.
-  - `granite.config.ts`의 `brand.icon`은 현재 비워 두었다. Vercel을 로고 호스팅으로 쓰지 않기 위한 조치이며, 출시 전 Apps in Toss 콘솔 로고 URL 또는 콘솔 전용 처리 가능 여부를 확정해야 한다.
+  - `granite.config.ts`의 `brand.icon`은 사용자 제공 Toss static 로고 URL `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`를 사용한다.
+  - 결과 화면 상단 `어디고 / 추천 완료` 헤더는 숨긴다. 결과 카드 저장/공유 중심 화면으로 보이게 하기 위한 의도적 처리다.
+  - `카드 저장하기`는 Apps in Toss `saveBase64Data`로 1080x1350 SVG 결과 카드를 저장한다. Android `5.218.0`, iOS `5.216.0` 미만에서는 Apps in Toss `share` 텍스트로 fallback한다.
+  - 리워드 게이트는 추천 API/관광정보 준비 중 로딩 스피너를 보여준다.
 - 최근 검증:
   - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
   - 2026-07-08 22:05 KST: `.env.local` Git 제외 확인, 커밋 대상 인증키 패턴 검사 통과, Vercel 정적 약관 빌드 성공.
@@ -109,6 +112,7 @@
   - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`, `/api/wherego/recommend` HTTP 200, `source.planner=metadata`, `source.curator=gemini`, 추천 1개, 첫 추천 `서울어린이대공원`, 네이버 지도 링크 존재.
   - 2026-07-09 KST Apps in Toss 가이드 재검토: MCP transport가 닫혀 공식 개발자센터 문서를 직접 확인했다. 비게임 TDS 적용, 위치 권한 요청 시점, 배너/리워드 광고 배치, 빌드/배포, 브랜드 아이콘 요구사항을 재점검했다. TDS 적용과 버튼 이후 위치 요청은 코드에 반영했고, Vercel은 약관 URL 전용으로 유지한다. 남은 출시 리스크는 `brand.icon`의 콘솔 로고 URL 확정과 실기기 Toss 앱 검수다.
   - 2026-07-09 KST 저장 검증: Vercel 약관 정적 빌드, `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45e3-a0de-7e80-a3f8-464868942345`이며 Git 제외.
+  - 2026-07-09 KST 저장 검증: 결과 화면 헤더 제거, 질문 카드 2열 고정, 리워드 게이트 로딩 표시, SVG 카드 저장 기능 구현. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4666-aafa-7a02-b955-c802dffc027d`이며 Git 제외. 목업 브라우저 테스트에서 결과 헤더가 숨겨졌고 `C:\Users\ESOL\Downloads\wherego-일월수목원.svg` 저장을 확인했다.
 
 ## 운영 규칙
 
@@ -120,7 +124,7 @@
 ## 남은 우선순위
 
 1. 실제 Apps in Toss 앱에서 Render 추천 API 연동 흐름 테스트.
-2. Apps in Toss 콘솔 로고/썸네일 처리 확정. 필요하면 콘솔 로고 URL을 `granite.config.ts`의 `brand.icon`에 넣는다.
-3. 카드 저장, 결과 카드 캡처 연결 또는 첫 제출에서 placeholder 허용 여부 결정.
+2. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
+3. SVG 카드 저장이 Toss 실기기와 주요 공유처에서 충분한지 확인하고, 필요하면 PNG 캡처 저장으로 고도화한다.
 4. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 리워드 광고, 결과 카드, 네이버지도 열기 검수.
 5. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.

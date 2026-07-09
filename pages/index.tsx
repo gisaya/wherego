@@ -1,8 +1,18 @@
-import { Accuracy, InlineAd, loadFullScreenAd, showFullScreenAd, useGeolocation } from '@apps-in-toss/framework';
+import {
+  Accuracy,
+  InlineAd,
+  isMinVersionSupported,
+  loadFullScreenAd,
+  saveBase64Data,
+  share,
+  showFullScreenAd,
+  useGeolocation,
+} from '@apps-in-toss/framework';
 import { createRoute, openURL } from '@granite-js/react-native';
 import { Button as TDSButton, TDSProvider, Text } from '@toss/tds-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -911,7 +921,18 @@ function Index() {
   }
 
   function saveCard() {
-    setResultMessage('카드 저장은 결과 카드 캡처 기능으로 다음 구현 단계에서 연결합니다.');
+    setResultMessage('카드 이미지를 저장하고 있어요.');
+    void saveResultCard(result, origin, selectedAnswers.length)
+      .then((mode) => {
+        if (mode === 'saved') {
+          setResultMessage('공유하기 좋은 카드 이미지로 저장했어요.');
+          return;
+        }
+        setResultMessage('현재 토스 앱 버전은 파일 저장을 지원하지 않아 공유 문구를 열었어요.');
+      })
+      .catch(() => {
+        setResultMessage('카드 저장을 완료하지 못했어요. 잠시 후 다시 시도해주세요.');
+      });
   }
 
   return (
@@ -919,7 +940,7 @@ function Index() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.phone}>
-            {step !== 'intro' && step !== 'origin' ? (
+            {step !== 'intro' && step !== 'origin' && step !== 'result' ? (
               <Header counter={step === 'question' ? `${questionIndex + 1} / ${questionSet.length}` : headerLabel(step)} />
             ) : null}
             {step === 'question' ? <ProgressBar progress={progress} /> : null}
@@ -1123,21 +1144,31 @@ function QuestionScreen({
   origin: Origin | null;
   question: Question;
 }) {
+  const optionRows = chunkOptions(question.options, 2);
+
   return (
     <View style={styles.questionScreen}>
       <Text style={styles.originChip}>출발 기준: {origin?.label || '지역 미선택'}</Text>
       <Text style={styles.eyebrow}>{question.eyebrow}</Text>
       <Text style={styles.questionTitle}>{question.question}</Text>
       <Text style={styles.questionCopy}>{question.subcopy}</Text>
-      <View style={question.layout === 'four' ? styles.optionGrid : styles.optionStack}>
-        {question.options.map((option, optionIndex) => (
-          <OptionCard
-            key={option.label}
-            layout={question.layout}
-            number={optionIndex + 1}
-            onPress={() => onChoose(option)}
-            option={option}
-          />
+      <View style={styles.optionRows}>
+        {optionRows.map((row, rowIndex) => (
+          <View key={`${question.id}-${rowIndex}`} style={styles.optionRow}>
+            {row.map((option, columnIndex) => {
+              const optionIndex = rowIndex * 2 + columnIndex;
+              return (
+                <OptionCard
+                  key={option.label}
+                  columnIndex={columnIndex}
+                  layout={question.layout}
+                  number={optionIndex + 1}
+                  onPress={() => onChoose(option)}
+                  option={option}
+                />
+              );
+            })}
+          </View>
         ))}
       </View>
     </View>
@@ -1145,11 +1176,13 @@ function QuestionScreen({
 }
 
 function OptionCard({
+  columnIndex,
   layout,
   number,
   onPress,
   option,
 }: {
+  columnIndex: number;
   layout: QuestionLayout;
   number: number;
   onPress: () => void;
@@ -1166,6 +1199,8 @@ function OptionCard({
         styles.optionCard,
         toneStyle,
         layout === 'four' ? styles.optionCardGrid : styles.optionCardStack,
+        styles.optionCardHalf,
+        columnIndex > 0 ? styles.optionCardRight : null,
         pressed ? styles.cardPressed : null,
       ]}
       onPress={onPress}
@@ -1200,6 +1235,12 @@ function RewardGate({
         <Pill label="취향 분석 완료" />
         <Text style={styles.panelTitle}>취향에 맞는 여행지를 골라뒀어요.</Text>
         <Text style={styles.panelCopy}>짧은 광고를 보면 AI 추천 카드와 지도 연결을 바로 열어드릴게요.</Text>
+        {isRecommendationLoading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color="#2B84FC" size="small" />
+            <Text style={styles.loadingText}>AI가 관광정보와 방문자수 데이터를 비교하고 있어요.</Text>
+          </View>
+        ) : null}
         {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
         <PrimaryButton
           disabled={isButtonDisabled}
@@ -1383,6 +1424,14 @@ function buildQuestionSet() {
   return shuffle([...sourceQuestionPool, ...generalQuestions]);
 }
 
+function chunkOptions(options: Option[], size: number) {
+  const rows: Option[][] = [];
+  for (let index = 0; index < options.length; index += size) {
+    rows.push(options.slice(index, index + size));
+  }
+  return rows;
+}
+
 function shuffle<T>(items: T[]) {
   return [...items]
     .map((item) => ({ item, sort: Math.random() }))
@@ -1544,6 +1593,196 @@ function resultSourceNote(result: DemoResult, answerCount: number) {
   }
 
   return `AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. ${answerCount}개 답변 기준 추천입니다.`;
+}
+
+async function saveResultCard(result: DemoResult, origin: Origin | null, answerCount: number): Promise<'saved' | 'shared'> {
+  const shareText = resultCardShareText(result, origin);
+  const canSaveFile = isMinVersionSupported({
+    android: '5.218.0',
+    ios: '5.216.0',
+  });
+
+  if (!canSaveFile) {
+    await share({ message: shareText });
+    return 'shared';
+  }
+
+  const svg = buildResultCardSvg(result, origin, answerCount);
+  await saveBase64Data({
+    data: encodeBase64Utf8(svg),
+    fileName: `wherego-${safeFileName(result.place)}.svg`,
+    mimeType: 'image/svg+xml',
+  });
+  return 'saved';
+}
+
+function resultCardShareText(result: DemoResult, origin: Origin | null) {
+  return [
+    '어디고 추천 카드',
+    '',
+    result.persona,
+    result.place,
+    result.reason,
+    '',
+    `출발: ${origin?.label || '지역 미선택'}`,
+    `지역: ${result.region}`,
+    `주소: ${result.address}`,
+    `이동: ${result.travel}`,
+    `방문 신호: ${result.signal}`,
+    '',
+    result.mapLink || naverSearchLink(result.place),
+  ].join('\n');
+}
+
+function buildResultCardSvg(result: DemoResult, origin: Origin | null, answerCount: number) {
+  const width = 1080;
+  const height = 1350;
+  const titleLines = svgTextLines(result.place, 18, 2);
+  const personaLines = svgTextLines(result.persona, 24, 2);
+  const reasonLines = svgTextLines(result.reason, 30, 3);
+  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 38, 2);
+  const overviewLines = svgTextLines(result.overview || result.aiTradeoff || result.comfort, 34, 3);
+  const factors = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 3);
+  const factorLines = svgTextLines(factors.join(' · ') || overviewLines[0] || result.comfort, 35, 2);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="${width}" height="${height}" fill="#F5F7FA"/>
+  <rect x="64" y="64" width="952" height="1222" rx="48" fill="#FFFFFF"/>
+  <rect x="64" y="64" width="952" height="1222" rx="48" fill="none" stroke="#E5E8EB" stroke-width="2"/>
+  <rect x="64" y="64" width="952" height="330" rx="48" fill="#EAF3FF"/>
+  <circle cx="855" cy="185" r="92" fill="#FFE1A3"/>
+  <path d="M64 340 C210 244 327 298 438 238 C592 154 746 276 1016 172 L1016 394 L64 394 Z" fill="#B9E6CF"/>
+  <path d="M64 376 C232 298 352 352 500 300 C640 252 766 350 1016 268 L1016 394 L64 394 Z" fill="#86D1F2" opacity="0.72"/>
+  <text x="112" y="150" fill="#1E63D6" font-family="Arial, sans-serif" font-size="34" font-weight="800">어디고 추천 카드</text>
+  ${svgMultilineText(titleLines, 112, 234, 64, '#191F28', 800)}
+  ${svgMultilineText(personaLines, 112, 482, 34, '#1E63D6', 800)}
+  ${svgMultilineText(reasonLines, 112, 570, 36, '#4E5968', 700)}
+  <rect x="112" y="704" width="856" height="2" fill="#E5E8EB"/>
+  ${svgInfoRow('출발', origin?.label || '지역 미선택', 112, 764)}
+  ${svgInfoRow('지역', result.region, 112, 840)}
+  ${svgInfoRow('주소', result.address, 112, 916)}
+  ${svgInfoRow('이동', result.travel, 112, 992)}
+  ${svgInfoRow('방문 신호', result.signal, 112, 1068)}
+  <rect x="112" y="1112" width="856" height="112" rx="28" fill="#F9FAFB" stroke="#E5E8EB"/>
+  <text x="146" y="1160" fill="#1E63D6" font-family="Arial, sans-serif" font-size="27" font-weight="800">AI 선택 근거</text>
+  ${svgMultilineText(factorLines, 146, 1198, 29, '#191F28', 700)}
+  ${svgMultilineText(sourceLines, 112, 1262, 25, '#8B95A1', 700)}
+</svg>`;
+}
+
+function svgInfoRow(label: string, value: string, x: number, y: number) {
+  const lines = svgTextLines(value, 32, 2);
+  return `
+  <text x="${x}" y="${y}" fill="#8B95A1" font-family="Arial, sans-serif" font-size="27" font-weight="800">${escapeSvgText(label)}</text>
+  ${svgMultilineText(lines, x + 188, y, 31, '#191F28', 800)}`;
+}
+
+function svgMultilineText(lines: string[], x: number, y: number, lineHeight: number, color: string, weight: number) {
+  return lines
+    .map(
+      (line, index) =>
+        `<text x="${x}" y="${y + index * lineHeight}" fill="${color}" font-family="Arial, sans-serif" font-size="${Math.round(
+          lineHeight * 0.78,
+        )}" font-weight="${weight}">${escapeSvgText(line)}</text>`,
+    )
+    .join('\n  ');
+}
+
+function svgTextLines(text: string, maxChars: number, maxLines: number) {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return [];
+  }
+
+  const words = normalized
+    .split(' ')
+    .flatMap((word) => {
+      if (word.length <= maxChars) {
+        return [word];
+      }
+
+      const chunks: string[] = [];
+      for (let index = 0; index < word.length; index += maxChars) {
+        chunks.push(word.slice(index, index + maxChars));
+      }
+      return chunks;
+    });
+  const lines: string[] = [];
+  let current = '';
+
+  words.forEach((word) => {
+    if (!current) {
+      current = word;
+      return;
+    }
+
+    if (`${current} ${word}`.length <= maxChars) {
+      current = `${current} ${word}`;
+      return;
+    }
+
+    lines.push(current);
+    current = word;
+  });
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.slice(0, maxLines).map((line, index) => {
+    if (index < maxLines - 1 || lines.length <= maxLines) {
+      return line;
+    }
+    return line.length > maxChars - 1 ? `${line.slice(0, maxChars - 1)}...` : line;
+  });
+}
+
+function escapeSvgText(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function encodeBase64Utf8(value: string) {
+  const bytes = utf8Bytes(value);
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let output = '';
+
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index] ?? 0;
+    const second = bytes[index + 1];
+    const third = bytes[index + 2];
+    output += alphabet.charAt(first >> 2);
+    output += alphabet.charAt(((first & 3) << 4) | ((second ?? 0) >> 4));
+    output += second == null ? '=' : alphabet.charAt(((second & 15) << 2) | ((third ?? 0) >> 6));
+    output += third == null ? '=' : alphabet.charAt(third & 63);
+  }
+
+  return output;
+}
+
+function utf8Bytes(value: string) {
+  const encoded = encodeURIComponent(value);
+  const bytes: number[] = [];
+  for (let index = 0; index < encoded.length; index += 1) {
+    const char = encoded.charAt(index);
+    if (char === '%') {
+      bytes.push(Number.parseInt(encoded.slice(index + 1, index + 3), 16));
+      index += 2;
+    } else {
+      bytes.push(char.charCodeAt(0));
+    }
+  }
+  return bytes;
+}
+
+function safeFileName(value: string) {
+  const cleaned = value.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '-').slice(0, 32);
+  return cleaned || 'result-card';
 }
 
 function naverSearchLink(keyword: string) {
@@ -1844,17 +2083,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 8,
   },
-  optionStack: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
+  optionRows: {
     marginTop: 10,
   },
-  optionGrid: {
+  optionRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
-    marginTop: 10,
+    marginBottom: 12,
   },
   optionCard: {
     alignItems: 'center',
@@ -1866,13 +2100,16 @@ const styles = StyleSheet.create({
   },
   optionCardStack: {
     height: 156,
-    margin: 6,
-    width: '46.8%',
   },
   optionCardGrid: {
     height: 126,
-    margin: 6,
-    width: '46.8%',
+  },
+  optionCardHalf: {
+    flex: 1,
+    minWidth: 0,
+  },
+  optionCardRight: {
+    marginLeft: 12,
   },
   optionToneBlue: {
     backgroundColor: '#EAF3FF',
@@ -1940,8 +2177,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 19,
     marginBottom: 14,
-    marginTop: -4,
+    marginTop: 12,
     textAlign: 'center',
+  },
+  loadingBox: {
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E8EB',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  loadingText: {
+    color: '#4E5968',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
+    marginLeft: 10,
   },
   resultScreen: {
     flex: 1,

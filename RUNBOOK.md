@@ -114,6 +114,9 @@ Submission-sensitive config:
 - Before launch submission, confirm in Apps in Toss Console/device preview that the navigation logo and console logo/thumbnail match the intended assets.
 - The main UI uses `@toss/tds-react-native` through `TDSProvider`, TDS `Text`, and TDS `Button`. Selection and region cards use React Native `Pressable` with stable card dimensions.
 - Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
+- The final result screen hides the top app header. This is intentional so the result card and actions are the focus.
+- `카드 저장하기` uses Apps in Toss `saveBase64Data` to save a generated SVG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions fall back to Apps in Toss text sharing.
+- The current saved card format is SVG. Run real-device sharing/gallery checks before launch if PNG compatibility is required.
 
 Rewarded ad:
 
@@ -282,7 +285,9 @@ The mockup uses:
 - two large cards for `select_2`, a 2x2 card grid for `select_4`
 - fixed bottom banner ad during questions
 - rewarded-ad gate before the result card
-- result card with tourism info, card-save button, Naver Map open button, and home reset
+- rewarded-gate loading spinner while recommendation data is being prepared
+- result card with tourism info, SVG card-download button, Naver Map open button, and home reset
+- result screen hides the top `어디고 / 추천 완료` header
 
 
 ## Deployment
