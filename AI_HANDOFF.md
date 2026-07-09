@@ -135,6 +135,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-09 KST save check: server-backed recommendation client, Apps in Toss rewarded ad integration, 15s recommendation fallback timeout, and first-screen copy update verified with `yarn typecheck`; `yarn build` produced ignored `wherego.ait` deploymentId `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
   - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=gemini`, 3 places, first place `국립중앙박물관 전통염료식물원`.
   - 2026-07-09 KST save check: Wherego frontend typecheck and `yarn build` passed; ignored AIT artifact deploymentId `019f45b7-4889-72c6-ac16-3d27c8c1336b`. Backend Wherego route tests passed with FastAPI stub; backend `py_compile` passed. Real KTO random-flow probes confirmed source 3 + general 5 answers can collect candidates and compress them to five or fewer. Nationwide search now uses keyword-only KTO calls, keeps long-distance options possible, and skips single KTO timeouts when other calls succeed.
+  - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=metadata`, `source.curator=gemini`, 1 place, first place `서울어린이대공원`, and Naver map link present.
 
 ## Current Question/API Work
 

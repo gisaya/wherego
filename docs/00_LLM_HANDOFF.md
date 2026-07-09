@@ -104,6 +104,7 @@
   - 2026-07-09 KST 저장 검증: `yarn typecheck`, `yarn build` 성공. 추천 API client, 리워드 광고 ID `ait.v2.live.7f9040b7cff746c5`, 15초 fallback timeout, 첫 화면 문구 변경 확인. 최신 build deploymentId는 `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
   - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`, `/api/wherego/recommend` HTTP 200, `source.planner=gemini`, 추천 3개, 첫 추천 `국립중앙박물관 전통염료식물원`.
   - 2026-07-09 KST 저장 검증: Wherego `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45b7-4889-72c6-ac16-3d27c8c1336b`이며 Git 제외. jbg Wherego route 테스트 13개 성공, `py_compile` 성공. 실제 관광공사 랜덤 조합 테스트에서 원천 3개 + 일반 5개 답변으로 후보 수집 후 5개 이하 압축 확인. 전국 검색은 long-distance 후보를 허용하고, 단일 검색 타임아웃은 건너뛰도록 보강했다.
+  - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`, `/api/wherego/recommend` HTTP 200, `source.planner=metadata`, `source.curator=gemini`, 추천 1개, 첫 추천 `서울어린이대공원`, 네이버 지도 링크 존재.
 
 ## 운영 규칙
 
