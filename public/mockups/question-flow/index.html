@@ -90,8 +90,8 @@
         width: 28px;
         height: 28px;
         border-radius: 10px;
-        background: linear-gradient(135deg, var(--blue), var(--mint));
-        box-shadow: 0 8px 18px rgba(43, 132, 252, 0.28);
+        display: block;
+        object-fit: contain;
       }
 
       .brand-name {
@@ -128,7 +128,7 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
-        padding-bottom: 82px;
+        padding-bottom: 122px;
       }
 
       .stage.no-bottom-ad {
@@ -159,12 +159,19 @@
       }
 
       .intro-panel {
-        border-radius: 28px;
-        padding: 26px 22px;
-        background:
-          radial-gradient(circle at 82% 16%, rgba(84, 204, 166, 0.24), transparent 30%),
-          linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(239, 244, 255, 0.92));
-        box-shadow: 0 16px 38px rgba(31, 45, 82, 0.12);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 4px;
+        text-align: center;
+      }
+
+      .intro-logo {
+        width: 124px;
+        height: 124px;
+        margin-bottom: 20px;
+        border-radius: 24px;
+        object-fit: contain;
       }
 
       .intro-badge {
@@ -185,6 +192,7 @@
         line-height: 1.12;
         font-weight: 950;
         letter-spacing: 0;
+        text-align: center;
         word-break: keep-all;
       }
 
@@ -194,6 +202,7 @@
         font-size: 16px;
         line-height: 1.5;
         font-weight: 700;
+        text-align: center;
         word-break: keep-all;
       }
 
@@ -567,12 +576,9 @@
         left: 18px;
         right: 18px;
         bottom: 16px;
-        height: 58px;
-        border: 1px dashed #b7c2df;
-        border-radius: 16px;
-        background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.86), rgba(246, 248, 255, 0.86)),
-          repeating-linear-gradient(135deg, transparent 0 8px, rgba(43, 132, 252, 0.05) 8px 16px);
+        height: 96px;
+        border-radius: 12px;
+        background: #f8faff;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -909,7 +915,7 @@
         <div class="app">
           <header class="topbar">
             <div class="brand">
-              <div class="brand-mark" aria-hidden="true"></div>
+              <img class="brand-mark" src="../../assets/logo.png" alt="" />
               <div class="brand-name">어디고</div>
             </div>
             <div class="counter" id="counter">1 / 8</div>
@@ -1472,6 +1478,7 @@
         stage.innerHTML = `
           <div class="intro-view">
             <div class="intro-panel">
+              <img class="intro-logo" src="../../assets/logo.png" alt="어디고 로고" />
               <span class="intro-badge">한국관광공사 관광정보 기반</span>
               <h1 class="intro-title">AI가 오늘 갈 만한 여행지를 골라드려요.</h1>
               <p class="intro-copy">관광정보와 방문자수를 바탕으로 추천합니다.</p>

@@ -22,7 +22,7 @@
 - 공공데이터포털 개인 API 인증키와 한국관광공사 API 엔드포인트는 로컬 `.env.local`에 저장했다. 원문 키는 문서나 Git에 남기지 않는다.
 - AI는 Gemini Flash-Lite를 사용할 예정이며, 여행 성향 문장과 추천 카피 생성 및 관광지 API function calling 계획에 사용한다.
 - AI/API 키는 클라이언트에 넣지 않는다.
-- 실제 Apps in Toss 앱 구현은 Granite React Native 기준으로 시작했다. TDS 패키지는 설치되어 있고, 제출 전 UI를 TDS 기준으로 다시 점검해야 한다.
+- 실제 Apps in Toss 앱 구현은 Granite React Native 기준이다. 메인 앱은 TDS Provider로 감싸고 TDS `Text`, `Button`, `PressableEffect` 중심으로 바꿨다. 제출 전 실기기 시각 검수는 아직 필요하다.
 - 질문은 필수 3개 + 랜덤 5개 구조로 간다. 랜덤 5개는 `crowd` 1개와 `mobility`/`accessibility` 중 1개를 포함하고, 나머지 3개는 서로 다른 태그 그룹에서 뽑는다.
 - 위치 필터는 현재 위치 또는 사용자가 선택한 출발지를 기준으로 한다. MVP에서는 직선거리 x 1.35, 평균 45km/h, 15분 주행시간 버퍼, 10km 거리 버퍼로 이동 조건을 추정한다.
 - 거리/지역 제약은 `max*`뿐 아니라 `min*`, `regionScope`, `preferredRegionGroup`, `stayType`까지 추천 프로브에서 해석한다.
@@ -32,7 +32,7 @@
 - 앱 자산:
   - `assets/logo.png`
   - `assets/thumbnail.png`
-  - `public/assets/logo.png` (`granite.config.ts` 아이콘 URL용 공개 복사본)
+  - `public/assets/logo.png` (로컬/목업 정적 페이지용 복사본)
 - 앱인토스/Granite 앱 구조:
   - `package.json`
   - `granite.config.ts`
@@ -85,6 +85,7 @@
 - 첫 Granite 앱 화면:
   - `pages/index.tsx`
   - 현재 위치 또는 지역 선택 fallback
+  - 현재 위치 권한은 첫 진입 즉시가 아니라 `현재 위치로 추천` 버튼을 누른 뒤에만 요청
   - 질문 8개 랜덤 생성
   - 질문 중 Apps in Toss 배너 광고
   - 결과 전 Apps in Toss 리워드 광고 게이트
@@ -93,6 +94,7 @@
   - 배너 광고 그룹 ID: `ait.v2.live.67b07bf813d74267`
   - `loadFullScreenAd`로 미리 로드하고 `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 결과 화면을 연다.
   - 질문 화면 하단 배너는 `InlineAd`로 렌더한다.
+  - `granite.config.ts`의 `brand.icon`은 현재 비워 두었다. Vercel을 로고 호스팅으로 쓰지 않기 위한 조치이며, 출시 전 Apps in Toss 콘솔 로고 URL 또는 콘솔 전용 처리 가능 여부를 확정해야 한다.
 - 최근 검증:
   - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
   - 2026-07-08 22:05 KST: `.env.local` Git 제외 확인, 커밋 대상 인증키 패턴 검사 통과, Vercel 정적 약관 빌드 성공.
@@ -105,6 +107,8 @@
   - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`, `/api/wherego/recommend` HTTP 200, `source.planner=gemini`, 추천 3개, 첫 추천 `국립중앙박물관 전통염료식물원`.
   - 2026-07-09 KST 저장 검증: Wherego `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45b7-4889-72c6-ac16-3d27c8c1336b`이며 Git 제외. jbg Wherego route 테스트 13개 성공, `py_compile` 성공. 실제 관광공사 랜덤 조합 테스트에서 원천 3개 + 일반 5개 답변으로 후보 수집 후 5개 이하 압축 확인. 전국 검색은 long-distance 후보를 허용하고, 단일 검색 타임아웃은 건너뛰도록 보강했다.
   - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`, `/api/wherego/recommend` HTTP 200, `source.planner=metadata`, `source.curator=gemini`, 추천 1개, 첫 추천 `서울어린이대공원`, 네이버 지도 링크 존재.
+  - 2026-07-09 KST Apps in Toss 가이드 재검토: MCP transport가 닫혀 공식 개발자센터 문서를 직접 확인했다. 비게임 TDS 적용, 위치 권한 요청 시점, 배너/리워드 광고 배치, 빌드/배포, 브랜드 아이콘 요구사항을 재점검했다. TDS 적용과 버튼 이후 위치 요청은 코드에 반영했고, Vercel은 약관 URL 전용으로 유지한다. 남은 출시 리스크는 `brand.icon`의 콘솔 로고 URL 확정과 실기기 Toss 앱 검수다.
+  - 2026-07-09 KST 저장 검증: Vercel 약관 정적 빌드, `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45e3-a0de-7e80-a3f8-464868942345`이며 Git 제외.
 
 ## 운영 규칙
 
@@ -116,7 +120,7 @@
 ## 남은 우선순위
 
 1. 실제 Apps in Toss 앱에서 Render 추천 API 연동 흐름 테스트.
-2. jbg Render 배포 후 `/api/wherego/recommend` smoke에서 `source.planner=metadata`, `source.curator=gemini`, 추천 1개를 확인.
-3. 카드 저장, 결과 카드 캡처 연결.
-4. TDS 기준 UI 점검 및 컴포넌트 정리.
-5. Vercel GitHub 자동 배포 연결.
+2. Apps in Toss 콘솔 로고/썸네일 처리 확정. 필요하면 콘솔 로고 URL을 `granite.config.ts`의 `brand.icon`에 넣는다.
+3. 카드 저장, 결과 카드 캡처 연결 또는 첫 제출에서 placeholder 허용 여부 결정.
+4. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 리워드 광고, 결과 카드, 네이버지도 열기 검수.
+5. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.

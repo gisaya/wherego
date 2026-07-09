@@ -1,5 +1,6 @@
 import { Accuracy, InlineAd, loadFullScreenAd, showFullScreenAd, useGeolocation } from '@apps-in-toss/framework';
 import { createRoute, openURL } from '@granite-js/react-native';
+import { Button as TDSButton, PressableEffect, TDSProvider, Text } from '@toss/tds-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Image,
@@ -8,8 +9,8 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text,
   View,
+  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
@@ -70,6 +71,14 @@ type Origin = {
   lng: number;
   areaCodes: string[];
   accuracy?: number;
+};
+
+type TossLocation = {
+  coords: {
+    accuracy?: number;
+    latitude: number;
+    longitude: number;
+  };
 };
 
 type CityAnchor = {
@@ -649,11 +658,6 @@ const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 
 function Index() {
-  const geolocation = useGeolocation({
-    accuracy: Accuracy.Balanced,
-    distanceInterval: 50,
-    timeInterval: 5000,
-  });
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
@@ -679,10 +683,22 @@ function Index() {
   }, []);
 
   useEffect(() => {
-    if (!waitingForLocation || geolocation == null) {
+    if (!waitingForLocation) {
       return;
     }
 
+    const timeoutId = setTimeout(() => {
+      setLocationStatus('위치 확인이 오래 걸리면 지역 선택으로 바로 시작할 수 있어요.');
+    }, 8000);
+
+    return () => clearTimeout(timeoutId);
+  }, [waitingForLocation]);
+
+  const currentQuestion = questionSet[questionIndex];
+  const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
+  const result = getResult(origin, recommendation);
+
+  function startFlowWithCurrentLocation(geolocation: TossLocation) {
     startFlowWithOrigin({
       type: 'current_location',
       label: currentLocationLabel(geolocation.coords.latitude, geolocation.coords.longitude),
@@ -692,11 +708,7 @@ function Index() {
       areaCodes: [],
       accuracy: geolocation.coords.accuracy,
     });
-  }, [geolocation, waitingForLocation]);
-
-  const currentQuestion = questionSet[questionIndex];
-  const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
-  const result = getResult(origin, recommendation);
+  }
 
   function resetToIntro() {
     setStep('intro');
@@ -826,19 +838,6 @@ function Index() {
   }
 
   function handleUseCurrentLocation() {
-    if (geolocation != null) {
-      startFlowWithOrigin({
-        type: 'current_location',
-        label: currentLocationLabel(geolocation.coords.latitude, geolocation.coords.longitude),
-        description: '권한 허용 위치',
-        lat: geolocation.coords.latitude,
-        lng: geolocation.coords.longitude,
-        areaCodes: [],
-        accuracy: geolocation.coords.accuracy,
-      });
-      return;
-    }
-
     setWaitingForLocation(true);
     setLocationStatus('현재 위치를 확인하고 있어요. 권한 팝업이 보이면 허용해주세요.');
   }
@@ -913,50 +912,71 @@ function Index() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.phone}>
-          <Header counter={step === 'question' ? `${questionIndex + 1} / ${questionSet.length}` : headerLabel(step)} />
-          {step === 'question' ? <ProgressBar progress={progress} /> : null}
-          {step === 'intro' ? <IntroScreen onStart={() => setStep('origin')} /> : null}
-          {step === 'origin' ? (
-            <OriginScreen
-              locationStatus={locationStatus}
-              onUseCurrentLocation={handleUseCurrentLocation}
-              onSelectRegion={startFlowWithOrigin}
-              waitingForLocation={waitingForLocation}
-            />
-          ) : null}
-          {step === 'question' && currentQuestion != null ? (
-            <QuestionScreen
-              origin={origin}
-              question={currentQuestion}
-              onChoose={chooseOption}
-            />
-          ) : null}
-          {step === 'rewardGate' ? (
-            <RewardGate
-              message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
-              status={rewardAdStatus}
-              onWatchAd={showRewardAd}
-            />
-          ) : null}
-          {step === 'result' ? (
-            <ResultScreen
-              answerCount={selectedAnswers.length}
-              message={resultMessage}
-              origin={origin}
-              result={result}
-              onHome={resetToIntro}
-              onMap={openMap}
-              onSave={saveCard}
-            />
-          ) : null}
-          {step === 'question' ? <BannerAd /> : null}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <TDSProvider colorPreference="light">
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.phone}>
+            <Header counter={step === 'question' ? `${questionIndex + 1} / ${questionSet.length}` : headerLabel(step)} />
+            {step === 'question' ? <ProgressBar progress={progress} /> : null}
+            {step === 'intro' ? <IntroScreen onStart={() => setStep('origin')} /> : null}
+            {step === 'origin' ? (
+              <OriginScreen
+                locationStatus={locationStatus}
+                onUseCurrentLocation={handleUseCurrentLocation}
+                onSelectRegion={startFlowWithOrigin}
+                waitingForLocation={waitingForLocation}
+              />
+            ) : null}
+            {step === 'question' && currentQuestion != null ? (
+              <QuestionScreen
+                origin={origin}
+                question={currentQuestion}
+                onChoose={chooseOption}
+              />
+            ) : null}
+            {step === 'rewardGate' ? (
+              <RewardGate
+                message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
+                status={rewardAdStatus}
+                onWatchAd={showRewardAd}
+              />
+            ) : null}
+            {step === 'result' ? (
+              <ResultScreen
+                answerCount={selectedAnswers.length}
+                message={resultMessage}
+                origin={origin}
+                result={result}
+                onHome={resetToIntro}
+                onMap={openMap}
+                onSave={saveCard}
+              />
+            ) : null}
+            {step === 'question' ? <BannerAd /> : null}
+            {waitingForLocation ? <CurrentLocationResolver onLocation={startFlowWithCurrentLocation} /> : null}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </TDSProvider>
   );
+}
+
+function CurrentLocationResolver({ onLocation }: { onLocation: (location: TossLocation) => void }) {
+  const hasResolvedRef = useRef(false);
+  const geolocation = useGeolocation({
+    accuracy: Accuracy.Balanced,
+    distanceInterval: 50,
+    timeInterval: 5000,
+  });
+
+  useEffect(() => {
+    if (geolocation != null && !hasResolvedRef.current) {
+      hasResolvedRef.current = true;
+      onLocation(geolocation);
+    }
+  }, [geolocation, onLocation]);
+
+  return null;
 }
 
 function Header({ counter }: { counter: string }) {
@@ -974,7 +994,8 @@ function Header({ counter }: { counter: string }) {
 function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
     <View style={styles.centerScreen}>
-      <View style={styles.introPanel}>
+      <View style={styles.introHero}>
+        <Image source={logoImage} style={styles.introLogo} />
         <Pill label="한국관광공사 관광정보 기반" />
         <Text style={styles.introTitle}>AI가 오늘 갈 만한 여행지를 골라드려요.</Text>
         <Text style={styles.introCopy}>관광정보와 방문자수를 바탕으로 추천합니다.</Text>
@@ -1008,7 +1029,7 @@ function OriginScreen({
         <Pill label="위치 기반 추천" />
         <Text style={styles.panelTitle}>어디에서 출발하세요?</Text>
         <Text style={styles.panelCopy}>
-          현재 위치를 허용하면 근처 후보를 먼저 보고, 아니면 지역을 골라서 바로 시작할 수 있어요.
+          현재 위치는 출발 기준과 근교 후보 계산에만 사용하고 저장하지 않아요. 위치 권한 없이도 지역을 골라서 시작할 수 있어요.
         </Text>
         <View style={styles.actionStack}>
           <PrimaryButton
@@ -1019,7 +1040,7 @@ function OriginScreen({
           <SecondaryButton label="지역 선택으로 시작" onPress={() => setIsRegionModalOpen(true)} />
         </View>
         <Text style={styles.statusText}>
-          {locationStatus || '위치 권한 없이도 지역을 선택해서 추천을 시작할 수 있어요.'}
+          {locationStatus || '현재 위치 권한은 버튼을 누른 뒤에만 요청돼요.'}
         </Text>
       </View>
       <RegionPickerModal
@@ -1051,16 +1072,25 @@ function RegionPickerModal({
               <Text style={styles.regionSheetTitle}>출발 지역 선택</Text>
               <Text style={styles.regionSheetCopy}>전국 권역 중 하나를 고르면 바로 질문이 시작됩니다.</Text>
             </View>
-            <Pressable style={styles.regionCloseButton} onPress={onClose}>
-              <Text style={styles.regionCloseText}>닫기</Text>
-            </Pressable>
+            <TDSButton
+              display="inline"
+              onPress={onClose}
+              size="tiny"
+              style="weak"
+              type="light"
+              viewStyle={styles.regionCloseButton}
+              containerStyle={styles.regionCloseButtonContainer}
+              textStyle={styles.regionCloseText}
+            >
+              닫기
+            </TDSButton>
           </View>
           <ScrollView contentContainerStyle={styles.regionGrid} showsVerticalScrollIndicator={false}>
             {regionOptions.map((region) => (
-              <Pressable key={region.label} style={styles.regionButton} onPress={() => onSelectRegion(region)}>
+              <PressableEffect key={region.label} style={styles.regionButton} onPress={() => onSelectRegion(region)}>
                 <Text style={styles.regionName}>{region.label}</Text>
                 <Text style={styles.regionDesc}>{region.description}</Text>
-              </Pressable>
+              </PressableEffect>
             ))}
           </ScrollView>
         </View>
@@ -1111,13 +1141,13 @@ function OptionCard({
   option: Option;
 }) {
   return (
-    <Pressable style={[styles.optionCard, layout === 'four' ? styles.optionCardGrid : styles.optionCardStack]} onPress={onPress}>
+    <PressableEffect style={[styles.optionCard, layout === 'four' ? styles.optionCardGrid : styles.optionCardStack]} onPress={onPress}>
       <Text style={styles.optionIndex}>{number}</Text>
       <View style={styles.optionTextBox}>
         <Text style={styles.optionLabel}>{option.label}</Text>
         <Text style={styles.optionCaption}>{option.caption}</Text>
       </View>
-    </Pressable>
+    </PressableEffect>
   );
 }
 
@@ -1196,15 +1226,13 @@ function ResultScreen({
             AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. {answerCount}개 답변 기준 추천입니다.
           </Text>
           <View style={styles.resultActions}>
-            <SecondaryButton label="카드 저장하기" onPress={onSave} />
-            <SecondaryButton label="지도 열기" onPress={onMap} />
+            <SecondaryButton grow label="카드 저장하기" onPress={onSave} />
+            <SecondaryButton grow label="지도 열기" onPress={onMap} />
           </View>
           {message ? <Text style={styles.resultMessage}>{message}</Text> : null}
         </View>
       </View>
-      <Pressable style={styles.homeButton} onPress={onHome}>
-        <Text style={styles.homeButtonText}>처음으로 돌아가기</Text>
-      </Pressable>
+      <SecondaryButton label="처음으로 돌아가기" onPress={onHome} viewStyle={styles.homeButton} />
     </View>
   );
 }
@@ -1249,7 +1277,6 @@ function BannerAd() {
         impressFallbackOnMount
         theme="auto"
         tone="grey"
-        variant="card"
       />
     </View>
   );
@@ -1265,17 +1292,45 @@ function PrimaryButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable disabled={disabled} style={[styles.primaryButton, disabled ? styles.disabledButton : null]} onPress={onPress}>
-      <Text style={styles.primaryButtonText}>{label}</Text>
-    </Pressable>
+    <TDSButton
+      disabled={disabled}
+      display="block"
+      onPress={onPress}
+      size="big"
+      type="primary"
+      viewStyle={[styles.primaryButton, disabled ? styles.disabledButton : null]}
+      containerStyle={styles.primaryButtonContainer}
+      textStyle={styles.primaryButtonText}
+    >
+      {label}
+    </TDSButton>
   );
 }
 
-function SecondaryButton({ label, onPress }: { label: string; onPress: () => void }) {
+function SecondaryButton({
+  grow,
+  label,
+  onPress,
+  viewStyle,
+}: {
+  grow?: boolean;
+  label: string;
+  onPress: () => void;
+  viewStyle?: StyleProp<ViewStyle>;
+}) {
   return (
-    <Pressable style={styles.secondaryButton} onPress={onPress}>
-      <Text style={styles.secondaryButtonText}>{label}</Text>
-    </Pressable>
+    <TDSButton
+      display="block"
+      onPress={onPress}
+      size="large"
+      style="weak"
+      type="light"
+      viewStyle={[styles.secondaryButton, grow ? styles.secondaryButtonGrow : null, viewStyle]}
+      containerStyle={styles.secondaryButtonContainer}
+      textStyle={styles.secondaryButtonText}
+    >
+      {label}
+    </TDSButton>
   );
 }
 
@@ -1518,9 +1573,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   logo: {
-    borderRadius: 10,
     height: 30,
     marginRight: 9,
+    resizeMode: 'contain',
     width: 30,
   },
   brandName: {
@@ -1551,10 +1606,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 590,
   },
-  introPanel: {
-    ...cardBase,
-    backgroundColor: '#F8FBFF',
-    padding: 22,
+  introHero: {
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  introLogo: {
+    borderRadius: 24,
+    height: 124,
+    marginBottom: 20,
+    resizeMode: 'contain',
+    width: 124,
   },
   panel: {
     ...cardBase,
@@ -1566,7 +1627,7 @@ const styles = StyleSheet.create({
     padding: 22,
   },
   pill: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     backgroundColor: 'rgba(43, 132, 252, 0.1)',
     borderRadius: 999,
     minHeight: 28,
@@ -1584,6 +1645,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     lineHeight: 37,
     marginTop: 18,
+    textAlign: 'center',
   },
   introCopy: {
     color: '#67708A',
@@ -1592,6 +1654,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 22,
     marginTop: 12,
+    textAlign: 'center',
   },
   panelTitle: {
     color: '#202438',
@@ -1692,13 +1755,13 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   regionCloseButton: {
-    alignItems: 'center',
-    backgroundColor: '#F6F8FF',
+    alignSelf: 'flex-start',
+  },
+  regionCloseButtonContainer: {
     borderColor: '#E3E8F7',
     borderRadius: 999,
     borderWidth: 1,
-    height: 38,
-    justifyContent: 'center',
+    minHeight: 38,
     paddingHorizontal: 12,
   },
   regionCloseText: {
@@ -1708,7 +1771,7 @@ const styles = StyleSheet.create({
   },
   questionScreen: {
     flex: 1,
-    minHeight: 590,
+    minHeight: 500,
   },
   originChip: {
     alignSelf: 'flex-start',
@@ -1743,26 +1806,29 @@ const styles = StyleSheet.create({
   },
   optionStack: {
     flex: 1,
+    marginTop: 6,
   },
   optionGrid: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -6,
+    marginTop: 6,
   },
   optionCard: {
     ...cardBase,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 142,
     padding: 15,
   },
   optionCardStack: {
     flex: 1,
     marginBottom: 12,
+    minHeight: 176,
   },
   optionCardGrid: {
     margin: 6,
-    minHeight: 156,
+    minHeight: 166,
     width: '46.8%',
   },
   optionIndex: {
@@ -1940,51 +2006,41 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   homeButton: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    borderRadius: 14,
-    justifyContent: 'center',
     marginHorizontal: 4,
     marginTop: 12,
-    minHeight: 48,
-  },
-  homeButtonText: {
-    color: '#67708A',
-    fontSize: 14,
-    fontWeight: '900',
   },
   bannerAd: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E3E8F7',
-    borderRadius: 16,
-    borderWidth: 1,
+    backgroundColor: '#F8FAFF',
+    borderRadius: 12,
+    height: 96,
     justifyContent: 'center',
-    marginTop: 12,
-    minHeight: 76,
+    marginTop: 8,
     overflow: 'hidden',
+    width: '100%',
   },
   primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#2B84FC',
+    alignSelf: 'stretch',
+  },
+  primaryButtonContainer: {
     borderRadius: 16,
-    justifyContent: 'center',
     minHeight: 56,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '900',
   },
   secondaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#F6F8FF',
+    alignSelf: 'stretch',
+  },
+  secondaryButtonGrow: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  secondaryButtonContainer: {
     borderColor: '#E3E8F7',
     borderRadius: 14,
     borderWidth: 1,
-    flex: 1,
-    justifyContent: 'center',
-    marginHorizontal: 5,
     minHeight: 50,
   },
   secondaryButtonText: {

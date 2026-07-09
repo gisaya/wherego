@@ -52,6 +52,8 @@ Never commit `.env.local` or paste the raw key into docs.
 
 ## Terms Page Build
 
+Vercel is used only for Wherego terms/privacy URLs. Do not use Vercel as the production API server or as the Apps in Toss logo/thumbnail hosting dependency.
+
 Normal `node` may not be on PATH in PowerShell. Use the bundled Codex Node when needed:
 
 ```powershell
@@ -105,6 +107,14 @@ src/_app.tsx
 scripts/ait-build.ps1
 ```
 
+Submission-sensitive config:
+
+- `granite.config.ts` uses Apps in Toss `geolocation` permission and navigation-bar back/home buttons.
+- `brand.icon` is currently empty so the app does not depend on Vercel for logo hosting.
+- Before launch submission, confirm Apps in Toss Console logo/thumbnail handling. If the console provides or requires a logo URL, set that official URL in `brand.icon`.
+- The main UI uses `@toss/tds-react-native` through `TDSProvider`, TDS `Text`, TDS `Button`, and `PressableEffect`.
+- Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
+
 Rewarded ad:
 
 ```text
@@ -115,6 +125,13 @@ production banner ad group ID: ait.v2.live.67b07bf813d74267
 `pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, `showFullScreenAd` on the CTA, and `userEarnedReward` before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
+
+Ads guideline notes:
+
+- Keep the banner outside the intro screen and inside the question flow.
+- Keep the banner wrapper at 100% width and 96px height.
+- Do not decorate or alter the ad creative beyond the allowed wrapper layout.
+- Use Apps in Toss test ad IDs for policy-sensitive testing, then restore live IDs only when appropriate.
 
 ## Recommendation API
 
@@ -288,6 +305,20 @@ Production alias:
 https://wherego-lake.vercel.app
 ```
 
+Vercel scope:
+
+```text
+terms/privacy static pages only
+```
+
+Do not rely on Vercel for:
+
+```text
+Apps in Toss API server
+Apps in Toss brand icon
+Apps in Toss thumbnail
+```
+
 Submission URLs:
 
 ```text
@@ -312,7 +343,7 @@ git diff --stat
 & 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs build
 git branch --show-current
 git remote -v
-git add .
+git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md granite.config.ts pages/index.tsx public/mockups/question-flow/index.html
 git commit -m "Save wherego handoff state"
 git push origin <branch>
 ```

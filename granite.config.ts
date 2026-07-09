@@ -10,7 +10,7 @@ export default defineConfig({
       brand: {
         displayName: '어디고',
         primaryColor: '#2B84FC',
-        icon: 'https://wherego-lake.vercel.app/assets/logo.png',
+        icon: '',
       },
       permissions: [
         {

@@ -20,7 +20,7 @@ Core flow:
 - Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
 - TMAP congestion API is not part of the MVP because of cost.
 - AI direction: Gemini Flash-Lite with function calling for search planning, persona copy, and result-card copy. Do not put AI API keys in the client.
-- Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. TDS package is installed; current UI is custom React Native and should be reviewed against TDS before submission freeze.
+- Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. The main app is wrapped in TDS and uses TDS `Text`, `Button`, and `PressableEffect` for primary visible controls. Real-device visual QA is still required before submission.
 - Question flow: required 3 questions plus random 5 questions. Random questions must include `crowd` and one of `mobility`/`accessibility`, then fill the remaining three from different tag groups.
 - Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, 15 minutes of drive-time buffer, and 10km of distance buffer.
 - Map opening direction: use Naver Map web search links for the MVP, opened through `openURL`. No Naver Maps API key is needed unless embedding maps or calculating route/time data inside the app.
@@ -44,7 +44,7 @@ Granite/Apps in Toss build scaffold was added from the `뭐샀지` (`toss_tomato
 Current app flow in `pages/index.tsx`:
 
 - intro screen with `어디고` logo
-- origin choice: current location via `useGeolocation` or selected region fallback
+- origin choice: current location via `useGeolocation` only after the user taps the current-location CTA, or selected region fallback
 - question flow: 3 required source questions plus 5 random general questions
 - Apps in Toss inline banner ad during questions
 - rewarded ad gate before result using Apps in Toss integrated ads
@@ -62,7 +62,7 @@ Rewarded ad:
 
 - `appName: wherego`
 - display name `어디고`
-- icon URL `https://wherego-lake.vercel.app/assets/logo.png`
+- `brand.icon` is intentionally empty so Vercel is not used as a logo host. The Apps in Toss UI/UX guide expects the icon to match the logo URL configured in the console, so a console-hosted logo URL or console-only confirmation must be resolved before launch submission.
 - `geolocation` permission
 - Apps in Toss navigation bar with back/home buttons
 
@@ -70,7 +70,7 @@ Rewarded ad:
 
 - `assets/logo.png`: 600x600 app logo.
 - `assets/thumbnail.png`: 1932x828 Apps in Toss-style thumbnail.
-- `public/assets/logo.png`: public copy used by `granite.config.ts` icon URL after Vercel deployment.
+- `public/assets/logo.png`: static copy used only by local/mockup pages, not by the production Apps in Toss brand config.
 - Visual direction follows the existing `toss_tomato` asset pattern:
   - pale lavender-blue background
   - polished 3D object
@@ -93,6 +93,8 @@ Routes after deployment:
 
 - `/terms/service`
 - `/terms/privacy`
+
+Vercel is used only for terms/privacy URLs. It is not the app server and should not be treated as production logo or thumbnail hosting.
 
 Current Vercel deployment:
 
@@ -136,6 +138,8 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=gemini`, 3 places, first place `국립중앙박물관 전통염료식물원`.
   - 2026-07-09 KST save check: Wherego frontend typecheck and `yarn build` passed; ignored AIT artifact deploymentId `019f45b7-4889-72c6-ac16-3d27c8c1336b`. Backend Wherego route tests passed with FastAPI stub; backend `py_compile` passed. Real KTO random-flow probes confirmed source 3 + general 5 answers can collect candidates and compress them to five or fewer. Nationwide search now uses keyword-only KTO calls, keeps long-distance options possible, and skips single KTO timeouts when other calls succeed.
   - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=metadata`, `source.curator=gemini`, 1 place, first place `서울어린이대공원`, and Naver map link present.
+  - 2026-07-09 KST Apps in Toss guideline recheck: MCP transport closed, so official developer docs were checked directly. Non-game/TDS, location permission timing, banner/reward ad placement, build/deploy, and brand icon requirements were reviewed. Code now uses TDS primitives, requests location only after CTA tap, keeps the banner at 100% x 96, and keeps Vercel terms-only. `brand.icon` remains the launch blocker because the final Apps in Toss Console logo URL is not available yet.
+  - 2026-07-09 KST save check: terms-page build, `yarn typecheck`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f45e3-a0de-7e80-a3f8-464868942345`.
 
 ## Current Question/API Work
 
@@ -165,6 +169,8 @@ Latest known probe result with the default Seoul City Hall test origin:
 - Apps in Toss UI now calls the `jbg` Render-backed recommendation API and falls back to demo recommendation data when the server is unavailable or slow.
 - KTO `searchKeyword2` can intermittently time out on some nationwide keyword calls; the server now skips single failed search calls, but live monitoring should watch empty-candidate rates.
 - Card-save button is still a placeholder in the first buildable app.
+- `brand.icon` is currently empty. The build passes, but launch submission should not proceed until Apps in Toss Console logo/thumbnail handling is confirmed and, if required, the console logo URL is entered in `granite.config.ts`.
+- The UI is now TDS-based, but the final pass still needs a real Toss app device check for typography, hit areas, ad rendering, and permission prompts.
 
 ## Current Server Direction
 
@@ -215,8 +221,8 @@ Required Render env additions:
 
 ## Next Recommended Steps
 
-1. After the `jbg` push deploys on Render, smoke-test `/api/wherego/recommend` and confirm `source.planner=metadata`, `source.curator=gemini`, and exactly one recommended place.
-2. Test the live Apps in Toss app flow on device: location permission, region fallback, banner ad, rewarded ad, result rendering, and Naver Map open.
-3. Decide whether card-save placeholder is acceptable for first submission; otherwise wire result-card capture/save before submission.
-4. Review the React Native UI against TDS requirements and replace custom primitives where needed.
-5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.
+1. Resolve Apps in Toss Console logo/thumbnail handling: either add the official console logo URL to `granite.config.ts` or confirm that console-only asset handling is accepted.
+2. Test the live Apps in Toss app flow on device: location permission, region fallback, banner ad, rewarded ad, result rendering, card-save placeholder, and Naver Map open.
+3. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
+4. Decide whether the card-save placeholder is acceptable for first submission; otherwise wire result-card capture/save before submission.
+5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
