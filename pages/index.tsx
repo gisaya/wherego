@@ -23,6 +23,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import Svg, { Circle, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 import logoImage from '../assets/logo.png';
 import {
@@ -669,9 +670,12 @@ const demoResultsByRegion: Record<string, DemoResult> = {
 const GENERAL_QUESTION_COUNT = 5;
 const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
+const RESULT_CARD_IMAGE_WIDTH = 1080;
+const RESULT_CARD_IMAGE_HEIGHT = 1350;
 
 function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
+  const resultCardSvgRef = useRef<Svg | null>(null);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [questionSet, setQuestionSet] = useState<Question[]>([]);
@@ -922,10 +926,10 @@ function Index() {
 
   function saveCard() {
     setResultMessage('카드 이미지를 저장하고 있어요.');
-    void saveResultCard(result, origin, selectedAnswers.length)
+    void saveResultCard(result, origin, resultCardSvgRef.current)
       .then((mode) => {
         if (mode === 'saved') {
-          setResultMessage('공유하기 좋은 카드 이미지로 저장했어요.');
+          setResultMessage('공유하기 좋은 PNG 카드 이미지로 저장했어요.');
           return;
         }
         setResultMessage('현재 토스 앱 버전은 파일 저장을 지원하지 않아 공유 문구를 열었어요.');
@@ -969,15 +973,23 @@ function Index() {
               />
             ) : null}
             {step === 'result' ? (
-              <ResultScreen
-                answerCount={selectedAnswers.length}
-                message={resultMessage}
-                origin={origin}
-                result={result}
-                onHome={resetToIntro}
-                onMap={openMap}
-                onSave={saveCard}
-              />
+              <>
+                <ResultScreen
+                  answerCount={selectedAnswers.length}
+                  message={resultMessage}
+                  origin={origin}
+                  result={result}
+                  onHome={resetToIntro}
+                  onMap={openMap}
+                  onSave={saveCard}
+                />
+                <ResultCardPngSource
+                  ref={resultCardSvgRef}
+                  answerCount={selectedAnswers.length}
+                  origin={origin}
+                  result={result}
+                />
+              </>
             ) : null}
             {step === 'question' ? <BannerAd /> : null}
             {waitingForLocation ? <CurrentLocationResolver onLocation={startFlowWithCurrentLocation} /> : null}
@@ -1308,6 +1320,115 @@ function ResultScreen({
   );
 }
 
+const ResultCardPngSource = React.forwardRef<
+  Svg,
+  {
+    answerCount: number;
+    origin: Origin | null;
+    result: DemoResult;
+  }
+>(function ResultCardPngSource({ answerCount, origin, result }, ref) {
+  const placeLines = svgTextLines(result.place, 18, 2);
+  const personaLines = svgTextLines(result.persona, 24, 2);
+  const reasonLines = svgTextLines(result.reason, 30, 3);
+  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 38, 2);
+  const highlights = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 3);
+  const factorLines = svgTextLines(
+    highlights.join(' · ') || result.overview || result.aiTradeoff || result.comfort,
+    35,
+    2,
+  );
+
+  return (
+    <View pointerEvents="none" style={styles.hiddenCardRenderer}>
+      <Svg
+        ref={ref}
+        height={RESULT_CARD_IMAGE_HEIGHT}
+        viewBox={`0 0 ${RESULT_CARD_IMAGE_WIDTH} ${RESULT_CARD_IMAGE_HEIGHT}`}
+        width={RESULT_CARD_IMAGE_WIDTH}
+      >
+        <Rect fill="#F5F7FA" height={RESULT_CARD_IMAGE_HEIGHT} width={RESULT_CARD_IMAGE_WIDTH} x={0} y={0} />
+        <Rect fill="#FFFFFF" height={1222} rx={48} width={952} x={64} y={64} />
+        <Rect fill="none" height={1222} rx={48} stroke="#E5E8EB" strokeWidth={2} width={952} x={64} y={64} />
+        <Rect fill="#EAF3FF" height={330} rx={48} width={952} x={64} y={64} />
+        <Circle cx={855} cy={185} fill="#FFE1A3" r={92} />
+        <Path
+          d="M64 340 C210 244 327 298 438 238 C592 154 746 276 1016 172 L1016 394 L64 394 Z"
+          fill="#B9E6CF"
+        />
+        <Path
+          d="M64 376 C232 298 352 352 500 300 C640 252 766 350 1016 268 L1016 394 L64 394 Z"
+          fill="#86D1F2"
+          opacity={0.72}
+        />
+        <SvgText fill="#1E63D6" fontFamily="Arial" fontSize={34} fontWeight="800" x={112} y={150}>
+          어디고 추천 카드
+        </SvgText>
+        <SvgTextBlock color="#191F28" lineHeight={64} lines={placeLines} weight="800" x={112} y={234} />
+        <SvgTextBlock color="#1E63D6" lineHeight={34} lines={personaLines} weight="800" x={112} y={482} />
+        <SvgTextBlock color="#4E5968" lineHeight={36} lines={reasonLines} weight="700" x={112} y={570} />
+        <Rect fill="#E5E8EB" height={2} width={856} x={112} y={704} />
+        <SvgInfoRow label="출발" value={origin?.label || '지역 미선택'} y={764} />
+        <SvgInfoRow label="지역" value={result.region} y={840} />
+        <SvgInfoRow label="주소" value={result.address} y={916} />
+        <SvgInfoRow label="이동" value={result.travel} y={992} />
+        <SvgInfoRow label="방문 신호" value={result.signal} y={1068} />
+        <Rect fill="#F9FAFB" height={112} rx={28} stroke="#E5E8EB" width={856} x={112} y={1112} />
+        <SvgText fill="#1E63D6" fontFamily="Arial" fontSize={27} fontWeight="800" x={146} y={1160}>
+          AI 선택 근거
+        </SvgText>
+        <SvgTextBlock color="#191F28" lineHeight={29} lines={factorLines} weight="700" x={146} y={1198} />
+        <SvgTextBlock color="#8B95A1" lineHeight={25} lines={sourceLines} weight="700" x={112} y={1262} />
+      </Svg>
+    </View>
+  );
+});
+
+function SvgInfoRow({ label, value, y }: { label: string; value: string; y: number }) {
+  return (
+    <>
+      <SvgText fill="#8B95A1" fontFamily="Arial" fontSize={27} fontWeight="800" x={112} y={y}>
+        {label}
+      </SvgText>
+      <SvgTextBlock color="#191F28" lineHeight={31} lines={svgTextLines(value, 32, 2)} weight="800" x={300} y={y} />
+    </>
+  );
+}
+
+function SvgTextBlock({
+  color,
+  lineHeight,
+  lines,
+  weight,
+  x,
+  y,
+}: {
+  color: string;
+  lineHeight: number;
+  lines: string[];
+  weight: string;
+  x: number;
+  y: number;
+}) {
+  return (
+    <>
+      {lines.map((line, index) => (
+        <SvgText
+          key={`${x}-${y}-${index}-${line}`}
+          fill={color}
+          fontFamily="Arial"
+          fontSize={Math.round(lineHeight * 0.78)}
+          fontWeight={weight}
+          x={x}
+          y={y + index * lineHeight}
+        >
+          {line}
+        </SvgText>
+      ))}
+    </>
+  );
+}
+
 function AiDecision({ result }: { result: DemoResult }) {
   const highlights = result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors;
   if (!result.personaSummary && !highlights?.length && !result.aiTradeoff && !result.aiCrowdNote) {
@@ -1595,7 +1716,7 @@ function resultSourceNote(result: DemoResult, answerCount: number) {
   return `AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. ${answerCount}개 답변 기준 추천입니다.`;
 }
 
-async function saveResultCard(result: DemoResult, origin: Origin | null, answerCount: number): Promise<'saved' | 'shared'> {
+async function saveResultCard(result: DemoResult, origin: Origin | null, cardRef: Svg | null): Promise<'saved' | 'shared'> {
   const shareText = resultCardShareText(result, origin);
   const canSaveFile = isMinVersionSupported({
     android: '5.218.0',
@@ -1607,11 +1728,15 @@ async function saveResultCard(result: DemoResult, origin: Origin | null, answerC
     return 'shared';
   }
 
-  const svg = buildResultCardSvg(result, origin, answerCount);
+  if (cardRef == null) {
+    throw new Error('Result card renderer is not ready');
+  }
+
+  const pngBase64 = await captureResultCardPng(cardRef);
   await saveBase64Data({
-    data: encodeBase64Utf8(svg),
-    fileName: `wherego-${safeFileName(result.place)}.svg`,
-    mimeType: 'image/svg+xml',
+    data: pngBase64,
+    fileName: `wherego-${safeFileName(result.place)}.png`,
+    mimeType: 'image/png',
   });
   return 'saved';
 }
@@ -1634,59 +1759,43 @@ function resultCardShareText(result: DemoResult, origin: Origin | null) {
   ].join('\n');
 }
 
-function buildResultCardSvg(result: DemoResult, origin: Origin | null, answerCount: number) {
-  const width = 1080;
-  const height = 1350;
-  const titleLines = svgTextLines(result.place, 18, 2);
-  const personaLines = svgTextLines(result.persona, 24, 2);
-  const reasonLines = svgTextLines(result.reason, 30, 3);
-  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 38, 2);
-  const overviewLines = svgTextLines(result.overview || result.aiTradeoff || result.comfort, 34, 3);
-  const factors = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 3);
-  const factorLines = svgTextLines(factors.join(' · ') || overviewLines[0] || result.comfort, 35, 2);
+function captureResultCardPng(cardRef: Svg) {
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(new Error('Timed out while rendering result card image'));
+    }, 5000);
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <rect width="${width}" height="${height}" fill="#F5F7FA"/>
-  <rect x="64" y="64" width="952" height="1222" rx="48" fill="#FFFFFF"/>
-  <rect x="64" y="64" width="952" height="1222" rx="48" fill="none" stroke="#E5E8EB" stroke-width="2"/>
-  <rect x="64" y="64" width="952" height="330" rx="48" fill="#EAF3FF"/>
-  <circle cx="855" cy="185" r="92" fill="#FFE1A3"/>
-  <path d="M64 340 C210 244 327 298 438 238 C592 154 746 276 1016 172 L1016 394 L64 394 Z" fill="#B9E6CF"/>
-  <path d="M64 376 C232 298 352 352 500 300 C640 252 766 350 1016 268 L1016 394 L64 394 Z" fill="#86D1F2" opacity="0.72"/>
-  <text x="112" y="150" fill="#1E63D6" font-family="Arial, sans-serif" font-size="34" font-weight="800">어디고 추천 카드</text>
-  ${svgMultilineText(titleLines, 112, 234, 64, '#191F28', 800)}
-  ${svgMultilineText(personaLines, 112, 482, 34, '#1E63D6', 800)}
-  ${svgMultilineText(reasonLines, 112, 570, 36, '#4E5968', 700)}
-  <rect x="112" y="704" width="856" height="2" fill="#E5E8EB"/>
-  ${svgInfoRow('출발', origin?.label || '지역 미선택', 112, 764)}
-  ${svgInfoRow('지역', result.region, 112, 840)}
-  ${svgInfoRow('주소', result.address, 112, 916)}
-  ${svgInfoRow('이동', result.travel, 112, 992)}
-  ${svgInfoRow('방문 신호', result.signal, 112, 1068)}
-  <rect x="112" y="1112" width="856" height="112" rx="28" fill="#F9FAFB" stroke="#E5E8EB"/>
-  <text x="146" y="1160" fill="#1E63D6" font-family="Arial, sans-serif" font-size="27" font-weight="800">AI 선택 근거</text>
-  ${svgMultilineText(factorLines, 146, 1198, 29, '#191F28', 700)}
-  ${svgMultilineText(sourceLines, 112, 1262, 25, '#8B95A1', 700)}
-</svg>`;
-}
-
-function svgInfoRow(label: string, value: string, x: number, y: number) {
-  const lines = svgTextLines(value, 32, 2);
-  return `
-  <text x="${x}" y="${y}" fill="#8B95A1" font-family="Arial, sans-serif" font-size="27" font-weight="800">${escapeSvgText(label)}</text>
-  ${svgMultilineText(lines, x + 188, y, 31, '#191F28', 800)}`;
-}
-
-function svgMultilineText(lines: string[], x: number, y: number, lineHeight: number, color: string, weight: number) {
-  return lines
-    .map(
-      (line, index) =>
-        `<text x="${x}" y="${y + index * lineHeight}" fill="${color}" font-family="Arial, sans-serif" font-size="${Math.round(
-          lineHeight * 0.78,
-        )}" font-weight="${weight}">${escapeSvgText(line)}</text>`,
-    )
-    .join('\n  ');
+    try {
+      cardRef.toDataURL(
+        (base64) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(timeout);
+          const data = base64.replace(/^data:image\/png;base64,/, '');
+          if (!data) {
+            reject(new Error('Rendered result card image is empty'));
+            return;
+          }
+          resolve(data);
+        },
+        { width: RESULT_CARD_IMAGE_WIDTH, height: RESULT_CARD_IMAGE_HEIGHT },
+      );
+    } catch (error) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      reject(error);
+    }
+  });
 }
 
 function svgTextLines(text: string, maxChars: number, maxLines: number) {
@@ -1736,48 +1845,6 @@ function svgTextLines(text: string, maxChars: number, maxLines: number) {
     }
     return line.length > maxChars - 1 ? `${line.slice(0, maxChars - 1)}...` : line;
   });
-}
-
-function escapeSvgText(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-function encodeBase64Utf8(value: string) {
-  const bytes = utf8Bytes(value);
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let output = '';
-
-  for (let index = 0; index < bytes.length; index += 3) {
-    const first = bytes[index] ?? 0;
-    const second = bytes[index + 1];
-    const third = bytes[index + 2];
-    output += alphabet.charAt(first >> 2);
-    output += alphabet.charAt(((first & 3) << 4) | ((second ?? 0) >> 4));
-    output += second == null ? '=' : alphabet.charAt(((second & 15) << 2) | ((third ?? 0) >> 6));
-    output += third == null ? '=' : alphabet.charAt(third & 63);
-  }
-
-  return output;
-}
-
-function utf8Bytes(value: string) {
-  const encoded = encodeURIComponent(value);
-  const bytes: number[] = [];
-  for (let index = 0; index < encoded.length; index += 1) {
-    const char = encoded.charAt(index);
-    if (char === '%') {
-      bytes.push(Number.parseInt(encoded.slice(index + 1, index + 3), 16));
-      index += 2;
-    } else {
-      bytes.push(char.charCodeAt(0));
-    }
-  }
-  return bytes;
 }
 
 function safeFileName(value: string) {
@@ -1839,6 +1906,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     width: '100%',
   },
+  hiddenCardRenderer: {
+    height: RESULT_CARD_IMAGE_HEIGHT,
+    left: -RESULT_CARD_IMAGE_WIDTH - 100,
+    position: 'absolute',
+    top: 0,
+    width: RESULT_CARD_IMAGE_WIDTH,
+  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -1888,13 +1962,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 580,
     paddingBottom: 10,
-    paddingTop: 38,
+    paddingTop: 96,
   },
   introHero: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    paddingTop: 24,
+    paddingTop: 10,
   },
   panel: {
     ...cardBase,

@@ -14592,6 +14592,7 @@ __metadata:
     brick-module: "npm:0.5.2"
     react: "npm:19.2.3"
     react-native: "npm:0.84.0"
+    react-native-svg: "npm:15.15.3"
     typescript: "npm:5.9.3"
   languageName: unknown
   linkType: soft

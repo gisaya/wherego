@@ -155,7 +155,7 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        padding: 38px 0 10px;
+        padding: 96px 0 10px;
         animation: enter 260ms ease both;
       }
 
@@ -1830,17 +1830,45 @@
         document.getElementById("restartFlow").addEventListener("click", renderIntro);
       }
 
-      function saveMockResultCard(result) {
+      async function saveMockResultCard(result) {
         const svg = buildMockResultCardSvg(result);
-        const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
+        const pngBlob = await svgToPngBlob(svg, 1080, 1350);
+        const url = URL.createObjectURL(pngBlob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `wherego-${safeFileName(result.place)}.svg`;
+        link.download = `wherego-${safeFileName(result.place)}.png`;
         document.body.appendChild(link);
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      function svgToPngBlob(svg, width, height) {
+        return new Promise((resolve, reject) => {
+          const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+          const svgUrl = URL.createObjectURL(svgBlob);
+          const image = new Image();
+          image.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext("2d");
+            context.drawImage(image, 0, 0, width, height);
+            URL.revokeObjectURL(svgUrl);
+            canvas.toBlob((blob) => {
+              if (blob == null) {
+                reject(new Error("PNG 변환에 실패했어요."));
+                return;
+              }
+              resolve(blob);
+            }, "image/png");
+          };
+          image.onerror = () => {
+            URL.revokeObjectURL(svgUrl);
+            reject(new Error("카드 이미지를 만들지 못했어요."));
+          };
+          image.src = svgUrl;
+        });
       }
 
       function buildMockResultCardSvg(result) {
