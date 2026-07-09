@@ -131,6 +131,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-09 KST save check: terms-page build succeeded, `scripts/probe-question-bank-result.cjs` syntax check passed, generated question bank shape confirmed as 13 groups / 390 questions / 30 per group, and no 64-char hex secret pattern was found in commit candidates.
   - 2026-07-09 KST: Apps in Toss dependencies installed with committed Yarn 4 release/patches. `yarn typecheck` passed. `yarn build` produced local ignored artifact `wherego.ait` with deploymentId `019f4475-b925-7a22-bca3-fed52822aee1`. Terms-page build also passed.
   - 2026-07-09 KST save check: server-backed recommendation client, Apps in Toss rewarded ad integration, 15s recommendation fallback timeout, and first-screen copy update verified with `yarn typecheck`; `yarn build` produced ignored `wherego.ait` deploymentId `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
+  - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=gemini`, 3 places, first place `국립중앙박물관 전통염료식물원`.
 
 ## Current Question/API Work
 
@@ -205,8 +206,7 @@ Required Render env additions:
 
 ## Next Recommended Steps
 
-1. After pushing the `jbg` server commit, wait for Render to deploy and smoke test `POST https://jbg.onrender.com/api/wherego/recommend`.
-2. Confirm Render uses `GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`; if the env was entered as `gemini-3.1-flash-light`, fix it before judging Gemini failures.
-3. Wire real card capture/save behavior.
-4. Review the React Native UI against TDS requirements and replace custom primitives where needed.
-5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.
+1. Test the live Apps in Toss app flow against the Render recommendation endpoint.
+2. Wire real card capture/save behavior.
+3. Review the React Native UI against TDS requirements and replace custom primitives where needed.
+4. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.

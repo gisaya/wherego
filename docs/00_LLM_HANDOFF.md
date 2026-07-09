@@ -96,6 +96,7 @@
   - 2026-07-09 KST: 질문 카드 목업에서 2지선다/4지선다, 배너 광고 영역, 리워드 게이트, 결과 카드 흐름 확인.
   - 2026-07-09 KST: `yarn install`, `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 생성 확인. 최신 deploymentId는 `019f4475-b925-7a22-bca3-fed52822aee1`. 산출물은 Git 제외.
   - 2026-07-09 KST 저장 검증: `yarn typecheck`, `yarn build` 성공. 추천 API client, 리워드 광고 ID `ait.v2.live.7f9040b7cff746c5`, 15초 fallback timeout, 첫 화면 문구 변경 확인. 최신 build deploymentId는 `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
+  - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`, `/api/wherego/recommend` HTTP 200, `source.planner=gemini`, 추천 3개, 첫 추천 `국립중앙박물관 전통염료식물원`.
 
 ## 운영 규칙
 
@@ -106,8 +107,7 @@
 
 ## 남은 우선순위
 
-1. `jbg` 서버 커밋 push 후 Render 배포가 끝나면 `/api/wherego/recommend` 원격 smoke test.
-2. Render의 `GEMINI_WHEREGO_MODEL`이 `gemini-3.1-flash-lite`인지 확인. `light`로 들어갔으면 수정.
-3. 카드 저장, 결과 카드 캡처 연결.
-4. TDS 기준 UI 점검 및 컴포넌트 정리.
-5. Vercel GitHub 자동 배포 연결.
+1. 실제 Apps in Toss 앱에서 Render 추천 API 연동 흐름 테스트.
+2. 카드 저장, 결과 카드 캡처 연결.
+3. TDS 기준 UI 점검 및 컴포넌트 정리.
+4. Vercel GitHub 자동 배포 연결.
