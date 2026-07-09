@@ -10,7 +10,7 @@ export default defineConfig({
       brand: {
         displayName: '어디고',
         primaryColor: '#2B84FC',
-        icon: '',
+        icon: 'https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png',
       },
       permissions: [
         {

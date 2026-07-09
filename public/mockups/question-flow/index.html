@@ -6,12 +6,13 @@
     <title>어디고 질문 플로우 목업</title>
     <style>
       :root {
-        --bg: #eef3ff;
+        --bg: #f5f7fa;
         --surface: #ffffff;
-        --surface-soft: #f6f8ff;
-        --ink: #202438;
-        --muted: #67708a;
-        --line: #e3e8f7;
+        --surface-soft: #f9fafb;
+        --ink: #191f28;
+        --muted: #4e5968;
+        --assistive: #8b95a1;
+        --line: #e5e8eb;
         --blue: #2b84fc;
         --blue-dark: #1e63d6;
         --mint: #54cca6;
@@ -153,8 +154,8 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        padding-bottom: 0;
+        justify-content: space-between;
+        padding: 38px 0 10px;
         animation: enter 260ms ease both;
       }
 
@@ -167,11 +168,28 @@
       }
 
       .intro-logo {
-        width: 124px;
-        height: 124px;
-        margin-bottom: 20px;
-        border-radius: 24px;
+        width: 108px;
+        height: 108px;
+        border-radius: 28px;
         object-fit: contain;
+      }
+
+      .intro-logo-frame {
+        width: 132px;
+        height: 132px;
+        margin-bottom: 14px;
+        border-radius: 32px;
+        background: #fff;
+        display: grid;
+        place-items: center;
+      }
+
+      .intro-brand {
+        margin: 0 0 14px;
+        color: #191f28;
+        font-size: 30px;
+        line-height: 1.2;
+        font-weight: 800;
       }
 
       .intro-badge {
@@ -183,21 +201,22 @@
         background: rgba(43, 132, 252, 0.1);
         color: var(--blue-dark);
         font-size: 13px;
-        font-weight: 900;
+        font-weight: 800;
       }
 
       .intro-title {
-        margin: 18px 0 12px;
-        font-size: 34px;
-        line-height: 1.12;
-        font-weight: 950;
+        margin: 16px 0 12px;
+        color: #191f28;
+        font-size: 27px;
+        line-height: 1.22;
+        font-weight: 800;
         letter-spacing: 0;
         text-align: center;
         word-break: keep-all;
       }
 
       .intro-copy {
-        margin: 0 0 22px;
+        margin: 0;
         color: var(--muted);
         font-size: 16px;
         line-height: 1.5;
@@ -224,9 +243,9 @@
 
       .location-title {
         margin: 12px 0 8px;
-        font-size: 29px;
+        font-size: 26px;
         line-height: 1.14;
-        font-weight: 950;
+        font-weight: 800;
         letter-spacing: 0;
         word-break: keep-all;
       }
@@ -257,8 +276,8 @@
         width: 100%;
         min-height: 52px;
         border: 1px solid var(--line);
-        border-radius: 16px;
-        background: var(--surface-soft);
+        border-radius: 14px;
+        background: var(--surface);
         color: var(--ink);
         font-size: 16px;
         font-weight: 850;
@@ -274,8 +293,8 @@
       .region-option {
         min-height: 62px;
         border: 1px solid var(--line);
-        border-radius: 16px;
-        background: linear-gradient(135deg, #ffffff, #f6f8ff);
+        border-radius: 14px;
+        background: #f9fafb;
         color: var(--ink);
         text-align: left;
         padding: 11px;
@@ -285,13 +304,13 @@
       .region-name {
         display: block;
         font-size: 15px;
-        font-weight: 900;
+        font-weight: 800;
       }
 
       .region-desc {
         display: block;
         margin-top: 3px;
-        color: var(--muted);
+        color: #6b7684;
         font-size: 12px;
         font-weight: 750;
       }
@@ -302,7 +321,7 @@
         z-index: 20;
         display: flex;
         align-items: flex-end;
-        padding: 18px;
+        padding-top: 80px;
         background: rgba(21, 28, 49, 0.42);
         animation: modalFade 180ms ease both;
       }
@@ -322,8 +341,8 @@
         max-height: 82%;
         display: flex;
         flex-direction: column;
-        border-radius: 24px;
-        padding: 10px 14px 16px;
+        border-radius: 24px 24px 0 0;
+        padding: 10px 20px 22px;
         background: var(--surface);
         box-shadow: 0 22px 56px rgba(21, 28, 49, 0.28);
         animation: sheetUp 220ms ease both;
@@ -349,12 +368,12 @@
         margin: 0;
         font-size: 22px;
         line-height: 1.18;
-        font-weight: 950;
+        font-weight: 800;
       }
 
       .region-sheet-copy {
         margin: 5px 0 0;
-        color: var(--muted);
+        color: #6b7684;
         font-size: 13px;
         line-height: 1.45;
         font-weight: 700;
@@ -364,12 +383,12 @@
         flex: 0 0 auto;
         min-width: 46px;
         height: 38px;
-        border: 1px solid var(--line);
+        border: 0;
         border-radius: 999px;
-        background: var(--surface-soft);
-        color: var(--muted);
+        background: transparent;
+        color: #6b7684;
         font-size: 12px;
-        font-weight: 900;
+        font-weight: 800;
         cursor: pointer;
       }
 
@@ -409,7 +428,7 @@
         background: rgba(43, 132, 252, 0.1);
         color: var(--blue-dark);
         font-size: 12px;
-        font-weight: 900;
+        font-weight: 800;
       }
 
       .question-view.exit {
@@ -446,7 +465,7 @@
         margin: 0 2px;
         font-size: clamp(22px, 6.4vw, 29px);
         line-height: 1.16;
-        font-weight: 900;
+        font-weight: 800;
         letter-spacing: 0;
         word-break: keep-all;
       }
@@ -462,30 +481,28 @@
       }
 
       .options {
-        flex: 1 1 auto;
-        min-height: 0;
+        flex: 0 0 auto;
         display: grid;
-        gap: 12px;
+        gap: 10px;
+        margin-top: 10px;
       }
 
       .options.two {
-        grid-template-columns: 1fr;
-        grid-template-rows: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: 156px;
       }
 
       .options.four {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-rows: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 126px);
       }
 
       .option {
         min-height: 0;
-        border: 1px solid rgba(255, 255, 255, 0.78);
-        border-radius: 24px;
-        padding: 16px;
-        background:
-          radial-gradient(circle at 82% 15%, rgba(255, 255, 255, 0.68), transparent 34%),
-          linear-gradient(135deg, var(--card-a), var(--card-b));
+        border: 1px solid var(--card-line);
+        border-radius: 18px;
+        padding: 14px;
+        background: var(--card-bg);
         color: var(--ink);
         text-align: left;
         display: flex;
@@ -494,7 +511,7 @@
         gap: 12px;
         overflow: hidden;
         position: relative;
-        box-shadow: 0 13px 26px rgba(31, 45, 82, 0.11);
+        box-shadow: none;
         cursor: pointer;
         transition:
           transform 160ms ease,
@@ -505,29 +522,29 @@
 
       .option:hover,
       .option:focus-visible {
-        border-color: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 18px 34px rgba(43, 132, 252, 0.18);
+        border-color: rgba(43, 132, 252, 0.42);
+        box-shadow: 0 8px 18px rgba(25, 31, 40, 0.08);
         outline: none;
-        transform: translateY(-3px);
+        transform: translateY(-1px);
       }
 
       .option.selected {
-        border-color: rgba(255, 255, 255, 0.98);
+        border-color: rgba(43, 132, 252, 0.64);
         box-shadow:
           0 0 0 4px rgba(43, 132, 252, 0.2),
-          0 18px 34px rgba(43, 132, 252, 0.22);
+          0 8px 18px rgba(25, 31, 40, 0.08);
         transform: scale(0.985);
       }
 
       .option::after {
         content: "";
         position: absolute;
-        right: -42px;
-        bottom: -52px;
-        width: 170px;
-        height: 170px;
+        left: 14px;
+        top: 14px;
+        width: 34px;
+        height: 7px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.28);
+        background: var(--card-accent);
       }
 
       .option-index {
@@ -540,9 +557,9 @@
         background: rgba(255, 255, 255, 0.72);
         display: grid;
         place-items: center;
-        color: rgba(32, 36, 56, 0.78);
+        color: #4e5968;
         font-size: 13px;
-        font-weight: 900;
+        font-weight: 800;
       }
 
       .option-copy {
@@ -553,9 +570,9 @@
 
       .option-label {
         display: block;
-        font-size: clamp(21px, 6.1vw, 28px);
-        line-height: 1.12;
-        font-weight: 950;
+        font-size: clamp(19px, 5.6vw, 26px);
+        line-height: 1.22;
+        font-weight: 800;
         letter-spacing: 0;
         word-break: keep-all;
       }
@@ -603,7 +620,7 @@
       }
 
       .reward-panel {
-        border-radius: 24px;
+        border-radius: 16px;
         background: var(--surface);
         padding: 22px;
         text-align: center;
@@ -624,7 +641,7 @@
         margin: 0;
         font-size: 28px;
         line-height: 1.18;
-        font-weight: 900;
+        font-weight: 800;
       }
 
       .reward-copy {
@@ -683,7 +700,7 @@
       .ad-message {
         font-size: 25px;
         line-height: 1.25;
-        font-weight: 900;
+        font-weight: 800;
       }
 
       .countdown {
@@ -726,14 +743,14 @@
         margin: 0;
         color: var(--blue-dark);
         font-size: 13px;
-        font-weight: 900;
+        font-weight: 800;
       }
 
       .place {
         margin: 5px 0 8px;
-        font-size: 28px;
+        font-size: 27px;
         line-height: 1.16;
-        font-weight: 950;
+        font-weight: 800;
       }
 
       .reason {
@@ -756,7 +773,7 @@
         margin: 0 0 5px;
         color: var(--blue-dark);
         font-size: 12px;
-        font-weight: 950;
+        font-weight: 800;
       }
 
       .ai-decision-text,
@@ -934,10 +951,10 @@
 
     <script>
       const cardPalettes = [
-        ["#ffffff", "#dceaff"],
-        ["#fff7db", "#e4f8ef"],
-        ["#f0eaff", "#dff7ff"],
-        ["#ffe8ef", "#eef2ff"],
+        { bg: "#eaf3ff", line: "#b8d8ff", accent: "#2b84fc" },
+        { bg: "#eaf8f1", line: "#b9e6cf", accent: "#00a667" },
+        { bg: "#fff6df", line: "#ffe1a3", accent: "#f6a600" },
+        { bg: "#f4f0ff", line: "#d7cbff", accent: "#7c5cff" },
       ];
 
       const sourceQuestionPool = [
@@ -1466,6 +1483,7 @@
       }
 
       function renderIntro() {
+        document.querySelector(".topbar").style.display = "none";
         counter.textContent = "";
         progress.style.visibility = "hidden";
         progressFill.style.width = "0%";
@@ -1478,12 +1496,11 @@
         stage.innerHTML = `
           <div class="intro-view">
             <div class="intro-panel">
-              <img class="intro-logo" src="../../assets/logo.png" alt="어디고 로고" />
               <span class="intro-badge">한국관광공사 관광정보 기반</span>
               <h1 class="intro-title">AI가 오늘 갈 만한 여행지를 골라드려요.</h1>
               <p class="intro-copy">관광정보와 방문자수를 바탕으로 추천합니다.</p>
-              <button class="primary" type="button" id="startFlow">시작하기</button>
             </div>
+            <button class="primary" type="button" id="startFlow">시작하기</button>
           </div>
         `;
         document.getElementById("startFlow").addEventListener("click", () => {
@@ -1492,6 +1509,7 @@
       }
 
       function renderLocationChoice(message = "") {
+        document.querySelector(".topbar").style.display = "none";
         counter.textContent = "출발 기준";
         progress.style.visibility = "hidden";
         progressFill.style.width = "0%";
@@ -1596,6 +1614,7 @@
       function renderQuestion(animate = true) {
         if (!questions.length) questions = buildQuestionSet();
         const item = questions[index];
+        document.querySelector(".topbar").style.display = "flex";
         stage.classList.remove("no-bottom-ad");
         progress.style.visibility = "visible";
         bannerAd.style.display = "flex";
@@ -1609,14 +1628,14 @@
             <h1 class="question">${item.question}</h1>
             <p class="subcopy">${item.subcopy}</p>
             <div class="options ${item.layout}">
-              ${item.options
+      ${item.options
                 .map(
                   (option, optionIndex) => `
                     <button
                       class="option"
                       type="button"
                       data-option="${optionIndex}"
-                      style="--card-a: ${cardPalettes[optionIndex % cardPalettes.length][0]}; --card-b: ${cardPalettes[optionIndex % cardPalettes.length][1]};"
+                      style="--card-bg: ${cardPalettes[optionIndex % cardPalettes.length].bg}; --card-line: ${cardPalettes[optionIndex % cardPalettes.length].line}; --card-accent: ${cardPalettes[optionIndex % cardPalettes.length].accent};"
                     >
                       <span class="option-index">${optionIndex + 1}</span>
                       <span class="option-copy">

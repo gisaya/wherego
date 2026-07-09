@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config';
 
-const RECOMMENDATION_TIMEOUT_MS = 15000;
+const RECOMMENDATION_TIMEOUT_MS = 45000;
 
 export type WheregoRecommendOrigin = {
   type: 'current_location' | 'selected_region';

@@ -110,9 +110,9 @@ scripts/ait-build.ps1
 Submission-sensitive config:
 
 - `granite.config.ts` uses Apps in Toss `geolocation` permission and navigation-bar back/home buttons.
-- `brand.icon` is currently empty so the app does not depend on Vercel for logo hosting.
-- Before launch submission, confirm Apps in Toss Console logo/thumbnail handling. If the console provides or requires a logo URL, set that official URL in `brand.icon`.
-- The main UI uses `@toss/tds-react-native` through `TDSProvider`, TDS `Text`, TDS `Button`, and `PressableEffect`.
+- `brand.icon` uses the Toss static logo URL: `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`.
+- Before launch submission, confirm in Apps in Toss Console/device preview that the navigation logo and console logo/thumbnail match the intended assets.
+- The main UI uses `@toss/tds-react-native` through `TDSProvider`, TDS `Text`, and TDS `Button`. Selection and region cards use React Native `Pressable` with stable card dimensions.
 - Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
 
 Rewarded ad:
@@ -193,7 +193,7 @@ Quota/runtime behavior:
 - A single KTO search timeout is skipped if other search calls return candidates.
 - `detailImage2` is disabled by default; use search/detail common image fields first.
 - KTO search responses are cached in server memory for 6 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.
-- The Apps in Toss client waits up to 15 seconds for the recommendation API, then falls back to the local demo recommendation.
+- The Apps in Toss client waits up to 45 seconds for the recommendation API, then falls back to the local demo recommendation. Fallback results are labeled as temporary in the result card.
 
 Server route smoke checks:
 

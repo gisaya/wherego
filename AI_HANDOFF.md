@@ -19,8 +19,8 @@ Core flow:
 - Regional crowd signal direction: 한국관광공사 빅데이터 지역별 방문자수_GW API.
 - Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
 - TMAP congestion API is not part of the MVP because of cost.
-- AI direction: Gemini Flash-Lite with function calling for search planning, persona copy, and result-card copy. Do not put AI API keys in the client.
-- Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. The main app is wrapped in TDS and uses TDS `Text`, `Button`, and `PressableEffect` for primary visible controls. Real-device visual QA is still required before submission.
+- AI direction: Gemini Flash-Lite runs on the Render backend as the final curator. The server builds the search plan from selected-answer metadata first, compresses KTO candidates to five or fewer, then asks Gemini to choose one place and write persona/result-card copy. Do not put AI API keys in the client.
+- Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. The main app is wrapped in TDS and uses TDS `Text`/`Button`; selection and region cards use React Native `Pressable` with stable card sizing. Real-device visual QA is still required before submission.
 - Question flow: required 3 questions plus random 5 questions. Random questions must include `crowd` and one of `mobility`/`accessibility`, then fill the remaining three from different tag groups.
 - Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, 15 minutes of drive-time buffer, and 10km of distance buffer.
 - Map opening direction: use Naver Map web search links for the MVP, opened through `openURL`. No Naver Maps API key is needed unless embedding maps or calculating route/time data inside the app.
@@ -43,7 +43,7 @@ Granite/Apps in Toss build scaffold was added from the `뭐샀지` (`toss_tomato
 
 Current app flow in `pages/index.tsx`:
 
-- intro screen with `어디고` logo
+- intro screen with 한국관광공사 관광정보 기반 copy and a start CTA; the top app logo is intentionally omitted from the first viewport
 - origin choice: current location via `useGeolocation` only after the user taps the current-location CTA, or selected region fallback
 - question flow: 3 required source questions plus 5 random general questions
 - Apps in Toss inline banner ad during questions
@@ -62,7 +62,7 @@ Rewarded ad:
 
 - `appName: wherego`
 - display name `어디고`
-- `brand.icon` is intentionally empty so Vercel is not used as a logo host. The Apps in Toss UI/UX guide expects the icon to match the logo URL configured in the console, so a console-hosted logo URL or console-only confirmation must be resolved before launch submission.
+- `brand.icon` uses the Toss-hosted logo URL supplied during UI review: `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`.
 - `geolocation` permission
 - Apps in Toss navigation bar with back/home buttons
 
@@ -138,8 +138,11 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=gemini`, 3 places, first place `국립중앙박물관 전통염료식물원`.
   - 2026-07-09 KST save check: Wherego frontend typecheck and `yarn build` passed; ignored AIT artifact deploymentId `019f45b7-4889-72c6-ac16-3d27c8c1336b`. Backend Wherego route tests passed with FastAPI stub; backend `py_compile` passed. Real KTO random-flow probes confirmed source 3 + general 5 answers can collect candidates and compress them to five or fewer. Nationwide search now uses keyword-only KTO calls, keeps long-distance options possible, and skips single KTO timeouts when other calls succeed.
   - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=metadata`, `source.curator=gemini`, 1 place, first place `서울어린이대공원`, and Naver map link present.
-  - 2026-07-09 KST Apps in Toss guideline recheck: MCP transport closed, so official developer docs were checked directly. Non-game/TDS, location permission timing, banner/reward ad placement, build/deploy, and brand icon requirements were reviewed. Code now uses TDS primitives, requests location only after CTA tap, keeps the banner at 100% x 96, and keeps Vercel terms-only. `brand.icon` remains the launch blocker because the final Apps in Toss Console logo URL is not available yet.
+  - 2026-07-09 KST Apps in Toss guideline recheck: MCP transport closed, so official developer docs were checked directly. Non-game/TDS, location permission timing, banner/reward ad placement, build/deploy, and brand icon requirements were reviewed. Code uses TDS primitives where practical, requests location only after CTA tap, keeps the banner at 100% x 96, and keeps Vercel terms-only.
   - 2026-07-09 KST save check: terms-page build, `yarn typecheck`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f45e3-a0de-7e80-a3f8-464868942345`.
+  - 2026-07-09 KST live recommendation check: Render `POST /api/wherego/recommend` returned HTTP 200 in 2.57s with `source.planner=metadata`, `source.curator=gemini`, `source.kto=KorService2`, `source.crowd=DataLabService locgoRegnVisitrDDList`, selected `우면산자연생태공원`, and an image URL present.
+  - 2026-07-09 KST KTO image check for `일월수목원`: `searchKeyword2` returned `firstimage`, while `detailCommon2` and `detailImage2` returned no image. Keep using search-result image fallback for this place.
+  - 2026-07-09 KST save check: `yarn typecheck` passed and `yarn build` passed with ignored AIT artifact deploymentId `019f460a-8635-7ca9-897a-8df0d676cf9d`.
 
 ## Current Question/API Work
 
@@ -151,6 +154,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 - `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, min/max distance and time filtering, region-scope search, parking filtering, and DataLab crowd labeling.
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
 - `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad position, rewarded-ad gate, Naver Map link, and result card with tourism info.
+- Latest app UI pass: first screen hides the top nav/header and top logo, origin screen hides the header copy, origin CTAs are spaced apart, question cards are compact 2-column pastel cards for both 2-choice and 4-choice layouts, and result fallback copy is explicitly marked as temporary when the server recommendation fails.
 
 Latest known probe result with the default Seoul City Hall test origin:
 
@@ -169,8 +173,9 @@ Latest known probe result with the default Seoul City Hall test origin:
 - Apps in Toss UI now calls the `jbg` Render-backed recommendation API and falls back to demo recommendation data when the server is unavailable or slow.
 - KTO `searchKeyword2` can intermittently time out on some nationwide keyword calls; the server now skips single failed search calls, but live monitoring should watch empty-candidate rates.
 - Card-save button is still a placeholder in the first buildable app.
-- `brand.icon` is currently empty. The build passes, but launch submission should not proceed until Apps in Toss Console logo/thumbnail handling is confirmed and, if required, the console logo URL is entered in `granite.config.ts`.
+- `brand.icon` now uses the Toss static logo URL supplied by the user. Still confirm in the Apps in Toss Console/device preview that the same icon appears in the Toss navigation surface before launch submission.
 - The UI is now TDS-based, but the final pass still needs a real Toss app device check for typography, hit areas, ad rendering, and permission prompts.
+- The fallback/demo recommendation can still appear if the server/API/Gemini request exceeds the client timeout or fails. The UI now labels fallback results as temporary and prevents entering the result while recommendation status is still loading.
 
 ## Current Server Direction
 
@@ -193,7 +198,7 @@ Quota/runtime guardrails:
 - Single KTO search timeouts/errors are skipped when other calls return candidates; the request only fails if every search call fails or no fallback candidate can be built.
 - `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false` skips the extra `detailImage2` call unless explicitly enabled.
 - The server keeps an in-memory KTO response cache: search 6h, detail 7d, DataLab 24h by default.
-- `src/api/wheregoApi.ts` times out recommendation requests after 15s so the app can fall back quickly.
+- `src/api/wheregoApi.ts` times out recommendation requests after 45s. This reduces false fallback on Render cold starts or slow Gemini/KTO calls while still keeping a bounded wait.
 
 Required Render env additions:
 
@@ -221,8 +226,8 @@ Required Render env additions:
 
 ## Next Recommended Steps
 
-1. Resolve Apps in Toss Console logo/thumbnail handling: either add the official console logo URL to `granite.config.ts` or confirm that console-only asset handling is accepted.
-2. Test the live Apps in Toss app flow on device: location permission, region fallback, banner ad, rewarded ad, result rendering, card-save placeholder, and Naver Map open.
-3. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
-4. Decide whether the card-save placeholder is acceptable for first submission; otherwise wire result-card capture/save before submission.
+1. Test the live Apps in Toss app flow on device: logo in navigation, location permission, region fallback, banner ad, rewarded ad, result rendering, fallback labeling, and Naver Map open.
+2. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
+3. Decide whether the card-save placeholder is acceptable for first submission; otherwise wire result-card capture/save before submission.
+4. Watch Render recommendation latency and fallback rate after the 45s timeout change; if response time is still unstable, add server-side prewarming or tighter KTO/Gemini timeout tuning.
 5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.

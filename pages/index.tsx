@@ -1,6 +1,6 @@
 import { Accuracy, InlineAd, loadFullScreenAd, showFullScreenAd, useGeolocation } from '@apps-in-toss/framework';
 import { createRoute, openURL } from '@granite-js/react-native';
-import { Button as TDSButton, PressableEffect, TDSProvider, Text } from '@toss/tds-react-native';
+import { Button as TDSButton, TDSProvider, Text } from '@toss/tds-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Image,
@@ -104,6 +104,7 @@ type DemoResult = {
   overview?: string;
   imageUrl?: string;
   mapLink?: string;
+  isFallback?: boolean;
 };
 
 const sourceQuestionPool: Question[] = [
@@ -550,6 +551,7 @@ const demoResultsByRegion: Record<string, DemoResult> = {
     travel: '서울/수도권 기준 약 1시간 내외',
     signal: '지역 방문자수 보통 · 오전 추천',
     comfort: '가벼운 산책, 그늘, 주차 정보 확인',
+    imageUrl: 'http://tong.visitkorea.or.kr/cms/resource/21/3386921_image2_1.JPG',
   },
   '경기 남부': {
     persona: '가까운 숲길을 고르는 여유형 드라이버',
@@ -560,6 +562,7 @@ const demoResultsByRegion: Record<string, DemoResult> = {
     travel: '경기 남부 기준 짧은 이동',
     signal: '지역 방문자수 보통 · 오전 추천',
     comfort: '평지 산책, 그늘, 가족 동선 확인',
+    imageUrl: 'http://tong.visitkorea.or.kr/cms/resource/21/3386921_image2_1.JPG',
   },
   '경기 북부': {
     persona: '사진과 산책을 같이 챙기는 근교 탐색가',
@@ -916,7 +919,9 @@ function Index() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.phone}>
-            <Header counter={step === 'question' ? `${questionIndex + 1} / ${questionSet.length}` : headerLabel(step)} />
+            {step !== 'intro' && step !== 'origin' ? (
+              <Header counter={step === 'question' ? `${questionIndex + 1} / ${questionSet.length}` : headerLabel(step)} />
+            ) : null}
             {step === 'question' ? <ProgressBar progress={progress} /> : null}
             {step === 'intro' ? <IntroScreen onStart={() => setStep('origin')} /> : null}
             {step === 'origin' ? (
@@ -937,6 +942,7 @@ function Index() {
             {step === 'rewardGate' ? (
               <RewardGate
                 message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
+                recommendationStatus={recommendationStatus}
                 status={rewardAdStatus}
                 onWatchAd={showRewardAd}
               />
@@ -993,12 +999,13 @@ function Header({ counter }: { counter: string }) {
 
 function IntroScreen({ onStart }: { onStart: () => void }) {
   return (
-    <View style={styles.centerScreen}>
+    <View style={styles.introScreen}>
       <View style={styles.introHero}>
-        <Image source={logoImage} style={styles.introLogo} />
         <Pill label="한국관광공사 관광정보 기반" />
         <Text style={styles.introTitle}>AI가 오늘 갈 만한 여행지를 골라드려요.</Text>
         <Text style={styles.introCopy}>관광정보와 방문자수를 바탕으로 추천합니다.</Text>
+      </View>
+      <View style={styles.introActions}>
         <PrimaryButton label="시작하기" onPress={onStart} />
       </View>
     </View>
@@ -1037,7 +1044,11 @@ function OriginScreen({
             label={waitingForLocation ? '위치 확인 중' : '현재 위치로 추천'}
             onPress={onUseCurrentLocation}
           />
-          <SecondaryButton label="지역 선택으로 시작" onPress={() => setIsRegionModalOpen(true)} />
+          <SecondaryButton
+            label="지역 선택으로 시작"
+            onPress={() => setIsRegionModalOpen(true)}
+            viewStyle={styles.originSecondaryButton}
+          />
         </View>
         <Text style={styles.statusText}>
           {locationStatus || '현재 위치 권한은 버튼을 누른 뒤에만 요청돼요.'}
@@ -1079,18 +1090,22 @@ function RegionPickerModal({
               style="weak"
               type="light"
               viewStyle={styles.regionCloseButton}
-              containerStyle={styles.regionCloseButtonContainer}
-              textStyle={styles.regionCloseText}
             >
               닫기
             </TDSButton>
           </View>
           <ScrollView contentContainerStyle={styles.regionGrid} showsVerticalScrollIndicator={false}>
             {regionOptions.map((region) => (
-              <PressableEffect key={region.label} style={styles.regionButton} onPress={() => onSelectRegion(region)}>
+              <Pressable
+                accessibilityLabel={`${region.label}, ${region.description}`}
+                accessibilityRole="button"
+                key={region.label}
+                style={({ pressed }) => [styles.regionButton, pressed ? styles.cardPressed : null]}
+                onPress={() => onSelectRegion(region)}
+              >
                 <Text style={styles.regionName}>{region.label}</Text>
                 <Text style={styles.regionDesc}>{region.description}</Text>
-              </PressableEffect>
+              </Pressable>
             ))}
           </ScrollView>
         </View>
@@ -1140,27 +1155,44 @@ function OptionCard({
   onPress: () => void;
   option: Option;
 }) {
+  const toneStyle = optionToneStyles[(number - 1) % optionToneStyles.length];
+  const accentStyle = optionAccentStyles[(number - 1) % optionAccentStyles.length];
+
   return (
-    <PressableEffect style={[styles.optionCard, layout === 'four' ? styles.optionCardGrid : styles.optionCardStack]} onPress={onPress}>
+    <Pressable
+      accessibilityLabel={`${number}번 선택지, ${option.label}, ${option.caption}`}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.optionCard,
+        toneStyle,
+        layout === 'four' ? styles.optionCardGrid : styles.optionCardStack,
+        pressed ? styles.cardPressed : null,
+      ]}
+      onPress={onPress}
+    >
+      <View style={[styles.optionAccent, accentStyle]} />
       <Text style={styles.optionIndex}>{number}</Text>
       <View style={styles.optionTextBox}>
         <Text style={styles.optionLabel}>{option.label}</Text>
         <Text style={styles.optionCaption}>{option.caption}</Text>
       </View>
-    </PressableEffect>
+    </Pressable>
   );
 }
 
 function RewardGate({
   message,
   onWatchAd,
+  recommendationStatus,
   status,
 }: {
   message: string;
   onWatchAd: () => void;
+  recommendationStatus: RecommendationStatus;
   status: RewardAdStatus;
 }) {
-  const isButtonDisabled = status === 'loading' || status === 'showing';
+  const isRecommendationLoading = recommendationStatus === 'loading';
+  const isButtonDisabled = isRecommendationLoading || status === 'loading' || status === 'showing';
 
   return (
     <View style={styles.centerScreen}>
@@ -1171,7 +1203,7 @@ function RewardGate({
         {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
         <PrimaryButton
           disabled={isButtonDisabled}
-          label={rewardButtonLabel(status)}
+          label={isRecommendationLoading ? '추천 준비 중' : rewardButtonLabel(status)}
           onPress={onWatchAd}
         />
       </View>
@@ -1222,9 +1254,7 @@ function ResultScreen({
             <InfoRow label="방문 신호" value={result.signal} />
             <InfoRow label="편의" value={result.comfort} />
           </View>
-          <Text style={styles.sourceNote}>
-            AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. {answerCount}개 답변 기준 추천입니다.
-          </Text>
+          <Text style={styles.sourceNote}>{resultSourceNote(result, answerCount)}</Text>
           <View style={styles.resultActions}>
             <SecondaryButton grow label="카드 저장하기" onPress={onSave} />
             <SecondaryButton grow label="지도 열기" onPress={onMap} />
@@ -1299,8 +1329,6 @@ function PrimaryButton({
       size="big"
       type="primary"
       viewStyle={[styles.primaryButton, disabled ? styles.disabledButton : null]}
-      containerStyle={styles.primaryButtonContainer}
-      textStyle={styles.primaryButtonText}
     >
       {label}
     </TDSButton>
@@ -1326,8 +1354,6 @@ function SecondaryButton({
       style="weak"
       type="light"
       viewStyle={[styles.secondaryButton, grow ? styles.secondaryButtonGrow : null, viewStyle]}
-      containerStyle={styles.secondaryButtonContainer}
-      textStyle={styles.secondaryButtonText}
     >
       {label}
     </TDSButton>
@@ -1421,6 +1447,7 @@ function getDemoResult(nextOrigin: Origin | null) {
   const result = demoResultsByRegion[regionLabel || '서울/수도권'] ?? fallback;
   return {
     ...result,
+    isFallback: true,
     personaSummary: result.personaSummary || '답변에서 반복된 이동 거리, 동행, 분위기 조건을 함께 본 결과입니다.',
     aiFactors: result.aiFactors || ['답변 취향', '이동 부담', '방문자수 신호', '편의 정보'],
     aiTradeoff: result.aiTradeoff || '유명도보다 오늘 조건에 맞는 체류 편안함을 우선했습니다.',
@@ -1458,6 +1485,7 @@ function resultFromRecommendation(
     whyThisPlace: place.whyThisPlace,
     overview: place.overview,
     imageUrl: place.imageUrl,
+    isFallback: false,
     mapLink: place.mapLink,
   };
 }
@@ -1510,6 +1538,14 @@ function rewardGateMessage(adMessage: string, status: RecommendationStatus) {
   return [recommendationMessage, adMessage].filter(Boolean).join('\n');
 }
 
+function resultSourceNote(result: DemoResult, answerCount: number) {
+  if (result.isFallback) {
+    return '서버 추천이 지연되어 임시 추천을 보여주고 있어요. 다시 시도하면 AI가 관광정보와 방문자수 데이터를 비교해 추천합니다.';
+  }
+
+  return `AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. ${answerCount}개 답변 기준 추천입니다.`;
+}
+
 function naverSearchLink(keyword: string) {
   return `https://map.naver.com/p/search/${encodeURIComponent(keyword)}`;
 }
@@ -1543,24 +1579,26 @@ function headerLabel(step: Step) {
 
 const cardBase: ViewStyle = {
   backgroundColor: '#FFFFFF',
-  borderColor: '#E3E8F7',
-  borderRadius: 22,
+  borderColor: '#E5E8EB',
+  borderRadius: 14,
   borderWidth: 1,
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#EEF3FF',
+    backgroundColor: '#F5F7FA',
   },
   scrollContent: {
     flexGrow: 1,
-    backgroundColor: '#EEF3FF',
+    backgroundColor: '#F5F7FA',
   },
   phone: {
     flex: 1,
-    minHeight: 720,
-    padding: 18,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    width: '100%',
   },
   header: {
     alignItems: 'center',
@@ -1579,17 +1617,17 @@ const styles = StyleSheet.create({
     width: 30,
   },
   brandName: {
-    color: '#202438',
+    color: '#191F28',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   counter: {
-    color: '#67708A',
+    color: '#8B95A1',
     fontSize: 13,
     fontWeight: '800',
   },
   progressTrack: {
-    backgroundColor: '#DFE6FB',
+    backgroundColor: '#E5E8EB',
     borderRadius: 999,
     height: 8,
     marginBottom: 16,
@@ -1604,27 +1642,29 @@ const styles = StyleSheet.create({
   centerScreen: {
     flex: 1,
     justifyContent: 'center',
-    minHeight: 590,
+    minHeight: 520,
+  },
+  introScreen: {
+    flex: 1,
+    justifyContent: 'space-between',
+    minHeight: 580,
+    paddingBottom: 10,
+    paddingTop: 38,
   },
   introHero: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 4,
-  },
-  introLogo: {
-    borderRadius: 24,
-    height: 124,
-    marginBottom: 20,
-    resizeMode: 'contain',
-    width: 124,
+    paddingTop: 24,
   },
   panel: {
     ...cardBase,
-    padding: 22,
+    padding: 20,
   },
   panelCentered: {
     ...cardBase,
     alignItems: 'center',
-    padding: 22,
+    padding: 20,
   },
   pill: {
     alignSelf: 'center',
@@ -1637,18 +1677,18 @@ const styles = StyleSheet.create({
   pillText: {
     color: '#1E63D6',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   introTitle: {
-    color: '#202438',
-    fontSize: 32,
-    fontWeight: '900',
-    lineHeight: 37,
-    marginTop: 18,
+    color: '#191F28',
+    fontSize: 27,
+    fontWeight: '800',
+    lineHeight: 33,
+    marginTop: 16,
     textAlign: 'center',
   },
   introCopy: {
-    color: '#67708A',
+    color: '#4E5968',
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 24,
@@ -1656,16 +1696,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
+  introActions: {
+    paddingTop: 28,
+  },
   panelTitle: {
-    color: '#202438',
-    fontSize: 28,
-    fontWeight: '900',
-    lineHeight: 34,
+    color: '#191F28',
+    fontSize: 26,
+    fontWeight: '800',
+    lineHeight: 32,
     marginTop: 14,
     textAlign: 'center',
   },
   panelCopy: {
-    color: '#67708A',
+    color: '#4E5968',
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 22,
@@ -1675,6 +1718,9 @@ const styles = StyleSheet.create({
   },
   actionStack: {
     marginTop: 6,
+  },
+  originSecondaryButton: {
+    marginTop: 14,
   },
   statusText: {
     color: '#1E63D6',
@@ -1691,18 +1737,24 @@ const styles = StyleSheet.create({
   },
   regionButton: {
     ...cardBase,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
     margin: 5,
-    minHeight: 64,
-    padding: 11,
+    height: 64,
+    padding: 12,
     width: '46.8%',
   },
+  cardPressed: {
+    borderColor: '#2B84FC',
+    opacity: 0.82,
+  },
   regionName: {
-    color: '#202438',
+    color: '#191F28',
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   regionDesc: {
-    color: '#67708A',
+    color: '#6B7684',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
@@ -1711,17 +1763,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(21, 28, 49, 0.42)',
     flex: 1,
     justifyContent: 'flex-end',
-    padding: 18,
+    paddingTop: 80,
   },
   regionModalDismissArea: {
     ...StyleSheet.absoluteFillObject,
   },
   regionSheet: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: '82%',
-    paddingBottom: 16,
-    paddingHorizontal: 14,
+    paddingBottom: 22,
+    paddingHorizontal: 20,
     paddingTop: 10,
   },
   regionSheetHandle: {
@@ -1743,12 +1796,12 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   regionSheetTitle: {
-    color: '#202438',
+    color: '#191F28',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   regionSheetCopy: {
-    color: '#67708A',
+    color: '#6B7684',
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 19,
@@ -1757,21 +1810,8 @@ const styles = StyleSheet.create({
   regionCloseButton: {
     alignSelf: 'flex-start',
   },
-  regionCloseButtonContainer: {
-    borderColor: '#E3E8F7',
-    borderRadius: 999,
-    borderWidth: 1,
-    minHeight: 38,
-    paddingHorizontal: 12,
-  },
-  regionCloseText: {
-    color: '#67708A',
-    fontSize: 12,
-    fontWeight: '900',
-  },
   questionScreen: {
-    flex: 1,
-    minHeight: 500,
+    paddingTop: 2,
   },
   originChip: {
     alignSelf: 'flex-start',
@@ -1779,7 +1819,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     color: '#1E63D6',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
     marginBottom: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1787,17 +1827,17 @@ const styles = StyleSheet.create({
   eyebrow: {
     color: '#1E63D6',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
     marginBottom: 7,
   },
   questionTitle: {
-    color: '#202438',
-    fontSize: 27,
-    fontWeight: '900',
-    lineHeight: 33,
+    color: '#191F28',
+    fontSize: 26,
+    fontWeight: '800',
+    lineHeight: 32,
   },
   questionCopy: {
-    color: '#67708A',
+    color: '#4E5968',
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 21,
@@ -1805,52 +1845,90 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   optionStack: {
-    flex: 1,
-    marginTop: 6,
-  },
-  optionGrid: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -6,
-    marginTop: 6,
+    marginTop: 10,
+  },
+  optionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+    marginTop: 10,
   },
   optionCard: {
-    ...cardBase,
     alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
     justifyContent: 'center',
-    padding: 15,
+    overflow: 'hidden',
+    padding: 14,
   },
   optionCardStack: {
-    flex: 1,
-    marginBottom: 12,
-    minHeight: 176,
+    height: 156,
+    margin: 6,
+    width: '46.8%',
   },
   optionCardGrid: {
+    height: 126,
     margin: 6,
-    minHeight: 166,
     width: '46.8%',
+  },
+  optionToneBlue: {
+    backgroundColor: '#EAF3FF',
+    borderColor: '#B8D8FF',
+  },
+  optionToneGreen: {
+    backgroundColor: '#EAF8F1',
+    borderColor: '#B9E6CF',
+  },
+  optionToneYellow: {
+    backgroundColor: '#FFF6DF',
+    borderColor: '#FFE1A3',
+  },
+  optionTonePurple: {
+    backgroundColor: '#F4F0FF',
+    borderColor: '#D7CBFF',
+  },
+  optionAccent: {
+    borderRadius: 999,
+    height: 7,
+    left: 14,
+    position: 'absolute',
+    top: 14,
+    width: 34,
+  },
+  optionAccentBlue: {
+    backgroundColor: '#2B84FC',
+  },
+  optionAccentGreen: {
+    backgroundColor: '#00A667',
+  },
+  optionAccentYellow: {
+    backgroundColor: '#F6A600',
+  },
+  optionAccentPurple: {
+    backgroundColor: '#7C5CFF',
   },
   optionIndex: {
     alignSelf: 'flex-end',
-    color: '#1E63D6',
+    color: '#4E5968',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   optionTextBox: {
     alignItems: 'center',
-    flex: 1,
     justifyContent: 'center',
   },
   optionLabel: {
-    color: '#202438',
-    fontSize: 22,
-    fontWeight: '900',
-    lineHeight: 28,
+    color: '#191F28',
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 26,
     textAlign: 'center',
   },
   optionCaption: {
-    color: '#67708A',
+    color: '#6B7684',
     fontSize: 13,
     fontWeight: '800',
     marginTop: 7,
@@ -1909,26 +1987,26 @@ const styles = StyleSheet.create({
   persona: {
     color: '#1E63D6',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   place: {
-    color: '#202438',
-    fontSize: 28,
-    fontWeight: '900',
-    lineHeight: 34,
+    color: '#191F28',
+    fontSize: 27,
+    fontWeight: '800',
+    lineHeight: 33,
     marginTop: 5,
   },
   reason: {
-    color: '#67708A',
+    color: '#4E5968',
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 22,
     marginTop: 8,
   },
   aiDecisionBox: {
-    backgroundColor: '#F6F8FF',
-    borderColor: '#E3E8F7',
-    borderRadius: 16,
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E8EB',
+    borderRadius: 14,
     borderWidth: 1,
     marginTop: 12,
     padding: 12,
@@ -1936,11 +2014,11 @@ const styles = StyleSheet.create({
   aiDecisionLabel: {
     color: '#1E63D6',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
     marginBottom: 5,
   },
   aiDecisionText: {
-    color: '#202438',
+    color: '#191F28',
     fontSize: 13,
     fontWeight: '800',
     lineHeight: 19,
@@ -1949,39 +2027,39 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   aiFactorText: {
-    color: '#202438',
+    color: '#191F28',
     fontSize: 12,
     fontWeight: '800',
     lineHeight: 18,
   },
   aiDecisionSubText: {
-    color: '#67708A',
+    color: '#6B7684',
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 17,
     marginTop: 6,
   },
   infoTable: {
-    borderBottomColor: '#E3E8F7',
+    borderBottomColor: '#E5E8EB',
     borderBottomWidth: 1,
-    borderTopColor: '#E3E8F7',
+    borderTopColor: '#E5E8EB',
     borderTopWidth: 1,
     marginTop: 14,
   },
   infoRow: {
-    borderTopColor: 'rgba(227, 232, 247, 0.75)',
+    borderTopColor: '#E5E8EB',
     borderTopWidth: 1,
     flexDirection: 'row',
     paddingVertical: 9,
   },
   infoLabel: {
-    color: '#67708A',
+    color: '#8B95A1',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
     width: 74,
   },
   infoValue: {
-    color: '#202438',
+    color: '#191F28',
     flex: 1,
     fontSize: 13,
     fontWeight: '800',
@@ -2022,14 +2100,6 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignSelf: 'stretch',
   },
-  primaryButtonContainer: {
-    borderRadius: 16,
-    minHeight: 56,
-  },
-  primaryButtonText: {
-    fontSize: 17,
-    fontWeight: '900',
-  },
   secondaryButton: {
     alignSelf: 'stretch',
   },
@@ -2037,21 +2107,24 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 5,
   },
-  secondaryButtonContainer: {
-    borderColor: '#E3E8F7',
-    borderRadius: 14,
-    borderWidth: 1,
-    minHeight: 50,
-  },
-  secondaryButtonText: {
-    color: '#202438',
-    fontSize: 15,
-    fontWeight: '900',
-  },
   disabledButton: {
     opacity: 0.62,
   },
 });
+
+const optionToneStyles = [
+  styles.optionToneBlue,
+  styles.optionToneGreen,
+  styles.optionToneYellow,
+  styles.optionTonePurple,
+];
+
+const optionAccentStyles = [
+  styles.optionAccentBlue,
+  styles.optionAccentGreen,
+  styles.optionAccentYellow,
+  styles.optionAccentPurple,
+];
 
 function ProgressBar({ progress }: { progress: number }) {
   return (
