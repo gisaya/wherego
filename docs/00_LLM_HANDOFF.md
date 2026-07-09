@@ -57,8 +57,12 @@
 - 서버/API:
   - 기존 뭐샀지 Render 서버 `https://jbg.onrender.com`을 재사용한다.
   - `C:\Users\ESOL\Documents\jbg\apps\server`에 `POST /api/wherego/recommend` 라우트를 추가했다.
-  - 서버는 `GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite` 계획 생성, 한국관광공사 국문 관광정보 API 검색/상세, 지역별 방문자수 혼잡 신호를 처리한다.
-  - 검색 호출은 요청당 12회, 상세 후보는 3개로 제한하고 검색/상세/DataLab 응답은 서버 메모리 캐시로 재사용한다.
+  - 서버는 선택지 메타데이터(tags/searchHints/constraints)로 검색 계획을 만들고, 한국관광공사 국문 관광정보 API 후보를 수집한 뒤 5개 이하로 압축한다.
+  - Gemini(`GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`)는 압축 후보와 메타데이터를 보고 최종 1개 장소와 이유를 고른다.
+  - 지역별 방문자수는 최종 선택 전 crowd 보조 신호로 붙인다.
+  - 검색 호출은 요청당 6회 기본값이며, `nationwide` 검색은 areaCode 없이 키워드 중심으로 호출한다.
+  - 최종 선택 1개에만 상세 API를 조회하고, 검색/상세/DataLab 응답은 서버 메모리 캐시로 재사용한다.
+  - 일부 관광공사 검색 호출이 타임아웃되어도 다른 호출에서 후보가 있으면 계속 진행한다.
   - 어디고 클라이언트는 `src/api/wheregoApi.ts`에서 이 API를 호출하고 15초 지연/실패 시 demo 결과로 fallback한다.
 - Vercel 정적 빌드:
   - `scripts/build-vercel-terms.cjs`
@@ -82,11 +86,13 @@
   - `pages/index.tsx`
   - 현재 위치 또는 지역 선택 fallback
   - 질문 8개 랜덤 생성
-  - 질문 중 배너 광고 placeholder
+  - 질문 중 Apps in Toss 배너 광고
   - 결과 전 Apps in Toss 리워드 광고 게이트
   - 결과 카드의 네이버지도 열기 버튼
   - 리워드 광고 그룹 ID: `ait.v2.live.7f9040b7cff746c5`
+  - 배너 광고 그룹 ID: `ait.v2.live.67b07bf813d74267`
   - `loadFullScreenAd`로 미리 로드하고 `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 결과 화면을 연다.
+  - 질문 화면 하단 배너는 `InlineAd`로 렌더한다.
 - 최근 검증:
   - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
   - 2026-07-08 22:05 KST: `.env.local` Git 제외 확인, 커밋 대상 인증키 패턴 검사 통과, Vercel 정적 약관 빌드 성공.
@@ -97,6 +103,7 @@
   - 2026-07-09 KST: `yarn install`, `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 생성 확인. 최신 deploymentId는 `019f4475-b925-7a22-bca3-fed52822aee1`. 산출물은 Git 제외.
   - 2026-07-09 KST 저장 검증: `yarn typecheck`, `yarn build` 성공. 추천 API client, 리워드 광고 ID `ait.v2.live.7f9040b7cff746c5`, 15초 fallback timeout, 첫 화면 문구 변경 확인. 최신 build deploymentId는 `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
   - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`, `/api/wherego/recommend` HTTP 200, `source.planner=gemini`, 추천 3개, 첫 추천 `국립중앙박물관 전통염료식물원`.
+  - 2026-07-09 KST 저장 검증: Wherego `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45b7-4889-72c6-ac16-3d27c8c1336b`이며 Git 제외. jbg Wherego route 테스트 13개 성공, `py_compile` 성공. 실제 관광공사 랜덤 조합 테스트에서 원천 3개 + 일반 5개 답변으로 후보 수집 후 5개 이하 압축 확인. 전국 검색은 long-distance 후보를 허용하고, 단일 검색 타임아웃은 건너뛰도록 보강했다.
 
 ## 운영 규칙
 
@@ -108,6 +115,7 @@
 ## 남은 우선순위
 
 1. 실제 Apps in Toss 앱에서 Render 추천 API 연동 흐름 테스트.
-2. 카드 저장, 결과 카드 캡처 연결.
-3. TDS 기준 UI 점검 및 컴포넌트 정리.
-4. Vercel GitHub 자동 배포 연결.
+2. jbg Render 배포 후 `/api/wherego/recommend` smoke에서 `source.planner=metadata`, `source.curator=gemini`, 추천 1개를 확인.
+3. 카드 저장, 결과 카드 캡처 연결.
+4. TDS 기준 UI 점검 및 컴포넌트 정리.
+5. Vercel GitHub 자동 배포 연결.

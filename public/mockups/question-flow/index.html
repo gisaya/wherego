@@ -260,7 +260,6 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 9px;
-        margin-top: 16px;
       }
 
       .region-option {
@@ -286,6 +285,110 @@
         color: var(--muted);
         font-size: 12px;
         font-weight: 750;
+      }
+
+      .region-modal {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        align-items: flex-end;
+        padding: 18px;
+        background: rgba(21, 28, 49, 0.42);
+        animation: modalFade 180ms ease both;
+      }
+
+      .region-backdrop {
+        position: absolute;
+        inset: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+      }
+
+      .region-sheet {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-height: 82%;
+        display: flex;
+        flex-direction: column;
+        border-radius: 24px;
+        padding: 10px 14px 16px;
+        background: var(--surface);
+        box-shadow: 0 22px 56px rgba(21, 28, 49, 0.28);
+        animation: sheetUp 220ms ease both;
+      }
+
+      .region-handle {
+        width: 42px;
+        height: 4px;
+        margin: 0 auto 12px;
+        border-radius: 999px;
+        background: #d6ddec;
+      }
+
+      .region-sheet-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .region-sheet-title {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.18;
+        font-weight: 950;
+      }
+
+      .region-sheet-copy {
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+        font-weight: 700;
+      }
+
+      .region-close {
+        flex: 0 0 auto;
+        min-width: 46px;
+        height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface-soft);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .region-sheet .region-grid {
+        overflow-y: auto;
+        padding-bottom: 2px;
+      }
+
+      @keyframes modalFade {
+        from {
+          opacity: 0;
+        }
+
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes sheetUp {
+        from {
+          opacity: 0;
+          transform: translateY(24px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .origin-chip {
@@ -635,6 +738,56 @@
         font-weight: 650;
       }
 
+      .ai-decision {
+        margin-top: 12px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface-soft);
+      }
+
+      .ai-decision-label {
+        margin: 0 0 5px;
+        color: var(--blue-dark);
+        font-size: 12px;
+        font-weight: 950;
+      }
+
+      .ai-decision-text,
+      .ai-factor,
+      .ai-decision-sub {
+        margin: 0;
+        word-break: keep-all;
+      }
+
+      .ai-decision-text {
+        color: var(--ink);
+        font-size: 13px;
+        line-height: 1.46;
+        font-weight: 800;
+      }
+
+      .ai-factors {
+        display: grid;
+        gap: 3px;
+        margin-top: 6px;
+      }
+
+      .ai-factor {
+        color: var(--ink);
+        font-size: 12px;
+        line-height: 1.45;
+        font-weight: 800;
+      }
+
+      .ai-decision-sub {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.42;
+        font-weight: 700;
+      }
+
       .tour-info {
         margin-top: 14px;
         border-top: 1px solid var(--line);
@@ -768,7 +921,7 @@
 
           <section class="stage" id="stage"></section>
 
-          <div class="banner-ad">배너 광고 영역</div>
+          <div class="banner-ad">배너 광고</div>
         </div>
       </section>
     </main>
@@ -996,12 +1149,92 @@
           areaCodes: ["3", "8", "33", "34"],
         },
         {
+          label: "강원",
+          description: "춘천·강릉·속초",
+          lat: 37.8813,
+          lng: 127.7298,
+          areaCodes: ["32"],
+        },
+        {
+          label: "전북",
+          description: "전주·군산·무주",
+          lat: 35.8242,
+          lng: 127.148,
+          areaCodes: ["37"],
+        },
+        {
+          label: "광주/전남",
+          description: "광주·여수·순천",
+          lat: 35.1595,
+          lng: 126.8526,
+          areaCodes: ["5", "38"],
+        },
+        {
+          label: "대구/경북",
+          description: "대구·경주·안동",
+          lat: 35.8714,
+          lng: 128.6014,
+          areaCodes: ["4", "35"],
+        },
+        {
           label: "부산/경남",
           description: "부산·울산·경남",
           lat: 35.1796,
           lng: 129.0756,
           areaCodes: ["6", "7", "36"],
         },
+        {
+          label: "제주",
+          description: "제주·서귀포",
+          lat: 33.4996,
+          lng: 126.5312,
+          areaCodes: ["39"],
+        },
+      ];
+
+      const cityAnchors = [
+        { label: "서울시", lat: 37.5665, lng: 126.978 },
+        { label: "고양시", lat: 37.6584, lng: 126.832 },
+        { label: "파주시", lat: 37.7602, lng: 126.7799 },
+        { label: "김포시", lat: 37.6152, lng: 126.7156 },
+        { label: "양주시", lat: 37.7853, lng: 127.0458 },
+        { label: "의정부시", lat: 37.7381, lng: 127.0337 },
+        { label: "남양주시", lat: 37.636, lng: 127.2165 },
+        { label: "구리시", lat: 37.5943, lng: 127.1296 },
+        { label: "하남시", lat: 37.5393, lng: 127.2149 },
+        { label: "성남시", lat: 37.42, lng: 127.1265 },
+        { label: "수원시", lat: 37.2636, lng: 127.0286 },
+        { label: "용인시", lat: 37.2411, lng: 127.1776 },
+        { label: "화성시", lat: 37.1995, lng: 126.8312 },
+        { label: "안산시", lat: 37.3219, lng: 126.8309 },
+        { label: "안양시", lat: 37.3943, lng: 126.9568 },
+        { label: "광명시", lat: 37.4786, lng: 126.8647 },
+        { label: "부천시", lat: 37.5035, lng: 126.766 },
+        { label: "인천시", lat: 37.4563, lng: 126.7052 },
+        { label: "시흥시", lat: 37.38, lng: 126.8029 },
+        { label: "평택시", lat: 36.9921, lng: 127.1127 },
+        { label: "춘천시", lat: 37.8813, lng: 127.7298 },
+        { label: "원주시", lat: 37.3422, lng: 127.9202 },
+        { label: "강릉시", lat: 37.7519, lng: 128.8761 },
+        { label: "속초시", lat: 38.2043, lng: 128.5918 },
+        { label: "대전시", lat: 36.3504, lng: 127.3845 },
+        { label: "세종시", lat: 36.4801, lng: 127.289 },
+        { label: "청주시", lat: 36.6424, lng: 127.489 },
+        { label: "천안시", lat: 36.8151, lng: 127.1139 },
+        { label: "아산시", lat: 36.7898, lng: 127.0025 },
+        { label: "전주시", lat: 35.8242, lng: 127.148 },
+        { label: "군산시", lat: 35.9677, lng: 126.7366 },
+        { label: "광주시", lat: 35.1595, lng: 126.8526 },
+        { label: "여수시", lat: 34.7604, lng: 127.6622 },
+        { label: "순천시", lat: 34.9506, lng: 127.4875 },
+        { label: "대구시", lat: 35.8714, lng: 128.6014 },
+        { label: "경주시", lat: 35.8562, lng: 129.2247 },
+        { label: "안동시", lat: 36.5684, lng: 128.7294 },
+        { label: "부산시", lat: 35.1796, lng: 129.0756 },
+        { label: "울산시", lat: 35.5384, lng: 129.3114 },
+        { label: "창원시", lat: 35.2279, lng: 128.6819 },
+        { label: "제주시", lat: 33.4996, lng: 126.5312 },
+        { label: "서귀포시", lat: 33.2539, lng: 126.5598 },
       ];
 
       const demoResultsByRegion = {
@@ -1055,6 +1288,46 @@
           signal: "지역 방문자수 보통 · 오전 추천",
           comfort: "숲길, 데크, 주차 정보 확인",
         },
+        강원: {
+          persona: "바람 좋은 자연 코스를 찾는 여유형 여행자",
+          place: "강릉솔향수목원",
+          reason: "강원권에서 숲길과 계절감을 가볍게 즐기기 좋은 후보입니다.",
+          region: "강원 강릉 · 수목원/산책",
+          address: "강원특별자치도 강릉시 구정면 일대",
+          travel: "강원 기준 근교 후보",
+          signal: "지역 방문자수 보통 · 오전 추천",
+          comfort: "숲길, 산책로, 운영 정보 확인",
+        },
+        전북: {
+          persona: "도심과 자연을 균형 있게 고르는 반나절 여행자",
+          place: "한국도로공사 전주수목원",
+          reason: "전주권에서 이동 부담이 낮고 산책 중심으로 쉬기 좋은 후보입니다.",
+          region: "전북 전주 · 수목원/산책",
+          address: "전북특별자치도 전주시 덕진구 일대",
+          travel: "전북 기준 근교 후보",
+          signal: "지역 방문자수 보통 · 오후 추천",
+          comfort: "평지 산책, 계절 정원, 주차 정보 확인",
+        },
+        "광주/전남": {
+          persona: "넓은 풍경과 산책을 함께 보는 남도 여행자",
+          place: "순천만국가정원",
+          reason: "전남권에서 관광정보와 방문자수 신호가 뚜렷하고 카드로 보여주기 좋은 후보입니다.",
+          region: "전남 순천 · 정원/산책",
+          address: "전라남도 순천시 국가정원1호길 일대",
+          travel: "광주/전남 기준 당일 후보",
+          signal: "지역 방문자수 높음 · 이른 시간 추천",
+          comfort: "넓은 동선, 계절 정원, 운영 정보 확인",
+        },
+        "대구/경북": {
+          persona: "역사 분위기와 산책을 같이 챙기는 여행자",
+          place: "경주 동궁과 월지",
+          reason: "경북권에서 야경, 산책, 사진 요소를 함께 만족시키기 좋은 후보입니다.",
+          region: "경북 경주 · 역사/야경",
+          address: "경상북도 경주시 원화로 일대",
+          travel: "대구/경북 기준 당일 후보",
+          signal: "지역 방문자수 높음 · 해질녘 추천",
+          comfort: "야간 관람, 도보 동선, 주차 정보 확인",
+        },
         "부산/경남": {
           persona: "초록 풍경을 찾는 조용한 드라이버",
           place: "아홉산숲",
@@ -1064,6 +1337,16 @@
           travel: "부산/경남 기준 근교 후보",
           signal: "지역 방문자수 보통 · 이른 시간 추천",
           comfort: "숲길, 사진 포인트, 운영 정보 확인",
+        },
+        제주: {
+          persona: "숲 향과 느린 산책을 고르는 제주 여행자",
+          place: "사려니숲길",
+          reason: "제주에서 가볍게 걸으며 자연 분위기를 충분히 느끼기 좋은 후보입니다.",
+          region: "제주 · 숲길/산책",
+          address: "제주특별자치도 제주시 조천읍 일대",
+          travel: "제주 기준 근교 후보",
+          signal: "지역 방문자수 보통 · 오전 추천",
+          comfort: "숲길, 날씨 확인, 주차 정보 확인",
         },
       };
 
@@ -1112,12 +1395,55 @@
           .sort((a, b) => a.distance - b.distance)[0].label;
       }
 
+      function currentLocationLabel(lat, lng) {
+        const city = nearestCityLabel(lat, lng);
+        return city == null ? "현재 위치" : `현재 위치(${city})`;
+      }
+
+      function nearestCityLabel(lat, lng) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return null;
+        }
+
+        return cityAnchors
+          .map((city) => ({
+            label: city.label,
+            distance: distanceKm(lat, lng, city.lat, city.lng),
+          }))
+          .sort((a, b) => a.distance - b.distance)[0]?.label ?? null;
+      }
+
+      function distanceKm(lat1, lng1, lat2, lng2) {
+        const earthKm = 6371;
+        const dLat = toRadians(lat2 - lat1);
+        const dLng = toRadians(lng2 - lng1);
+        const rLat1 = toRadians(lat1);
+        const rLat2 = toRadians(lat2);
+        const value =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLng / 2) ** 2;
+        return earthKm * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+      }
+
+      function toRadians(value) {
+        return (value * Math.PI) / 180;
+      }
+
       function getDemoResult() {
         const regionLabel =
           currentOrigin?.type === "current_location"
             ? nearestRegionLabel(currentOrigin)
             : currentOrigin?.label;
-        return demoResultsByRegion[regionLabel] || demoResultsByRegion["서울/수도권"];
+        const result = demoResultsByRegion[regionLabel] || demoResultsByRegion["서울/수도권"];
+        return {
+          ...result,
+          personaSummary:
+            result.personaSummary || "답변에서 반복된 이동 거리, 동행, 분위기 조건을 함께 본 결과입니다.",
+          aiFactors: result.aiFactors || ["답변 취향", "이동 부담", "방문자수 신호", "편의 정보"],
+          aiTradeoff: result.aiTradeoff || "유명도보다 오늘 조건에 맞는 체류 편안함을 우선했습니다.",
+          aiCrowdNote: result.aiCrowdNote || result.signal,
+          whyThisPlace: result.whyThisPlace || [result.travel, result.signal, result.comfort],
+        };
       }
 
       function naverSearchLink(keyword) {
@@ -1125,6 +1451,7 @@
       }
 
       function startFlowWithOrigin(origin) {
+        closeRegionModal();
         currentOrigin = origin;
         index = 0;
         selected = [];
@@ -1174,32 +1501,59 @@
                 <button class="ghost" type="button" id="skipLocation">지역 선택으로 시작</button>
               </div>
               <p class="location-status" id="locationStatus">${message}</p>
-              <div class="region-grid" id="regionGrid" aria-label="출발 지역 선택">
-                ${regionOptions
-                  .map(
-                    (region, regionIndex) => `
-                      <button class="region-option" type="button" data-region="${regionIndex}">
-                        <span class="region-name">${region.label}</span>
-                        <span class="region-desc">${region.description}</span>
-                      </button>
-                    `
-                  )
-                  .join("")}
-              </div>
             </div>
           </div>
         `;
 
         document.getElementById("useCurrentLocation").addEventListener("click", requestCurrentLocation);
         document.getElementById("skipLocation").addEventListener("click", () => {
-          document.getElementById("regionGrid").scrollIntoView({ block: "nearest" });
+          openRegionModal();
         });
-        stage.querySelectorAll("[data-region]").forEach((button) => {
+      }
+
+      function openRegionModal() {
+        closeRegionModal();
+        const modal = document.createElement("div");
+        modal.className = "region-modal";
+        modal.id = "regionModal";
+        modal.innerHTML = `
+          <button class="region-backdrop" type="button" aria-label="지역 선택 닫기"></button>
+          <div class="region-sheet" role="dialog" aria-modal="true" aria-labelledby="regionSheetTitle">
+            <div class="region-handle"></div>
+            <div class="region-sheet-header">
+              <div>
+                <h2 class="region-sheet-title" id="regionSheetTitle">출발 지역 선택</h2>
+                <p class="region-sheet-copy">전국 권역 중 하나를 고르면 바로 질문이 시작됩니다.</p>
+              </div>
+              <button class="region-close" type="button" id="closeRegionModal">닫기</button>
+            </div>
+            <div class="region-grid" aria-label="출발 지역 선택">
+              ${regionOptions
+                .map(
+                  (region, regionIndex) => `
+                    <button class="region-option" type="button" data-region="${regionIndex}">
+                      <span class="region-name">${region.label}</span>
+                      <span class="region-desc">${region.description}</span>
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+        `;
+        document.querySelector(".phone").appendChild(modal);
+        modal.querySelector(".region-backdrop").addEventListener("click", closeRegionModal);
+        modal.querySelector("#closeRegionModal").addEventListener("click", closeRegionModal);
+        modal.querySelectorAll("[data-region]").forEach((button) => {
           button.addEventListener("click", () => {
             const region = regionOptions[Number(button.dataset.region)];
             startFlowWithOrigin({ ...region, type: "selected_region" });
           });
         });
+      }
+
+      function closeRegionModal() {
+        document.getElementById("regionModal")?.remove();
       }
 
       function requestCurrentLocation() {
@@ -1216,7 +1570,7 @@
           (position) => {
             startFlowWithOrigin({
               type: "current_location",
-              label: "현재 위치",
+              label: currentLocationLabel(position.coords.latitude, position.coords.longitude),
               description: "권한 허용 위치",
               lat: position.coords.latitude,
               lng: position.coords.longitude,
@@ -1226,7 +1580,7 @@
           },
           () => {
             button.disabled = false;
-            status.textContent = "위치 권한이 없으면 아래 지역을 골라서 추천받을 수 있어요.";
+            status.textContent = "위치 권한이 없으면 지역을 골라서 추천받을 수 있어요.";
           },
           { enableHighAccuracy: false, timeout: 7000, maximumAge: 600000 }
         );
@@ -1348,6 +1702,7 @@
 
       function renderResult() {
         const result = getDemoResult();
+        const aiHighlights = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 4);
         counter.textContent = "추천 완료";
         bannerAd.style.display = "none";
         stage.classList.add("no-bottom-ad");
@@ -1361,6 +1716,19 @@
                 <p class="persona">${result.persona}</p>
                 <h1 class="place">${result.place}</h1>
                 <p class="reason">${result.reason}</p>
+                <div class="ai-decision" aria-label="AI 판단">
+                  <p class="ai-decision-label">AI 판단</p>
+                  ${result.personaSummary ? `<p class="ai-decision-text">${result.personaSummary}</p>` : ""}
+                  ${
+                    aiHighlights.length
+                      ? `<div class="ai-factors">${aiHighlights
+                          .map((factor) => `<p class="ai-factor">· ${factor}</p>`)
+                          .join("")}</div>`
+                      : ""
+                  }
+                  ${result.aiTradeoff ? `<p class="ai-decision-sub">${result.aiTradeoff}</p>` : ""}
+                  ${result.aiCrowdNote ? `<p class="ai-decision-sub">${result.aiCrowdNote}</p>` : ""}
+                </div>
                 <div class="tour-info" aria-label="관광지 정보">
                   <div class="info-row">
                     <span class="info-label">지역</span>
@@ -1383,7 +1751,7 @@
                     <strong class="info-value">${result.comfort}</strong>
                   </div>
                 </div>
-                <p class="source-note">한국관광공사 관광정보와 지역별 방문자수 데이터를 함께 반영했어요.</p>
+                <p class="source-note">AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요.</p>
                 <div class="result-actions">
                   <button class="secondary" type="button">카드 저장하기</button>
                   <a class="secondary" href="${naverSearchLink(result.place)}" target="_blank" rel="noopener">지도 열기</a>

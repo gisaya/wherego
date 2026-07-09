@@ -109,9 +109,12 @@ Rewarded ad:
 
 ```text
 production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
+production banner ad group ID: ait.v2.live.67b07bf813d74267
 ```
 
 `pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, `showFullScreenAd` on the CTA, and `userEarnedReward` before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
+
+During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
 
 ## Recommendation API
 
@@ -152,8 +155,8 @@ KTO_KOR_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/KorService2
 KTO_DATALAB_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/DataLabService
 GEMINI_API_KEY=<existing-jbg-gemini-key>
 GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite
-WHEREGO_KTO_SEARCH_MAX_CALLS=12
-WHEREGO_KTO_DETAIL_CANDIDATE_LIMIT=3
+WHEREGO_KTO_SEARCH_MAX_CALLS=6
+WHEREGO_GEMINI_CANDIDATE_LIMIT=5
 WHEREGO_KTO_CACHE_ENABLED=true
 WHEREGO_KTO_CACHE_MAX_ENTRIES=512
 WHEREGO_KTO_SEARCH_CACHE_SECONDS=21600
@@ -165,7 +168,12 @@ WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false
 Quota/runtime behavior:
 
 - Search is capped by `WHEREGO_KTO_SEARCH_MAX_CALLS` per request.
-- Only the top `WHEREGO_KTO_DETAIL_CANDIDATE_LIMIT` candidates get detail calls.
+- The server builds the search plan from selected-answer metadata, not from a first Gemini planning call.
+- For `nationwide` scope, search calls omit `areaCode` so the call budget is spent across keywords.
+- Candidates are compressed to at most five before Gemini sees them.
+- Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place.
+- Only the final selected place gets KTO detail calls.
+- A single KTO search timeout is skipped if other search calls return candidates.
 - `detailImage2` is disabled by default; use search/detail common image fields first.
 - KTO search responses are cached in server memory for 6 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.
 - The Apps in Toss client waits up to 15 seconds for the recommendation API, then falls back to the local demo recommendation.
@@ -197,7 +205,7 @@ $body = @{
 Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/recommend' -ContentType 'application/json' -Body $body -TimeoutSec 90
 ```
 
-Expected: HTTP 200, `recommendedPlaces` has at least one item, and `source.planner` is `gemini` when the Gemini model env is valid. If it returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first.
+Expected: HTTP 200, `recommendedPlaces` has exactly one item, `source.planner` is `metadata`, and `source.curator` is `gemini` when the Gemini model env is valid. If `source.curator` returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first.
 
 ## Question Bank And API Probe
 
@@ -255,7 +263,7 @@ The mockup uses:
 - required 3 source questions plus random 5 general questions
 - random general questions always include `crowd` and one of `mobility`/`accessibility`
 - two large cards for `select_2`, a 2x2 card grid for `select_4`
-- fixed bottom banner-ad placeholder during questions
+- fixed bottom banner ad during questions
 - rewarded-ad gate before the result card
 - result card with tourism info, card-save button, Naver Map open button, and home reset
 

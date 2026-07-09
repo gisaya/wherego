@@ -18,10 +18,14 @@ export type WheregoRecommendAnswer = {
   question: string;
   answer: string;
   caption: string;
+  tags: string[];
+  searchHints: string[];
+  constraints: Record<string, boolean | number | string | string[]>;
 };
 
 export type WheregoRecommendedPlace = {
   contentId?: string;
+  selectionRank?: number | null;
   title: string;
   address: string;
   region?: string;
@@ -29,6 +33,7 @@ export type WheregoRecommendedPlace = {
   imageUrl?: string;
   matchedKeyword?: string;
   aiReason?: string;
+  whyThisPlace?: string[];
   intro?: {
     infoCenter?: string;
     restDate?: string;
@@ -57,11 +62,18 @@ export type WheregoRecommendedPlace = {
 
 export type WheregoRecommendation = {
   personaTitle: string;
+  personaSummary?: string;
   oneLine: string;
+  aiDecision?: {
+    mainFactors?: string[];
+    tradeoff?: string;
+    crowdNote?: string;
+  };
   recommendedPlaces: WheregoRecommendedPlace[];
   shareText?: string;
   source?: {
     planner?: string;
+    curator?: string;
     kto?: string;
     crowd?: string;
   };
@@ -104,7 +116,7 @@ export async function recommendWheregoDestination(params: {
         body: JSON.stringify({
           origin: params.origin,
           answers: params.answers,
-          limit: 3,
+          limit: 1,
         }),
       }),
       timeoutPromise,
