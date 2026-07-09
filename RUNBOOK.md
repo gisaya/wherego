@@ -105,6 +105,100 @@ src/_app.tsx
 scripts/ait-build.ps1
 ```
 
+Rewarded ad:
+
+```text
+production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
+```
+
+`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, `showFullScreenAd` on the CTA, and `userEarnedReward` before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
+
+## Recommendation API
+
+Wherego uses the existing `뭐샀지` Render FastAPI service:
+
+```text
+https://jbg.onrender.com
+```
+
+Client files:
+
+```text
+src/config.ts
+src/api/wheregoApi.ts
+pages/index.tsx
+```
+
+Server files in `C:\Users\ESOL\Documents\jbg`:
+
+```text
+apps/server/backend/app/interfaces/http/routes/wherego.py
+apps/server/backend/tests/test_wherego_recommendation.py
+apps/server/env/prod.example
+apps/server/env/local.example
+```
+
+Server endpoint:
+
+```text
+POST /api/wherego/recommend
+```
+
+Required Render env:
+
+```text
+WHEREGO_PUBLIC_DATA_PORTAL_SERVICE_KEY=<public-data-key>
+KTO_KOR_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/KorService2
+KTO_DATALAB_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/DataLabService
+GEMINI_API_KEY=<existing-jbg-gemini-key>
+GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite
+WHEREGO_KTO_SEARCH_MAX_CALLS=12
+WHEREGO_KTO_DETAIL_CANDIDATE_LIMIT=3
+WHEREGO_KTO_CACHE_ENABLED=true
+WHEREGO_KTO_CACHE_MAX_ENTRIES=512
+WHEREGO_KTO_SEARCH_CACHE_SECONDS=21600
+WHEREGO_KTO_DETAIL_CACHE_SECONDS=604800
+WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400
+WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false
+```
+
+Quota/runtime behavior:
+
+- Search is capped by `WHEREGO_KTO_SEARCH_MAX_CALLS` per request.
+- Only the top `WHEREGO_KTO_DETAIL_CANDIDATE_LIMIT` candidates get detail calls.
+- `detailImage2` is disabled by default; use search/detail common image fields first.
+- KTO search responses are cached in server memory for 6 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.
+- The Apps in Toss client waits up to 15 seconds for the recommendation API, then falls back to the local demo recommendation.
+
+Server route smoke checks:
+
+```powershell
+cd C:\Users\ESOL\Documents\jbg
+$env:PYTHONPATH='apps/server'
+python -m unittest apps.server.backend.tests.test_wherego_recommendation
+@'
+from backend.app.interfaces.http.app import app
+print(sorted(route.path for route in app.routes if 'wherego' in getattr(route, 'path', '')))
+'@ | python -
+```
+
+Render smoke check after `jbg` deploy:
+
+```powershell
+$body = @{
+  origin = @{ type='selected_region'; label='서울/수도권'; description='서울·경기·인천'; lat=37.5665; lng=126.978; areaCodes=@('1','31','2') }
+  answers = @(
+    @{ questionId='move_time_binary_01'; questionType='source'; question='오늘은 가볍게 갈까요, 멀리 제대로 갈까요?'; answer='가볍게 근교로'; caption='왕복 2시간 안쪽' },
+    @{ questionId='party_companion_01'; questionType='source'; question='누구랑 가는 여행이에요?'; answer='아이와 가족끼리'; caption='안전한 동선' },
+    @{ questionId='intent_landscape_01'; questionType='source'; question='오늘 끌리는 풍경은 어느 쪽이에요?'; answer='숲과 수목원'; caption='그늘과 산책' }
+  )
+  limit = 3
+} | ConvertTo-Json -Depth 8
+Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/recommend' -ContentType 'application/json' -Body $body -TimeoutSec 90
+```
+
+Expected: HTTP 200, `recommendedPlaces` has at least one item, and `source.planner` is `gemini` when the Gemini model env is valid. If it returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first.
+
 ## Question Bank And API Probe
 
 Validate script syntax:

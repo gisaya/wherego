@@ -47,8 +47,14 @@ Current app flow in `pages/index.tsx`:
 - origin choice: current location via `useGeolocation` or selected region fallback
 - question flow: 3 required source questions plus 5 random general questions
 - banner ad placeholder during questions
-- rewarded-ad placeholder gate before result
+- rewarded ad gate before result using Apps in Toss integrated ads
 - result card with tourism info, card-save placeholder, Naver Map open button, and home reset
+
+Rewarded ad:
+
+- production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
+- `pages/index.tsx` loads the ad with `loadFullScreenAd`, shows it with `showFullScreenAd`, and opens the result only after `userEarnedReward`.
+- Non-Toss/local unsupported environments fall back to a development preview result path.
 
 `granite.config.ts` uses:
 
@@ -124,6 +130,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-09 KST: `scripts/probe-question-bank-result.cjs` successfully exercised KTO KorService2, KTO DataLab locgo visitor rows, estimated drive-time filtering, parking-known filtering, and crowd labels.
   - 2026-07-09 KST save check: terms-page build succeeded, `scripts/probe-question-bank-result.cjs` syntax check passed, generated question bank shape confirmed as 13 groups / 390 questions / 30 per group, and no 64-char hex secret pattern was found in commit candidates.
   - 2026-07-09 KST: Apps in Toss dependencies installed with committed Yarn 4 release/patches. `yarn typecheck` passed. `yarn build` produced local ignored artifact `wherego.ait` with deploymentId `019f4475-b925-7a22-bca3-fed52822aee1`. Terms-page build also passed.
+  - 2026-07-09 KST save check: server-backed recommendation client, Apps in Toss rewarded ad integration, 15s recommendation fallback timeout, and first-screen copy update verified with `yarn typecheck`; `yarn build` produced ignored `wherego.ait` deploymentId `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
 
 ## Current Question/API Work
 
@@ -149,8 +156,44 @@ Latest known probe result with the default Seoul City Hall test origin:
 - The current drive-time filter is an estimate, not real routing. A map/routing API is needed for production-grade travel time.
 - DataLab visitor counts are regional, not place-level. Treat crowd labels as a weak supporting signal.
 - The generated question bank is large enough for MVP experiments. The remaining copy risk is mostly repeated prompt templates, not missing tags or missing search hints.
-- Current Apps in Toss UI uses demo recommendation data in the client. Real Gemini/KTO calls must be moved behind a server/API boundary before production.
-- Rewarded ad and card-save buttons are placeholders in the first buildable app.
+- Apps in Toss UI now calls the `jbg` Render-backed recommendation API and falls back to demo recommendation data when the server is unavailable or slow.
+- Card-save button is still a placeholder in the first buildable app.
+
+## Current Server Direction
+
+Wherego now reuses the existing `뭐샀지`/`jbg` Render FastAPI service instead of adding a Vercel API.
+
+- client API base: `https://jbg.onrender.com`
+- server repo/path: `C:\Users\ESOL\Documents\jbg\apps\server`
+- new endpoint: `POST /api/wherego/recommend`
+- server route file: `apps/server/backend/app/interfaces/http/routes/wherego.py`
+- client API wrapper: `src/api/wheregoApi.ts`
+
+The endpoint accepts origin plus selected answers, builds a Gemini travel plan, calls KTO KorService2 for tourist places, uses DataLab regional visitor counts as a crowd signal, and returns one to three places. If the server call fails in the client, `pages/index.tsx` falls back to the local demo result.
+
+Quota/runtime guardrails:
+
+- `WHEREGO_KTO_SEARCH_MAX_CALLS=12` caps KorService2 search calls per recommendation request.
+- `WHEREGO_KTO_DETAIL_CANDIDATE_LIMIT=3` limits detail calls to the strongest candidates.
+- `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false` skips the extra `detailImage2` call unless explicitly enabled.
+- The server keeps an in-memory KTO response cache: search 6h, detail 7d, DataLab 24h by default.
+- `src/api/wheregoApi.ts` times out recommendation requests after 15s so the app can fall back quickly.
+
+Required Render env additions:
+
+- `WHEREGO_PUBLIC_DATA_PORTAL_SERVICE_KEY` or existing `DATA_GO_KR_SERVICE_KEY`
+- `KTO_KOR_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/KorService2`
+- `KTO_DATALAB_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/DataLabService`
+- `GEMINI_API_KEY` already used by jbg
+- `GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`
+- `WHEREGO_KTO_SEARCH_MAX_CALLS=12`
+- `WHEREGO_KTO_DETAIL_CANDIDATE_LIMIT=3`
+- `WHEREGO_KTO_CACHE_ENABLED=true`
+- `WHEREGO_KTO_CACHE_MAX_ENTRIES=512`
+- `WHEREGO_KTO_SEARCH_CACHE_SECONDS=21600`
+- `WHEREGO_KTO_DETAIL_CACHE_SECONDS=604800`
+- `WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400`
+- `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false`
 
 ## Operating Rules
 
@@ -162,8 +205,8 @@ Latest known probe result with the default Seoul City Hall test origin:
 
 ## Next Recommended Steps
 
-1. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.
-2. Replace the client demo result data with server-backed Gemini function calling, KTO KorService2 search/detail/image calls, and DataLab crowd signals.
-3. Wire real Apps in Toss rewarded ads and card capture/save behavior.
+1. After pushing the `jbg` server commit, wait for Render to deploy and smoke test `POST https://jbg.onrender.com/api/wherego/recommend`.
+2. Confirm Render uses `GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`; if the env was entered as `gemini-3.1-flash-light`, fix it before judging Gemini failures.
+3. Wire real card capture/save behavior.
 4. Review the React Native UI against TDS requirements and replace custom primitives where needed.
 5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys.

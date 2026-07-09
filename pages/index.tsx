@@ -1,6 +1,6 @@
-import { Accuracy, useGeolocation } from '@apps-in-toss/framework';
+import { Accuracy, loadFullScreenAd, showFullScreenAd, useGeolocation } from '@apps-in-toss/framework';
 import { createRoute, openURL } from '@granite-js/react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -13,14 +13,21 @@ import {
 } from 'react-native';
 
 import logoImage from '../assets/logo.png';
+import {
+  recommendWheregoDestination,
+  type WheregoRecommendation,
+  type WheregoRecommendedPlace,
+} from '../src/api/wheregoApi';
 
 export const Route = createRoute('/', {
   component: Index,
 });
 
-type Step = 'intro' | 'origin' | 'question' | 'rewardGate' | 'rewardAd' | 'result';
+type Step = 'intro' | 'origin' | 'question' | 'rewardGate' | 'result';
 type QuestionKind = 'source' | 'general';
 type QuestionLayout = 'two' | 'four';
+type RewardAdStatus = 'idle' | 'loading' | 'ready' | 'showing' | 'unsupported' | 'error';
+type RecommendationStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type Option = {
   label: string;
@@ -38,8 +45,11 @@ type Question = {
 };
 
 type SelectedAnswer = {
+  questionId: string;
+  questionType: QuestionKind;
   question: string;
   answer: string;
+  caption: string;
 };
 
 type Origin = {
@@ -61,6 +71,9 @@ type DemoResult = {
   travel: string;
   signal: string;
   comfort: string;
+  overview?: string;
+  imageUrl?: string;
+  mapLink?: string;
 };
 
 const sourceQuestionPool: Question[] = [
@@ -356,6 +369,7 @@ const demoResultsByRegion: Record<string, DemoResult> = {
 };
 
 const GENERAL_QUESTION_COUNT = 5;
+const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 
 function Index() {
   const geolocation = useGeolocation({
@@ -363,6 +377,7 @@ function Index() {
     distanceInterval: 50,
     timeInterval: 5000,
   });
+  const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [questionSet, setQuestionSet] = useState<Question[]>([]);
@@ -370,8 +385,21 @@ function Index() {
   const [selectedAnswers, setSelectedAnswers] = useState<SelectedAnswer[]>([]);
   const [waitingForLocation, setWaitingForLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
-  const [adSeconds, setAdSeconds] = useState(3);
+  const [isRewardAdLoaded, setIsRewardAdLoaded] = useState(false);
+  const [rewardAdStatus, setRewardAdStatus] = useState<RewardAdStatus>('idle');
+  const [rewardAdMessage, setRewardAdMessage] = useState('');
+  const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
+  const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
+
+  useEffect(() => {
+    loadRewardAd();
+
+    return () => {
+      rewardAdUnregisterRef.current?.();
+      rewardAdUnregisterRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!waitingForLocation || geolocation == null) {
@@ -389,30 +417,9 @@ function Index() {
     });
   }, [geolocation, waitingForLocation]);
 
-  useEffect(() => {
-    if (step !== 'rewardAd') {
-      return undefined;
-    }
-
-    setAdSeconds(3);
-    const timer = setInterval(() => {
-      setAdSeconds((seconds) => {
-        if (seconds <= 1) {
-          clearInterval(timer);
-          setStep('result');
-          return 0;
-        }
-
-        return seconds - 1;
-      });
-    }, 850);
-
-    return () => clearInterval(timer);
-  }, [step]);
-
   const currentQuestion = questionSet[questionIndex];
   const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
-  const result = getDemoResult(origin);
+  const result = getResult(origin, recommendation);
 
   function resetToIntro() {
     setStep('intro');
@@ -422,7 +429,110 @@ function Index() {
     setSelectedAnswers([]);
     setWaitingForLocation(false);
     setLocationStatus('');
+    setRecommendation(null);
+    setRecommendationStatus('idle');
     setResultMessage('');
+  }
+
+  function loadRewardAd() {
+    const supportsRewardAd = loadFullScreenAd.isSupported() && showFullScreenAd.isSupported();
+
+    rewardAdUnregisterRef.current?.();
+    rewardAdUnregisterRef.current = null;
+    setIsRewardAdLoaded(false);
+
+    if (!supportsRewardAd) {
+      setRewardAdStatus('unsupported');
+      setRewardAdMessage('현재 환경은 리워드 광고를 지원하지 않아 개발 미리보기로 결과를 열 수 있어요.');
+      return;
+    }
+
+    setRewardAdStatus('loading');
+    setRewardAdMessage('리워드 광고를 준비하고 있어요.');
+
+    rewardAdUnregisterRef.current = loadFullScreenAd({
+      options: {
+        adGroupId: REWARDED_AD_GROUP_ID,
+      },
+      onEvent: (event) => {
+        if (event.type === 'loaded') {
+          setIsRewardAdLoaded(true);
+          setRewardAdStatus('ready');
+          setRewardAdMessage('');
+        }
+      },
+      onError: (error) => {
+        setIsRewardAdLoaded(false);
+        setRewardAdStatus('error');
+        setRewardAdMessage(`광고를 불러오지 못했어요. ${toErrorMessage(error)}`);
+      },
+    });
+  }
+
+  function showRewardAd() {
+    if (rewardAdStatus === 'unsupported') {
+      setStep('result');
+      return;
+    }
+
+    if (rewardAdStatus === 'error' || !isRewardAdLoaded) {
+      loadRewardAd();
+      return;
+    }
+
+    let didEarnReward = false;
+    let unregisterShowAd: (() => void) | null = null;
+
+    setRewardAdStatus('showing');
+    setRewardAdMessage('광고를 여는 중이에요.');
+
+    unregisterShowAd = showFullScreenAd({
+      options: {
+        adGroupId: REWARDED_AD_GROUP_ID,
+      },
+      onEvent: (event) => {
+        if (event.type === 'requested') {
+          setRewardAdMessage('광고 요청이 완료됐어요.');
+          return;
+        }
+
+        if (event.type === 'show') {
+          setRewardAdMessage('광고 시청이 끝나면 결과를 열어드릴게요.');
+          return;
+        }
+
+        if (event.type === 'userEarnedReward') {
+          didEarnReward = true;
+          setRewardAdMessage('');
+          setStep('result');
+          return;
+        }
+
+        if (event.type === 'dismissed') {
+          unregisterShowAd?.();
+          setIsRewardAdLoaded(false);
+          loadRewardAd();
+
+          if (!didEarnReward) {
+            setRewardAdMessage('광고 시청을 완료하면 결과를 볼 수 있어요.');
+          }
+          return;
+        }
+
+        if (event.type === 'failedToShow') {
+          unregisterShowAd?.();
+          setIsRewardAdLoaded(false);
+          setRewardAdStatus('error');
+          setRewardAdMessage('광고를 표시하지 못했어요. 다시 불러와 주세요.');
+        }
+      },
+      onError: (error) => {
+        unregisterShowAd?.();
+        setIsRewardAdLoaded(false);
+        setRewardAdStatus('error');
+        setRewardAdMessage(`광고 표시 중 문제가 생겼어요. ${toErrorMessage(error)}`);
+      },
+    });
   }
 
   function startFlowWithOrigin(nextOrigin: Origin) {
@@ -432,6 +542,8 @@ function Index() {
     setSelectedAnswers([]);
     setWaitingForLocation(false);
     setLocationStatus('');
+    setRecommendation(null);
+    setRecommendationStatus('idle');
     setResultMessage('');
     setStep('question');
   }
@@ -459,25 +571,58 @@ function Index() {
       return;
     }
 
-    setSelectedAnswers((answers) => [
-      ...answers,
+    const nextAnswers = [
+      ...selectedAnswers,
       {
+        questionId: currentQuestion.id,
+        questionType: currentQuestion.type,
         question: currentQuestion.question,
         answer: option.label,
+        caption: option.caption,
       },
-    ]);
+    ];
+
+    setSelectedAnswers(nextAnswers);
 
     if (questionIndex < questionSet.length - 1) {
       setQuestionIndex((index) => index + 1);
       return;
     }
 
+    void prepareRecommendation(nextAnswers);
+
+    if (!isRewardAdLoaded && rewardAdStatus !== 'loading') {
+      loadRewardAd();
+    }
+
     setStep('rewardGate');
+  }
+
+  async function prepareRecommendation(answers: SelectedAnswer[]) {
+    if (origin == null) {
+      return;
+    }
+
+    setRecommendationStatus('loading');
+    setResultMessage('');
+
+    try {
+      const nextRecommendation = await recommendWheregoDestination({
+        origin,
+        answers,
+      });
+      setRecommendation(nextRecommendation);
+      setRecommendationStatus('ready');
+    } catch (error) {
+      setRecommendation(null);
+      setRecommendationStatus('error');
+      setResultMessage(`서버 추천을 불러오지 못해 임시 추천을 보여드려요. ${toErrorMessage(error)}`);
+    }
   }
 
   function openMap() {
     setResultMessage('');
-    void openURL(naverSearchLink(result.place)).catch(() => {
+    void openURL(result.mapLink || naverSearchLink(result.place)).catch(() => {
       setResultMessage('지도 링크를 열지 못했어요. 잠시 후 다시 시도해주세요.');
     });
   }
@@ -509,8 +654,13 @@ function Index() {
               onChoose={chooseOption}
             />
           ) : null}
-          {step === 'rewardGate' ? <RewardGate onWatchAd={() => setStep('rewardAd')} /> : null}
-          {step === 'rewardAd' ? <RewardAd seconds={adSeconds} /> : null}
+          {step === 'rewardGate' ? (
+            <RewardGate
+              message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
+              status={rewardAdStatus}
+              onWatchAd={showRewardAd}
+            />
+          ) : null}
           {step === 'result' ? (
             <ResultScreen
               answerCount={selectedAnswers.length}
@@ -546,10 +696,8 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
     <View style={styles.centerScreen}>
       <View style={styles.introPanel}>
         <Pill label="한국관광공사 관광정보 기반" />
-        <Text style={styles.introTitle}>AI가 취향에 맞는 여행지를 골라드려요.</Text>
-        <Text style={styles.introCopy}>
-          출발 기준과 8개 선택지만 고르면 관광정보와 방문자수 신호를 바탕으로 오늘 갈 만한 곳을 추천합니다.
-        </Text>
+        <Text style={styles.introTitle}>AI가 오늘 갈 만한 여행지를 골라드려요.</Text>
+        <Text style={styles.introCopy}>관광정보와 방문자수를 바탕으로 추천합니다.</Text>
         <PrimaryButton label="시작하기" onPress={onStart} />
       </View>
     </View>
@@ -653,26 +801,29 @@ function OptionCard({
   );
 }
 
-function RewardGate({ onWatchAd }: { onWatchAd: () => void }) {
+function RewardGate({
+  message,
+  onWatchAd,
+  status,
+}: {
+  message: string;
+  onWatchAd: () => void;
+  status: RewardAdStatus;
+}) {
+  const isButtonDisabled = status === 'loading' || status === 'showing';
+
   return (
     <View style={styles.centerScreen}>
       <View style={styles.panelCentered}>
         <Pill label="취향 분석 완료" />
         <Text style={styles.panelTitle}>취향에 맞는 여행지를 골라뒀어요.</Text>
         <Text style={styles.panelCopy}>짧은 광고를 보면 AI 추천 카드와 지도 연결을 바로 열어드릴게요.</Text>
-        <PrimaryButton label="광고 보고 결과 보기" onPress={onWatchAd} />
-      </View>
-    </View>
-  );
-}
-
-function RewardAd({ seconds }: { seconds: number }) {
-  return (
-    <View style={styles.centerScreen}>
-      <View style={styles.rewardAd}>
-        <Text style={styles.rewardAdBadge}>리워드 광고</Text>
-        <Text style={styles.rewardAdTitle}>여행지 추천 카드를 준비하고 있어요</Text>
-        <Text style={styles.rewardAdCopy}>{seconds}초 후 결과 열기</Text>
+        {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
+        <PrimaryButton
+          disabled={isButtonDisabled}
+          label={rewardButtonLabel(status)}
+          onPress={onWatchAd}
+        />
       </View>
     </View>
   );
@@ -699,8 +850,14 @@ function ResultScreen({
     <View style={styles.resultScreen}>
       <View style={styles.resultCard}>
         <View style={styles.resultArt}>
-          <View style={styles.sun} />
-          <View style={styles.hill} />
+          {result.imageUrl ? (
+            <Image source={{ uri: result.imageUrl }} style={styles.resultImage} />
+          ) : (
+            <>
+              <View style={styles.sun} />
+              <View style={styles.hill} />
+            </>
+          )}
         </View>
         <View style={styles.resultBody}>
           <Text style={styles.persona}>{result.persona}</Text>
@@ -825,14 +982,109 @@ function getDemoResult(nextOrigin: Origin | null) {
   return demoResultsByRegion[regionLabel || '서울/수도권'] ?? fallback;
 }
 
+function getResult(nextOrigin: Origin | null, recommendation: WheregoRecommendation | null): DemoResult {
+  const recommendedPlace = recommendation?.recommendedPlaces?.[0];
+  if (recommendation != null && recommendedPlace != null) {
+    return resultFromRecommendation(recommendation, recommendedPlace);
+  }
+
+  return getDemoResult(nextOrigin);
+}
+
+function resultFromRecommendation(
+  recommendation: WheregoRecommendation,
+  place: WheregoRecommendedPlace,
+): DemoResult {
+  return {
+    persona: recommendation.personaTitle,
+    place: place.title,
+    reason: place.aiReason || recommendation.oneLine,
+    region: place.region || regionFromAddress(place.address),
+    address: place.address || '주소 확인 필요',
+    travel: travelText(place),
+    signal: crowdText(place),
+    comfort: comfortText(place),
+    overview: place.overview,
+    imageUrl: place.imageUrl,
+    mapLink: place.mapLink,
+  };
+}
+
+function travelText(place: WheregoRecommendedPlace) {
+  if (place.estimatedOneWayDriveMinutes != null) {
+    return `예상 편도 ${place.estimatedOneWayDriveMinutes}분 · 약 ${place.estimatedRoadDistanceKm ?? '?'}km`;
+  }
+
+  return '이동 시간 확인 필요';
+}
+
+function crowdText(place: WheregoRecommendedPlace) {
+  const crowd = place.crowd;
+  if (crowd == null) {
+    return '방문자수 데이터 확인 필요';
+  }
+
+  const baseDate = crowd.latestBaseYmd ? ` · ${crowd.latestBaseYmd}` : '';
+  return `지역 방문자수 ${crowd.label || '확인 필요'}${baseDate}`;
+}
+
+function comfortText(place: WheregoRecommendedPlace) {
+  const intro = place.intro || {};
+  const values = [intro.parking, intro.useTime, intro.restDate].filter((value): value is string => {
+    return typeof value === 'string' && value.trim().length > 0;
+  });
+
+  if (values.length === 0) {
+    return '운영/주차 정보는 지도에서 확인';
+  }
+
+  return values.join(' · ').replace(/\s+/g, ' ').slice(0, 70);
+}
+
+function regionFromAddress(address: string) {
+  return address.split(/\s+/).filter(Boolean).slice(0, 2).join(' ') || '지역 확인 필요';
+}
+
+function rewardGateMessage(adMessage: string, status: RecommendationStatus) {
+  const recommendationMessage =
+    status === 'loading'
+      ? 'AI가 한국관광공사 관광정보에서 후보를 고르는 중이에요.'
+      : status === 'ready'
+        ? '추천 카드 준비가 끝났어요.'
+        : status === 'error'
+          ? '서버 추천이 지연되어 임시 추천을 준비했어요.'
+          : '';
+
+  return [recommendationMessage, adMessage].filter(Boolean).join('\n');
+}
+
 function naverSearchLink(keyword: string) {
   return `https://map.naver.com/p/search/${encodeURIComponent(keyword)}`;
+}
+
+function rewardButtonLabel(status: RewardAdStatus) {
+  if (status === 'loading') return '광고 준비 중';
+  if (status === 'showing') return '광고 여는 중';
+  if (status === 'unsupported') return '결과 보기';
+  if (status === 'error') return '광고 다시 불러오기';
+  return '광고 보고 결과 보기';
+}
+
+function toErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  return '잠시 후 다시 시도해주세요.';
 }
 
 function headerLabel(step: Step) {
   if (step === 'origin') return '출발 기준';
   if (step === 'rewardGate') return '결과 준비';
-  if (step === 'rewardAd') return '광고';
   if (step === 'result') return '추천 완료';
   return '';
 }
@@ -1079,34 +1331,13 @@ const styles = StyleSheet.create({
     marginTop: 7,
     textAlign: 'center',
   },
-  rewardAd: {
-    backgroundColor: '#25345F',
-    borderRadius: 24,
-    justifyContent: 'space-between',
-    minHeight: 420,
-    padding: 26,
-  },
-  rewardAdBadge: {
-    alignSelf: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.17)',
-    borderRadius: 999,
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '900',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  rewardAdTitle: {
-    color: '#FFFFFF',
-    fontSize: 25,
-    fontWeight: '900',
-    lineHeight: 32,
-    textAlign: 'center',
-  },
-  rewardAdCopy: {
-    color: 'rgba(255, 255, 255, 0.84)',
-    fontSize: 15,
+  rewardStatus: {
+    color: '#1E63D6',
+    fontSize: 13,
     fontWeight: '800',
+    lineHeight: 19,
+    marginBottom: 14,
+    marginTop: -4,
     textAlign: 'center',
   },
   resultScreen: {
@@ -1123,6 +1354,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#CDE7FF',
     height: 162,
     overflow: 'hidden',
+  },
+  resultImage: {
+    height: '100%',
+    resizeMode: 'cover',
+    width: '100%',
   },
   sun: {
     alignSelf: 'flex-end',
