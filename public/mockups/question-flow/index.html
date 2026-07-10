@@ -488,22 +488,12 @@
         word-break: keep-all;
       }
 
-      .subcopy {
-        min-height: 0;
-        margin: 8px 2px 12px;
-        color: var(--muted);
-        font-size: 14px;
-        line-height: 1.45;
-        font-weight: 650;
-        word-break: keep-all;
-      }
-
       .options {
         flex: 0 0 auto;
         width: 100%;
         display: grid;
         gap: 10px;
-        margin-top: 10px;
+        margin-top: 16px;
       }
 
       .options.two {
@@ -1723,7 +1713,6 @@
             <div class="origin-chip">출발 기준: ${currentOrigin?.label || "지역 미선택"}</div>
             <div class="eyebrow">${item.eyebrow}</div>
             <h1 class="question">${item.question}</h1>
-            <p class="subcopy">${item.subcopy}</p>
             <div class="options ${item.layout}">
       ${item.options
                 .map(

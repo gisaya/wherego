@@ -1443,7 +1443,6 @@ function QuestionScreen({
       <Text style={styles.originChip}>출발 기준: {origin?.label || '지역 미선택'}</Text>
       <Text style={styles.eyebrow}>{question.eyebrow}</Text>
       <Text style={styles.questionTitle}>{question.question}</Text>
-      <Text style={styles.questionCopy}>{question.subcopy}</Text>
       <View style={styles.optionRows}>
         {optionRows.map((row, rowIndex) => (
           <View key={`${question.id}-${rowIndex}`} style={styles.optionRow}>
@@ -1711,14 +1710,22 @@ const ResultCardPngSource = React.forwardRef<
   }
 >(function ResultCardPngSource({ answerCount, result }, ref) {
   const hasHeroImage = Boolean(result.imageUrl);
-  const placeLines = svgTextLines(result.place, 17, 2);
-  const personaLines = svgTextLines(result.persona, 24, 2);
-  const reasonLines = svgTextLines(result.reason, 29, 3);
-  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 48, 2);
-  const locationLines = svgTextLines(resultLocationText(result), 45, 2);
-  const factorLines = svgTextLines(resultCardFactorText(result), 42, 4);
+  const placeLines = svgTextLines(result.place, 15, 2);
+  const personaLines = svgTextLines(result.persona, 21, 2);
+  const reasonLines = svgTextLines(result.reason, 28, 5);
+  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 43, 2);
+  const locationLines = svgTextLines(resultLocationText(result), 36, 2);
+  const factorLines = svgTextLines(resultCardFactorText(result), 37, 5);
   const heroTitleColor = hasHeroImage ? '#FFFFFF' : '#1E63D6';
   const heroPlaceColor = hasHeroImage ? '#FFFFFF' : '#191F28';
+  const cardX = 96;
+  const cardY = 64;
+  const cardWidth = 888;
+  const cardHeight = 1222;
+  const cardRight = cardX + cardWidth;
+  const contentX = 144;
+  const contentWidth = 792;
+  const locationTextY = locationLines.length > 1 ? 890 : 909;
 
   return (
     <View pointerEvents="none" style={styles.hiddenCardRenderer}>
@@ -1730,12 +1737,12 @@ const ResultCardPngSource = React.forwardRef<
       >
         <Defs>
           <ClipPath id="wherego-result-hero-clip">
-            <Rect height={RESULT_CARD_HERO_HEIGHT} rx={48} width={952} x={64} y={64} />
+            <Rect height={RESULT_CARD_HERO_HEIGHT} rx={48} width={cardWidth} x={cardX} y={cardY} />
           </ClipPath>
         </Defs>
         <Rect fill="#F5F7FA" height={RESULT_CARD_IMAGE_HEIGHT} width={RESULT_CARD_IMAGE_WIDTH} x={0} y={0} />
-        <Rect fill="#FFFFFF" height={1222} rx={48} width={952} x={64} y={64} />
-        <Rect fill="none" height={1222} rx={48} stroke="#E5E8EB" strokeWidth={2} width={952} x={64} y={64} />
+        <Rect fill="#FFFFFF" height={cardHeight} rx={48} width={cardWidth} x={cardX} y={cardY} />
+        <Rect fill="none" height={cardHeight} rx={48} stroke="#E5E8EB" strokeWidth={2} width={cardWidth} x={cardX} y={cardY} />
         <G clipPath="url(#wherego-result-hero-clip)">
           {result.imageUrl ? (
             <>
@@ -1743,46 +1750,46 @@ const ResultCardPngSource = React.forwardRef<
                 height={RESULT_CARD_HERO_HEIGHT}
                 href={{ uri: result.imageUrl }}
                 preserveAspectRatio="xMidYMid slice"
-                width={952}
-                x={64}
-                y={64}
+                width={cardWidth}
+                x={cardX}
+                y={cardY}
               />
-              <Rect fill="#000000" height={RESULT_CARD_HERO_HEIGHT} opacity={0.28} width={952} x={64} y={64} />
+              <Rect fill="#000000" height={RESULT_CARD_HERO_HEIGHT} opacity={0.28} width={cardWidth} x={cardX} y={cardY} />
             </>
           ) : (
             <>
-              <Rect fill="#EAF3FF" height={RESULT_CARD_HERO_HEIGHT} width={952} x={64} y={64} />
-              <Circle cx={855} cy={225} fill="#FFE1A3" r={92} />
+              <Rect fill="#EAF3FF" height={RESULT_CARD_HERO_HEIGHT} width={cardWidth} x={cardX} y={cardY} />
+              <Circle cx={830} cy={225} fill="#FFE1A3" r={92} />
               <Path
-                d="M64 456 C210 348 327 410 438 342 C592 258 746 388 1016 276 L1016 524 L64 524 Z"
+                d={`M${cardX} 456 C210 348 327 410 438 342 C592 258 746 388 ${cardRight} 276 L${cardRight} 524 L${cardX} 524 Z`}
                 fill="#B9E6CF"
               />
               <Path
-                d="M64 496 C232 402 352 454 500 406 C640 358 766 454 1016 372 L1016 524 L64 524 Z"
+                d={`M${cardX} 496 C232 402 352 454 500 406 C640 358 766 454 ${cardRight} 372 L${cardRight} 524 L${cardX} 524 Z`}
                 fill="#86D1F2"
                 opacity={0.72}
               />
             </>
           )}
         </G>
-        <SvgText fill={heroTitleColor} fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={34} fontWeight="800" x={112} y={150}>
+        <SvgText fill={heroTitleColor} fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={34} fontWeight="800" x={contentX} y={150}>
           어디고 추천 카드
         </SvgText>
-        <SvgTextBlock color={heroPlaceColor} lineHeight={62} lines={placeLines} weight="800" x={112} y={234} />
-        <SvgTextBlock color="#1E63D6" lineHeight={34} lines={personaLines} weight="800" x={112} y={588} />
-        <SvgTextBlock color="#4E5968" lineHeight={36} lines={reasonLines} weight="700" x={112} y={662} />
-        <Rect fill="#E5E8EB" height={2} width={856} x={112} y={770} />
-        <Rect fill="#F9FAFB" height={86} rx={24} stroke="#E5E8EB" width={856} x={112} y={800} />
-        <SvgText fill="#8B95A1" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={24} fontWeight="800" x={146} y={852}>
+        <SvgTextBlock color={heroPlaceColor} lineHeight={62} lines={placeLines} weight="800" x={contentX} y={234} />
+        <SvgTextBlock color="#1E63D6" lineHeight={34} lines={personaLines} weight="800" x={contentX} y={588} />
+        <SvgTextBlock color="#4E5968" lineHeight={32} lines={reasonLines} weight="700" x={contentX} y={652} />
+        <Rect fill="#E5E8EB" height={2} width={contentWidth} x={contentX} y={828} />
+        <Rect fill="#F9FAFB" height={86} rx={24} stroke="#E5E8EB" width={contentWidth} x={contentX} y={858} />
+        <SvgText fill="#8B95A1" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={24} fontWeight="800" x={178} y={909}>
           위치
         </SvgText>
-        <SvgTextBlock color="#191F28" lineHeight={29} lines={locationLines} weight="800" x={240} y={840} />
-        <Rect fill="#F9FAFB" height={220} rx={28} stroke="#E5E8EB" width={856} x={112} y={920} />
-        <SvgText fill="#1E63D6" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={27} fontWeight="800" x={146} y={970}>
+        <SvgTextBlock color="#191F28" lineHeight={29} lines={locationLines} weight="800" x={272} y={locationTextY} />
+        <Rect fill="#F9FAFB" height={226} rx={28} stroke="#E5E8EB" width={contentWidth} x={contentX} y={974} />
+        <SvgText fill="#1E63D6" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={27} fontWeight="800" x={178} y={1024}>
           AI 선택 근거
         </SvgText>
-        <SvgTextBlock color="#191F28" lineHeight={30} lines={factorLines} weight="700" x={146} y={1016} />
-        <SvgTextBlock color="#8B95A1" lineHeight={23} lines={sourceLines} weight="700" x={112} y={1188} />
+        <SvgTextBlock color="#191F28" lineHeight={27} lines={factorLines} weight="700" x={178} y={1070} />
+        <SvgTextBlock color="#8B95A1" lineHeight={23} lines={sourceLines} weight="700" x={contentX} y={1234} />
       </Svg>
     </View>
   );
@@ -2831,16 +2838,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 32,
   },
-  questionCopy: {
-    color: '#4E5968',
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 21,
-    marginBottom: 12,
-    marginTop: 8,
-  },
   optionRows: {
-    marginTop: 10,
+    marginTop: 16,
   },
   optionRow: {
     flexDirection: 'row',
