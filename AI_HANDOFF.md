@@ -158,6 +158,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-10 KST save check: question-card tap delay was reduced to 1s, reward-gate top header/progress stays hidden, and recommendation analysis now starts from the rewarded-ad CTA while the ad flow is running. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f492e-81c6-7044-986f-2f3028a34528`.
   - 2026-07-10 KST save check: direct-region text clipping was fixed with a custom Pressable button and taller region cards; recommendation errors now stay on the reward gate with `추천 다시 시도`; local demo/fallback results no longer open after server failure; card save no longer opens share fallback and uses system-font PNG rendering. Render smoke returned HTTP 200 with `source.curator=gemini`, selected `서울어린이대공원`, and an image URL. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f494b-cb34-72b1-a1f3-1ee8f64da56c`.
   - 2026-07-10 KST save check: saved PNG result card now uses the real KTO place image, a taller hero photo area, a compact address-only location row, and cleaned AI factor copy so the card fits inside 1080x1350. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f49fb-2216-7512-b555-4808770c2e41`.
+  - 2026-07-10 KST save check: question generation moved to the `jbg` backend via `POST /api/wherego/questions`; the app fetches that set after origin selection and falls back to the bundled bank if the server is unavailable. SDK-check UI now shows a question-set loading panel, uses TDS `Button` loading for the origin CTA, and renders option numbers as fixed circular badges with two-line text limits. `jbg` Wherego route unittest passed with 16 tests. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a16-6e2b-7383-a0b6-6d42ff134754`.
 
 ## Current Question/API Work
 
@@ -169,7 +170,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 - `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, min/max distance and time filtering, region-scope search, parking filtering, and DataLab crowd labeling.
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
 - `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad position, rewarded-ad gate, Naver Map link, and result card with tourism info.
-- Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, direct-region text no longer clips, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, recommendation failure stays on the retry gate instead of opening a demo result, and the final result hides the top header.
+- Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, direct-region text no longer clips, origin selection shows a question-set loading screen, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, option numbers are fixed circular badges, long option text is constrained to two lines, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, recommendation failure stays on the retry gate instead of opening a demo result, and the final result hides the top header.
 
 Latest known Render smoke result with the Seoul City Hall test origin:
 
@@ -186,7 +187,7 @@ Latest known Render smoke result with the Seoul City Hall test origin:
 - The current drive-time filter is an estimate, not real routing. A map/routing API is needed for production-grade travel time.
 - DataLab visitor counts are regional, not place-level. Treat crowd labels as a weak supporting signal.
 - The generated question bank is large enough for MVP experiments. The remaining copy risk is mostly repeated prompt templates, not missing tags or missing search hints.
-- Apps in Toss UI now calls the `jbg` Render-backed recommendation API. Server/API/Gemini failures stay on the reward gate with a retry CTA; demo data is retained only as a defensive local fallback and should not surface in the normal result flow.
+- Apps in Toss UI now calls the `jbg` Render-backed question and recommendation APIs. If `POST /api/wherego/questions` is not deployed or fails, the client falls back to the bundled question bank. Recommendation failures stay on the reward gate with a retry CTA; demo data is retained only as a defensive local fallback and should not surface in the normal result flow.
 - KTO `searchKeyword2` can intermittently time out on some nationwide keyword calls; the server now skips single failed search calls, but live monitoring should watch empty-candidate rates.
 - Card-save now writes a PNG card file through Apps in Toss `saveBase64Data`, but real-device validation is still needed.
 - 2026-07-10 KST follow-up: saved PNG card clipping was caused by the hidden SVG card's lower text/AI box coordinates being too close to the 1080x1350 card bottom. `pages/index.tsx` and the mockup card SVG now reserve more bottom space and specify Korean-capable system fonts. The app no longer calls `share`; if a sheet still appears after `saveBase64Data`, it is the native Toss file-save UI because `saveBase64Data` exposes no no-sheet option in the local framework source.
@@ -201,11 +202,11 @@ Wherego now reuses the existing `뭐샀지`/`jbg` Render FastAPI service instead
 
 - client API base: `https://jbg.onrender.com`
 - server repo/path: `C:\Users\ESOL\Documents\jbg\apps\server`
-- new endpoint: `POST /api/wherego/recommend`
+- endpoints: `POST /api/wherego/questions`, `POST /api/wherego/recommend`
 - server route file: `apps/server/backend/app/interfaces/http/routes/wherego.py`
 - client API wrapper: `src/api/wheregoApi.ts`
 
-The endpoint accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, and asks Gemini to choose the final single place from those candidates. DataLab regional visitor counts are included as a crowd signal before the Gemini final selection. If the server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
+`/api/wherego/questions` generates the runtime 8-question set from server-side resources: 3 source-axis questions and 5 general questions, with `crowd` required and one of `mobility`/`accessibility` included. `/api/wherego/recommend` accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, and asks Gemini to choose the final single place from those candidates. DataLab regional visitor counts are included as a crowd signal before the Gemini final selection. If the recommendation server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
 
 Quota/runtime guardrails:
 
@@ -244,7 +245,7 @@ Required Render env additions:
 
 ## Next Recommended Steps
 
-1. Test the live Apps in Toss app flow on device: logo in navigation, location permission, region fallback, banner ad, rewarded ad, retry-on-failure behavior, result rendering, and Naver Map open.
+1. Test the live Apps in Toss SDK/device flow: server-generated question loading, option-number badge rendering on long labels, logo in navigation, location permission, region fallback, banner ad, rewarded ad, retry-on-failure behavior, result rendering, and Naver Map open.
 2. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
 3. Test the PNG card-save flow on real Toss devices and confirm it saves without opening the share sheet.
 4. Watch Render recommendation latency and retry rate after the 45s timeout change; if response time is still unstable, add server-side prewarming or tighter KTO/Gemini timeout tuning.

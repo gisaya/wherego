@@ -296,6 +296,9 @@ The mockup uses:
 - recommendation loading appears after the rewarded-ad CTA, while the mock rewarded-ad flow is running
 - result card with tourism info, PNG card-download button, Naver Map open button, and home reset. The mock save flow downloads PNG only and does not open share.
 - result screen hides the top `어디고 / 추천 완료` header
+- live app requests the question set from `POST /api/wherego/questions` after origin selection; bundled question-bank fallback is used if the server is unavailable
+- origin selection shows a question-set loading screen before the first question
+- option numbers are fixed circular badges so long Korean labels do not push or clip the number
 
 
 ## Local Android Dev

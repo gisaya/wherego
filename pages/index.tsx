@@ -26,10 +26,14 @@ import {
 import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 import {
+  fetchWheregoQuestionSet,
   recommendWheregoDestination,
+  type WheregoQuestion,
   type WheregoRecommendation,
   type WheregoRecommendedPlace,
 } from '../src/api/wheregoApi';
+import generalQuestionBank from '../data/general-question-bank.json';
+import sourceQuestionBlueprint from '../data/source-question-blueprint.json';
 
 export const Route = createRoute('/', {
   component: Index,
@@ -42,8 +46,12 @@ type RewardAdStatus = 'idle' | 'loading' | 'ready' | 'showing' | 'unsupported' |
 type RecommendationStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type Option = {
+  key?: string;
   label: string;
   caption: string;
+  tags?: string[];
+  searchHints?: string[];
+  constraints?: Record<string, boolean | number | string | string[]>;
 };
 
 type OptionMetadata = {
@@ -59,7 +67,64 @@ type Question = {
   question: string;
   subcopy: string;
   layout: QuestionLayout;
+  tags?: string[];
   options: Option[];
+};
+
+type BankQuestionType = 'select_2' | 'select_4';
+
+type BankOption = {
+  key?: string;
+  sourceId?: string;
+  label: string;
+  tags?: string[];
+  searchHints?: string[];
+  constraints?: Record<string, boolean | number | string | string[]>;
+};
+
+type SourceQuestionVariant = {
+  id: string;
+  type: BankQuestionType;
+  question: string;
+  options: BankOption[];
+};
+
+type SourceQuestionAxis = {
+  axis: string;
+  label: string;
+  why?: string;
+  variants: SourceQuestionVariant[];
+};
+
+type SourceQuestionBlueprint = {
+  requiredAxes: SourceQuestionAxis[];
+};
+
+type GeneralQuestionItem = {
+  id: string;
+  type: BankQuestionType;
+  tagGroup: string;
+  label: string;
+  question: string;
+  tags?: string[];
+  options: BankOption[];
+};
+
+type GeneralQuestionGroup = {
+  tagGroup: string;
+  label: string;
+  why?: string;
+  questions: GeneralQuestionItem[];
+};
+
+type GeneralQuestionRuntimeSelection = {
+  requiredTagGroups?: string[];
+  oneOfTagGroups?: string[];
+};
+
+type GeneralQuestionBank = {
+  runtimeSelection?: GeneralQuestionRuntimeSelection;
+  tagGroups: GeneralQuestionGroup[];
 };
 
 type SelectedAnswer = {
@@ -118,6 +183,8 @@ type DemoResult = {
 };
 
 const LOGO_IMAGE_URL = 'https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png';
+const sourceQuestionData = sourceQuestionBlueprint as SourceQuestionBlueprint;
+const generalQuestionData = generalQuestionBank as GeneralQuestionBank;
 
 const sourceQuestionPool: Question[] = [
   {
@@ -684,6 +751,7 @@ function Index() {
   const rewardGateLoadRequestedRef = useRef(false);
   const resultCardSvgRef = useRef<Svg | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const questionSetRequestIdRef = useRef(0);
   const selectedAnswersRef = useRef<SelectedAnswer[]>([]);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
@@ -692,6 +760,7 @@ function Index() {
   const [selectedAnswers, setSelectedAnswers] = useState<SelectedAnswer[]>([]);
   const [selectedOptionLabel, setSelectedOptionLabel] = useState<string | null>(null);
   const [isQuestionAdvancing, setIsQuestionAdvancing] = useState(false);
+  const [isQuestionSetLoading, setIsQuestionSetLoading] = useState(false);
   const [waitingForLocation, setWaitingForLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
   const [isRewardAdLoaded, setIsRewardAdLoaded] = useState(false);
@@ -754,7 +823,7 @@ function Index() {
   }, [waitingForLocation]);
 
   function startFlowWithCurrentLocation(geolocation: TossLocation) {
-    startFlowWithOrigin({
+    void startFlowWithOrigin({
       type: 'current_location',
       label: currentLocationLabel(geolocation.coords.latitude, geolocation.coords.longitude),
       description: '권한 허용 위치',
@@ -775,6 +844,7 @@ function Index() {
   }
 
   function resetToIntro() {
+    questionSetRequestIdRef.current += 1;
     clearQuestionAdvanceTimer();
     setStep('intro');
     setOrigin(null);
@@ -784,6 +854,7 @@ function Index() {
     selectedAnswersRef.current = [];
     setSelectedOptionLabel(null);
     setIsQuestionAdvancing(false);
+    setIsQuestionSetLoading(false);
     setWaitingForLocation(false);
     setLocationStatus('');
     resetRewardAdState();
@@ -925,21 +996,43 @@ function Index() {
     });
   }
 
-  function startFlowWithOrigin(nextOrigin: Origin) {
+  async function startFlowWithOrigin(nextOrigin: Origin) {
+    const requestId = questionSetRequestIdRef.current + 1;
+    questionSetRequestIdRef.current = requestId;
     clearQuestionAdvanceTimer();
     setOrigin(nextOrigin);
-    setQuestionSet(buildQuestionSet());
+    setQuestionSet([]);
     setQuestionIndex(0);
     setSelectedAnswers([]);
     selectedAnswersRef.current = [];
     setSelectedOptionLabel(null);
     setIsQuestionAdvancing(false);
+    setIsQuestionSetLoading(true);
     setWaitingForLocation(false);
-    setLocationStatus('');
+    setLocationStatus('질문 세트를 준비하고 있어요.');
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
+
+    let nextQuestionSet = buildQuestionSet();
+    try {
+      const response = await fetchWheregoQuestionSet({ origin: nextOrigin });
+      const remoteQuestions = normalizeRemoteQuestions(response.questions);
+      if (remoteQuestions.length === 8) {
+        nextQuestionSet = remoteQuestions;
+      }
+    } catch (_) {
+      nextQuestionSet = buildQuestionSet();
+    }
+
+    if (questionSetRequestIdRef.current !== requestId) {
+      return;
+    }
+
+    setQuestionSet(nextQuestionSet);
+    setIsQuestionSetLoading(false);
+    setLocationStatus('');
     setStep('question');
   }
 
@@ -955,7 +1048,7 @@ function Index() {
 
     clearQuestionAdvanceTimer();
 
-    const metadata = optionMetadataByQuestionId[currentQuestion.id]?.[option.label] || {};
+    const metadata = mergeOptionMetadata(optionMetadataByQuestionId[currentQuestion.id]?.[option.label], option);
     const nextAnswers = [
       ...selectedAnswers,
       {
@@ -964,7 +1057,7 @@ function Index() {
         question: currentQuestion.question,
         answer: option.label,
         caption: option.caption,
-        tags: metadata.tags || [],
+        tags: uniqueStrings([...(currentQuestion.tags || []), ...(metadata.tags || [])]),
         searchHints: metadata.searchHints || [],
         constraints: metadata.constraints || {},
       },
@@ -1058,6 +1151,7 @@ function Index() {
                 locationStatus={locationStatus}
                 onUseCurrentLocation={handleUseCurrentLocation}
                 onSelectRegion={startFlowWithOrigin}
+                preparingQuestions={isQuestionSetLoading}
                 waitingForLocation={waitingForLocation}
               />
             ) : null}
@@ -1155,11 +1249,13 @@ function OriginScreen({
   locationStatus,
   onSelectRegion,
   onUseCurrentLocation,
+  preparingQuestions,
   waitingForLocation,
 }: {
   locationStatus: string;
-  onSelectRegion: (origin: Origin) => void;
+  onSelectRegion: (origin: Origin) => void | Promise<void>;
   onUseCurrentLocation: () => void;
+  preparingQuestions: boolean;
   waitingForLocation: boolean;
 }) {
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
@@ -1167,6 +1263,21 @@ function OriginScreen({
   function selectRegion(region: Origin) {
     setIsRegionModalOpen(false);
     onSelectRegion(region);
+  }
+
+  if (preparingQuestions) {
+    return (
+      <View style={styles.centerScreen}>
+        <View style={styles.panelCentered}>
+          <Pill label="질문지 생성" />
+          <View style={styles.questionSetLoadingIcon}>
+            <ActivityIndicator color="#2B84FC" size="large" />
+          </View>
+          <Text style={styles.panelTitle}>질문지를 준비하고 있어요.</Text>
+          <Text style={styles.panelCopy}>출발지와 추천 기준에 맞춰 질문을 고르는 중입니다.</Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -1179,14 +1290,20 @@ function OriginScreen({
         </Text>
         <View style={styles.actionStack}>
           <PrimaryButton
-            disabled={waitingForLocation}
-            label={waitingForLocation ? '위치 확인 중' : '현재 위치로 추천'}
+            disabled={waitingForLocation || preparingQuestions}
+            label={preparingQuestions ? '질문 준비 중' : waitingForLocation ? '위치 확인 중' : '현재 위치로 추천'}
+            loading={waitingForLocation || preparingQuestions}
             onPress={onUseCurrentLocation}
           />
           <Pressable
             accessibilityLabel="지역 직접 선택"
             accessibilityRole="button"
-            style={({ pressed }) => [styles.originRegionButton, pressed ? styles.cardPressed : null]}
+            disabled={preparingQuestions}
+            style={({ pressed }) => [
+              styles.originRegionButton,
+              pressed && !preparingQuestions ? styles.cardPressed : null,
+              preparingQuestions ? styles.originRegionButtonDisabled : null,
+            ]}
             onPress={() => setIsRegionModalOpen(true)}
           >
             <Text style={styles.originRegionButtonText}>지역 직접 선택</Text>
@@ -1346,10 +1463,16 @@ function OptionCard({
       onPress={onPress}
     >
       <View style={[styles.optionAccent, accentStyle]} />
-      <Text style={styles.optionIndex}>{number}</Text>
+      <View style={styles.optionIndexBadge}>
+        <Text style={styles.optionIndex}>{number}</Text>
+      </View>
       <View style={styles.optionTextBox}>
-        <Text style={styles.optionLabel}>{option.label}</Text>
-        <Text style={styles.optionCaption}>{option.caption}</Text>
+        <Text adjustsFontSizeToFit minimumFontScale={0.86} numberOfLines={2} style={styles.optionLabel}>
+          {option.label}
+        </Text>
+        <Text adjustsFontSizeToFit minimumFontScale={0.88} numberOfLines={2} style={styles.optionCaption}>
+          {option.caption}
+        </Text>
       </View>
     </Pressable>
   );
@@ -1642,16 +1765,19 @@ function BannerAd() {
 function PrimaryButton({
   disabled,
   label,
+  loading,
   onPress,
 }: {
   disabled?: boolean;
   label: string;
+  loading?: boolean;
   onPress: () => void;
 }) {
   return (
     <TDSButton
       disabled={disabled}
       display="block"
+      loading={loading}
       onPress={onPress}
       size="big"
       type="primary"
@@ -1696,6 +1822,95 @@ function Pill({ label }: { label: string }) {
 }
 
 function buildQuestionSet() {
+  const sourceQuestions = buildSourceQuestions();
+  const generalQuestions = buildGeneralQuestions();
+  return shuffle([...sourceQuestions, ...generalQuestions]);
+}
+
+function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
+  const normalized = questions
+    .filter((question) => {
+      return (
+        (question.type === 'source' || question.type === 'general') &&
+        question.id.length > 0 &&
+        question.question.length > 0 &&
+        Array.isArray(question.options) &&
+        question.options.length >= 2
+      );
+    })
+    .map((question): Question => {
+      return {
+        type: question.type,
+        id: question.id,
+        eyebrow: question.eyebrow || (question.type === 'source' ? '원천질문' : '취향'),
+        question: question.question,
+        subcopy: question.subcopy || '선택한 조건을 관광지 추천에 반영합니다.',
+        layout: question.layout === 'four' ? 'four' : 'two',
+        tags: question.tags || [],
+        options: question.options.map((option) => ({
+          key: option.key,
+          label: option.label,
+          caption: option.caption || '추천 조건 반영',
+          tags: option.tags || [],
+          searchHints: option.searchHints || [],
+          constraints: option.constraints || {},
+        })),
+      };
+    });
+
+  const sourceCount = normalized.filter((question) => question.type === 'source').length;
+  const generalCount = normalized.filter((question) => question.type === 'general').length;
+  return normalized.length === 8 && sourceCount === 3 && generalCount === GENERAL_QUESTION_COUNT ? normalized : [];
+}
+
+function buildSourceQuestions() {
+  const questions = sourceQuestionData.requiredAxes
+    .map((axis) => {
+      const variant = randomItem(axis.variants);
+      return variant == null ? null : toSourceQuestion(axis, variant);
+    })
+    .filter((question): question is Question => question != null);
+
+  return questions.length === 3 ? questions : sourceQuestionPool;
+}
+
+function buildGeneralQuestions() {
+  const groups = generalQuestionData.tagGroups;
+  const selectedGroups: GeneralQuestionGroup[] = [];
+  const selectedTagGroups = new Set<string>();
+  const requiredTagGroups = generalQuestionData.runtimeSelection?.requiredTagGroups || ['crowd'];
+  const oneOfTagGroups = generalQuestionData.runtimeSelection?.oneOfTagGroups || ['mobility', 'accessibility'];
+
+  for (const tagGroup of requiredTagGroups) {
+    addGeneralQuestionGroup(groups.find((group) => group.tagGroup === tagGroup), selectedGroups, selectedTagGroups);
+  }
+
+  addGeneralQuestionGroup(
+    randomItem(shuffle(oneOfTagGroups).map((tagGroup) => groups.find((group) => group.tagGroup === tagGroup)).filter(isDefined)),
+    selectedGroups,
+    selectedTagGroups,
+  );
+
+  const remainingGroups = shuffle(groups.filter((group) => !selectedTagGroups.has(group.tagGroup)));
+  for (const group of remainingGroups) {
+    if (selectedGroups.length >= GENERAL_QUESTION_COUNT) {
+      break;
+    }
+    addGeneralQuestionGroup(group, selectedGroups, selectedTagGroups);
+  }
+
+  const questions = selectedGroups
+    .slice(0, GENERAL_QUESTION_COUNT)
+    .map((group) => {
+      const question = randomItem(group.questions);
+      return question == null ? null : toGeneralQuestion(group, question);
+    })
+    .filter((question): question is Question => question != null);
+
+  return questions.length === GENERAL_QUESTION_COUNT ? questions : buildFallbackGeneralQuestions();
+}
+
+function buildFallbackGeneralQuestions() {
   const crowdQuestion = generalQuestionPool.find((question) => question.id === 'crowd');
   const accessQuestion = shuffle(
     generalQuestionPool.filter((question) => question.id === 'mobility' || question.id === 'accessibility'),
@@ -1706,8 +1921,102 @@ function buildQuestionSet() {
   const remainingGeneralQuestions = shuffle(
     generalQuestionPool.filter((question) => !requiredGeneralQuestions.includes(question)),
   ).slice(0, GENERAL_QUESTION_COUNT - requiredGeneralQuestions.length);
-  const generalQuestions = [...requiredGeneralQuestions, ...remainingGeneralQuestions];
-  return shuffle([...sourceQuestionPool, ...generalQuestions]);
+  return [...requiredGeneralQuestions, ...remainingGeneralQuestions];
+}
+
+function addGeneralQuestionGroup(
+  group: GeneralQuestionGroup | undefined,
+  selectedGroups: GeneralQuestionGroup[],
+  selectedTagGroups: Set<string>,
+) {
+  if (group == null || selectedTagGroups.has(group.tagGroup)) {
+    return;
+  }
+
+  selectedGroups.push(group);
+  selectedTagGroups.add(group.tagGroup);
+}
+
+function toSourceQuestion(axis: SourceQuestionAxis, variant: SourceQuestionVariant): Question {
+  return {
+    type: 'source',
+    id: variant.id,
+    eyebrow: axis.label,
+    question: variant.question,
+    subcopy: sourceQuestionSubcopy(axis),
+    layout: questionLayout(variant.type, variant.options.length),
+    tags: [axis.axis],
+    options: variant.options.map(toQuestionOption),
+  };
+}
+
+function toGeneralQuestion(group: GeneralQuestionGroup, question: GeneralQuestionItem): Question {
+  return {
+    type: 'general',
+    id: question.id,
+    eyebrow: group.label || question.label,
+    question: question.question,
+    subcopy: group.why || '선택한 취향을 관광지 검색 조건과 추천 근거에 반영합니다.',
+    layout: questionLayout(question.type, question.options.length),
+    tags: uniqueStrings([question.tagGroup, ...(question.tags || [])]),
+    options: question.options.map(toQuestionOption),
+  };
+}
+
+function toQuestionOption(option: BankOption): Option {
+  const searchHints = option.searchHints || [];
+  const tags = option.tags || [];
+
+  return {
+    key: option.key || option.sourceId,
+    label: option.label,
+    caption: optionCaption(searchHints),
+    tags,
+    searchHints,
+    constraints: option.constraints || {},
+  };
+}
+
+function questionLayout(type: BankQuestionType, optionCount: number): QuestionLayout {
+  return type === 'select_2' || optionCount <= 2 ? 'two' : 'four';
+}
+
+function sourceQuestionSubcopy(axis: SourceQuestionAxis) {
+  if (axis.why) {
+    return axis.why;
+  }
+
+  if (axis.axis === 'movement_scope') {
+    return '출발지 기준으로 추천 가능한 지역 후보를 먼저 좁힙니다.';
+  }
+  if (axis.axis === 'party_constraints') {
+    return '동행자와 이동 제약을 추천 조건에 반영합니다.';
+  }
+  return '관광지 검색 키워드와 목적지 분위기를 정합니다.';
+}
+
+function optionCaption(searchHints: string[]) {
+  return searchHints.slice(0, 2).join(' · ') || '추천 조건 반영';
+}
+
+function mergeOptionMetadata(fallback: OptionMetadata | undefined, option: Option): OptionMetadata {
+  return {
+    tags: uniqueStrings([...(fallback?.tags || []), ...(option.tags || [])]),
+    searchHints: uniqueStrings([...(fallback?.searchHints || []), ...(option.searchHints || [])]),
+    constraints: { ...(fallback?.constraints || {}), ...(option.constraints || {}) },
+  };
+}
+
+function uniqueStrings(items: string[]) {
+  return Array.from(new Set(items.filter((item) => item.length > 0)));
+}
+
+function randomItem<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
 }
 
 function chunkOptions(options: Option[], size: number) {
@@ -2156,6 +2465,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  questionSetLoadingIcon: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(43, 132, 252, 0.08)',
+    borderRadius: 999,
+    height: 64,
+    justifyContent: 'center',
+    marginTop: 20,
+    width: 64,
+  },
   pill: {
     alignSelf: 'center',
     backgroundColor: 'rgba(43, 132, 252, 0.1)',
@@ -2219,6 +2537,9 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  originRegionButtonDisabled: {
+    opacity: 0.55,
   },
   originRegionButtonText: {
     color: '#191F28',
@@ -2367,13 +2688,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     overflow: 'hidden',
-    padding: 14,
+    paddingBottom: 14,
+    paddingHorizontal: 13,
+    paddingTop: 28,
   },
   optionCardStack: {
     height: 156,
   },
   optionCardGrid: {
-    height: 126,
+    height: 138,
   },
   optionCardHalf: {
     flex: 1,
@@ -2425,27 +2748,47 @@ const styles = StyleSheet.create({
   optionAccentPurple: {
     backgroundColor: '#7C5CFF',
   },
+  optionIndexBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.74)',
+    borderColor: 'rgba(78, 89, 104, 0.18)',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 24,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 12,
+    top: 10,
+    width: 24,
+  },
   optionIndex: {
-    alignSelf: 'flex-end',
     color: '#4E5968',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
+    lineHeight: 14,
+    textAlign: 'center',
   },
   optionTextBox: {
     alignItems: 'center',
+    flexShrink: 1,
     justifyContent: 'center',
+    minWidth: 0,
+    width: '100%',
   },
   optionLabel: {
     color: '#191F28',
-    fontSize: 20,
+    flexShrink: 1,
+    fontSize: 19,
     fontWeight: '800',
-    lineHeight: 26,
+    lineHeight: 24,
     textAlign: 'center',
   },
   optionCaption: {
     color: '#6B7684',
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '800',
+    lineHeight: 17,
     marginTop: 7,
     textAlign: 'center',
   },

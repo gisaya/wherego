@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../config';
 
+const QUESTION_SET_TIMEOUT_MS = 8000;
 const RECOMMENDATION_TIMEOUT_MS = 45000;
 
 export type WheregoRecommendOrigin = {
@@ -21,6 +22,38 @@ export type WheregoRecommendAnswer = {
   tags: string[];
   searchHints: string[];
   constraints: Record<string, boolean | number | string | string[]>;
+};
+
+export type WheregoQuestionOption = {
+  key?: string;
+  label: string;
+  caption: string;
+  tags?: string[];
+  searchHints?: string[];
+  constraints?: Record<string, boolean | number | string | string[]>;
+};
+
+export type WheregoQuestion = {
+  type: 'source' | 'general';
+  id: string;
+  eyebrow: string;
+  question: string;
+  subcopy: string;
+  layout: 'two' | 'four';
+  tags?: string[];
+  options: WheregoQuestionOption[];
+};
+
+export type WheregoQuestionSet = {
+  version?: string;
+  questionSetId?: string;
+  totalQuestionCount?: number;
+  questions: WheregoQuestion[];
+  source?: {
+    planner?: string;
+    requiredSourceAxes?: number;
+    generalQuestionCount?: number;
+  };
 };
 
 export type WheregoRecommendedPlace = {
@@ -92,6 +125,42 @@ export class WheregoApiError extends Error {
     super(message);
     this.name = 'WheregoApiError';
     this.status = status;
+  }
+}
+
+export async function fetchWheregoQuestionSet(params: {
+  origin: WheregoRecommendOrigin;
+}): Promise<WheregoQuestionSet> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new WheregoApiError('질문 세트 응답이 지연되고 있어요.', 408));
+    }, QUESTION_SET_TIMEOUT_MS);
+  });
+
+  try {
+    const response = await Promise.race([
+      fetch(`${API_BASE_URL}/api/wherego/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          origin: params.origin,
+        }),
+      }),
+      timeoutPromise,
+    ]);
+
+    if (!response.ok) {
+      throw await parseApiError(response);
+    }
+
+    return (await response.json()) as WheregoQuestionSet;
+  } finally {
+    if (timeoutId != null) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
