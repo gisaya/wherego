@@ -163,11 +163,13 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-10 KST save check: recommendation was split into `POST /api/wherego/candidates` for free KTO/DataLab candidate preparation and `POST /api/wherego/recommend` for Gemini final curation. The app starts candidate preparation when the rewarded-ad CTA is tapped, calls Gemini only after `userEarnedReward`, and shows a dedicated AI loading panel after ad completion. `jbg` Wherego route unittest passed with 18 tests. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a38-eefa-7f99-a0b0-217c6cb4363b`.
   - 2026-07-10 KST save check: question-screen secondary subcopy was removed so only the origin chip, eyebrow, question title, and selection cards remain. Saved PNG result cards were narrowed and centered inside the 1080x1350 image, recommendation reason/AI selection text capacity was expanded, and the location row label/value were vertically realigned. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a54-006b-7c33-9188-b575b14278ef`.
   - 2026-07-10 KST save check: option-card captions now render as one-line first-segment labels without middle-dot separators, even when the server returns `A · B` style captions. Saved PNG result cards no longer render the small bottom source/answer-count note. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a6c-74da-7641-9d84-451de40c32f3`.
+  - 2026-07-10 KST save check: general question bank expanded to 14 tag groups / 420 questions with `outdoor_stay` 캠핑/피크닉. User-visible question templates were copy-edited to remove `형님`, colon-style prompts, and internal phrases like `여행지 검색어`/`장소를 특정`. `docs/wherego-copy-review.json` was added as a copy-only review file for another AI. `jbg` Gemini result-card prompt now asks for short card-safe Korean copy and clamps persona/reason/factor lengths. `jbg` Wherego route unittest passed with 20 tests, `wherego` copy scan found 0 risky prompt matches, terms build, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a9d-4aa5-7dd9-a5b1-80d223a40738`.
 
 ## Current Question/API Work
 
 - `data/source-question-blueprint.json`: required source axes for movement scope, party constraints, and destination intent.
-- `data/general-question-bank.json`: generated general question bank, 13 tag groups x 30 questions = 390 questions. Each group now has 12 source options that are recombined into 30 questions.
+- `data/general-question-bank.json`: generated general question bank, 14 tag groups x 30 questions = 420 questions. Each group has 12 source options that are recombined into 30 questions. The latest added group is `outdoor_stay` / `캠핑/피크닉`.
+- `docs/wherego-copy-review.json`: copy-only JSON for external AI review. It includes source-question copy, generated general-question copy, option label/caption previews, banned/risky expressions, and result-card Gemini copy rules. It intentionally excludes API keys and local credentials.
 - `data/question-bank-normalized.json`: normalized copy of the downloaded Gemini question candidate file.
 - `data/question-bank-additions.json`: curated additional question candidates and policy notes.
 - `scripts/build-general-question-bank.cjs`: deterministic generator for the general bank.
@@ -191,7 +193,7 @@ Latest known Render smoke result with the Seoul City Hall test origin:
 - API keys for 한국관광공사 and AI services must stay out of client code and Git. `.env.local` is intentionally ignored.
 - The current drive-time filter is an estimate, not real routing. A map/routing API is needed for production-grade travel time.
 - DataLab visitor counts are regional, not place-level. Treat crowd labels as a weak supporting signal.
-- The generated question bank is large enough for MVP experiments. The remaining copy risk is mostly repeated prompt templates, not missing tags or missing search hints.
+- The generated question bank is large enough for MVP experiments. The main remaining copy risk is external review feedback from `docs/wherego-copy-review.json`; the known internal prompt-template issues were cleaned up and scanned to 0 matches for the current banned-expression list.
 - Apps in Toss UI now calls the `jbg` Render-backed question and recommendation APIs. If `POST /api/wherego/questions` is not deployed or fails, the client falls back to the bundled question bank. Recommendation failures stay on the reward gate with a retry CTA; demo data is retained only as a defensive local fallback and should not surface in the normal result flow.
 - KTO `searchKeyword2` can intermittently time out on some nationwide keyword calls; the server now skips single failed search calls, but live monitoring should watch empty-candidate rates.
 - Card-save now writes a PNG card file through Apps in Toss `saveBase64Data`, but real-device validation is still needed.
@@ -212,6 +214,8 @@ Wherego now reuses the existing `뭐샀지`/`jbg` Render FastAPI service instead
 - client API wrapper: `src/api/wheregoApi.ts`
 
 `/api/wherego/questions` generates the runtime 8-question set from server-side resources: 3 source-axis questions and 5 general questions, with `crowd` required and one of `mobility`/`accessibility` included. `/api/wherego/candidates` accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, attaches DataLab regional visitor counts, and returns `aiUsed=false`. `/api/wherego/recommend` accepts the prepared candidate set and asks Gemini to choose the final single place from those candidates; if no candidate set is supplied, it keeps the older all-in-one fallback path. If the recommendation server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
+
+Gemini result-card copy is constrained server-side: persona title, persona summary, one-line recommendation, AI reason, and `whyThisPlace` factors must be short natural Korean suitable for the saved 1080x1350 result card. The server also clamps these fields during normalization.
 
 Quota/runtime guardrails:
 
@@ -256,5 +260,6 @@ Required Render env additions:
 2. Confirm on Android 5.266.0+ that preloading the reward ad from the fifth question does not miss the `loaded` event while banner ads are mounted; if it does, move reward loading back to the reward gate.
 3. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
 4. Test the PNG card-save flow on real Toss devices and confirm it saves without opening the share sheet.
-5. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
-6. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
+5. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
+6. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
+7. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.

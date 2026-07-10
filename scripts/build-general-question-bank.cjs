@@ -7,38 +7,38 @@ const OUTPUT_PATH = path.resolve(__dirname, '../data/general-question-bank.json'
 
 const TWO_PROMPTS = [
   '{label}, 어느 쪽이 더 좋아요?',
-  '이번 여행에서 {label} 기준은?',
+  '이번 여행에서 {label} 선택은 어떻게 할까요?',
   '{label} 선택지를 하나만 고르면?',
-  '오늘 목적지에서 {label}: 어떤 편이 맞을까요?',
+  '오늘 목적지의 {label} 선택은 어떤 쪽이 좋아요?',
   '{label} 쪽으로 더 끌리는 건?',
-  '결과 추천에서 {label}: 어떻게 볼까요?',
-  '여행지를 고를 때 {label}: 어느 쪽이에요?',
-  '오늘은 {label} 기준을 어떤 느낌으로 잡을까요?',
+  '{label} 선택은 추천에 어떻게 반영할까요?',
+  '여행지를 고를 때 {label} 선택은 어느 쪽이에요?',
+  '오늘은 {label} 방향을 어떤 느낌으로 잡을까요?',
   '{label}에서 피하고 싶은 쪽은?',
   '{label} 기준으로 좁히면?',
-  '도착했을 때 {label}: 어떤 편이면 좋겠어요?',
-  '이번 추천에서 {label} 우선순위는?',
+  '도착했을 때 {label} 선택은 어떤 쪽이면 좋겠어요?',
+  '이번 추천에서 {label} 항목은 얼마나 중요해요?',
   '{label} 선택지는 어느 쪽이 가까워요?',
-  '여행 만족도를 위해 {label}에서 무엇이 중요해요?',
+  '만족도를 위해 {label}에서 무엇이 중요해요?',
   '지금 기분에 맞는 {label} 선택지는?'
 ];
 
 const FOUR_PROMPTS = [
-  '{label} 기준을 조금 더 구체적으로 고르면?',
-  '오늘 목적지에서 {label}: 어떤 쪽이면 좋겠어요?',
-  '{label} 기준으로 네 가지 중 하나를 고르면?',
-  '여행지 추천에서 {label}: 무엇을 우선할까요?',
+  '{label} 항목을 조금 더 구체적으로 고르면?',
+  '오늘 목적지의 {label} 선택은 어떤 쪽이면 좋겠어요?',
+  '{label} 중 하나를 고르면?',
+  '여행지 추천에서 {label} 항목은 무엇을 우선할까요?',
   '도착 후 체감할 {label} 포인트는?',
-  '이번 여행 카드에 담길 {label} 포인트는?',
-  '{label} 기준을 여행지 검색어로 바꾸면?',
-  '장소 후보를 좁히는 {label} 기준은?',
+  '이번 여행에서 중요한 {label} 포인트는?',
+  '{label} 항목을 장소 조건으로 바꾸면?',
+  '후보지를 좁히는 {label} 기준은?',
   '오늘 하루에 맞는 {label} 조합은?',
-  '형님 취향에 가까운 {label} 선택지는?',
+  '내 취향에 가까운 {label} 선택지는?',
   '추천 결과에서 더 보고 싶은 {label} 포인트는?',
-  '{label} 기준을 가장 잘 설명하는 선택지는?',
+  '{label} 항목을 가장 잘 설명하는 선택지는?',
   '여행지 분위기를 좌우할 {label} 포인트는?',
-  '장소를 특정하려면 {label} 기준은 어떻게 갈까요?',
-  '마지막으로 {label} 기준을 고르면?'
+  '{label} 기준은 어느 방향이 좋아요?',
+  '오늘 {label} 기준을 고르면?'
 ];
 
 const TWO_PAIR_PATTERNS = [
@@ -80,7 +80,7 @@ const FOUR_SET_PATTERNS = [
 const GROUPS = [
   {
     tagGroup: 'crowd',
-    label: '인파/혼잡도',
+    label: '인파 정도',
     why: 'DataLab 방문자수 기반 혼잡도 가중치와 직접 연결된다.',
     options: [
       opt('low_crowd', '한산한 숨은 곳', ['low_crowd', 'hidden'], ['한적한', '숨은 명소', '방문자수 낮은 지역']),
@@ -99,7 +99,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'mobility',
-    label: '보행/접근성',
+    label: '걷기/이동',
     why: '추천지가 실제로 갈 수 있는 장소인지 결정한다.',
     options: [
       opt('minimal_walk', '주차 후 5분 컷', ['minimal_walk', 'parking_close'], ['입구 가까움', '주차장 가까움']),
@@ -137,7 +137,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'landscape',
-    label: '풍경/지형',
+    label: '풍경 취향',
     why: '관광지 검색 키워드의 핵심 축이다.',
     options: [
       opt('sea', '바다와 수평선', ['sea', 'coast'], ['바다', '해변', '해안']),
@@ -174,8 +174,27 @@ const GROUPS = [
     ]
   },
   {
+    tagGroup: 'outdoor_stay',
+    label: '캠핑/피크닉',
+    why: '캠핑장, 야영장, 차박, 피크닉처럼 오래 머무는 야외 목적지 후보를 잡는다.',
+    options: [
+      opt('picnic_day', '돗자리 피크닉', ['picnic', 'outdoor_stay', 'light_stay'], ['피크닉', '잔디광장', '공원']),
+      opt('campnic', '당일 캠크닉', ['campnic', 'day_camping', 'outdoor_stay'], ['캠크닉', '캠핑장', '피크닉']),
+      opt('auto_camping', '오토캠핑장', ['camping', 'auto_camping', 'car_access'], ['오토캠핑장', '캠핑장']),
+      opt('glamping', '편한 글램핑', ['glamping', 'comfort_stay', 'camping'], ['글램핑', '캠핑장']),
+      opt('car_camping', '차박 감성', ['car_camping', 'drive_stay', 'camping'], ['차박', '캠핑장', '야영장']),
+      opt('forest_camp', '숲속 야영장', ['forest_camping', 'forest', 'quiet'], ['숲속야영장', '자연휴양림', '야영장']),
+      opt('waterfront_camp', '물가 캠핑', ['waterfront_camping', 'waterfront', 'camping'], ['강변 캠핑장', '해변 캠핑장', '야영장']),
+      opt('family_camp', '가족 캠핑', ['family_camping', 'kids', 'camping'], ['가족캠핑장', '오토캠핑장', '캠핑장']),
+      opt('pet_camp', '반려견 캠핑', ['pet_friendly', 'camping', 'pet_required'], ['반려견 캠핑장', '반려견 동반', '캠핑장']),
+      opt('fire_bbq', '불멍/바비큐', ['fire_camp', 'bbq', 'evening_mood'], ['바비큐장', '캠핑장', '글램핑']),
+      opt('quiet_camp', '조용한 자연 숙영', ['quiet_camping', 'low_crowd', 'nature_stay'], ['야영장', '자연휴양림', '숲']),
+      opt('facility_camp', '시설 좋은 캠핑장', ['camping_facility', 'comfort', 'restroom'], ['캠핑장', '오토캠핑장', '샤워장'])
+    ]
+  },
+  {
     tagGroup: 'time_mood',
-    label: '시간대/무드',
+    label: '시간대/분위기',
     why: '운영시간, 야경, 노을, 오전 방문 같은 추천 맥락을 만든다.',
     options: [
       opt('morning', '상쾌한 오전', ['morning'], ['오전 방문', '아침 산책']),
@@ -194,7 +213,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'culture_style',
-    label: '문화/공간 스타일',
+    label: '문화공간 취향',
     why: '자연 외 후보를 추천할 때 장소의 성격을 구체화한다.',
     options: [
       opt('traditional', '한옥과 전통 골목', ['traditional', 'hanok'], ['한옥마을', '전통거리']),
@@ -213,7 +232,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'food_link',
-    label: '맛집/카페 연계',
+    label: '먹거리/카페',
     why: '관광지 하나만 추천할지 주변 코스까지 묶을지 결정한다.',
     options: [
       opt('cafe', '대형 카페', ['cafe'], ['대형 카페', '뷰 카페']),
@@ -232,7 +251,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'accessibility',
-    label: '편의시설/무장애',
+    label: '편의/쉬운 이동',
     why: '강한 제약으로 필터에 가까운 역할을 한다.',
     options: [
       opt('baby', '아이 편의시설', ['kids_facility_required', 'baby_facility'], ['수유실', '기저귀 교환대']),
@@ -270,7 +289,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'photo',
-    label: '사진/공유성',
+    label: '사진 취향',
     why: '결과 카드와 SNS 공유에 적합한 장소를 고르는 데 쓰인다.',
     options: [
       opt('photo_required', '사진이 중요한 곳', ['photo_required'], ['포토존', '사진명소']),
@@ -289,7 +308,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'healing_energy',
-    label: '힐링/에너지',
+    label: '휴식/활동',
     why: '추천 문구와 페르소나를 여행지 중심으로 만드는 데 쓰인다.',
     options: [
       opt('healing', '회복과 휴식', ['healing', 'rest'], ['힐링', '휴식']),

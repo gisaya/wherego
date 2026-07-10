@@ -44,7 +44,7 @@
   ],
   "generalQuestionPolicy": {
     "minimumTagGroupCount": 10,
-    "currentTagGroupCount": 13,
+    "currentTagGroupCount": 14,
     "minimumQuestionsPerTagGroup": 30,
     "currentQuestionsPerTagGroup": 30,
     "fullQuestionBankFile": "data/general-question-bank.json",
@@ -54,7 +54,7 @@
   "generalQuestionTagGroups": [
     {
       "tagGroup": "crowd",
-      "label": "인파/혼잡도",
+      "label": "인파 정도",
       "why": "DataLab 방문자수 기반 혼잡도 가중치와 직접 연결된다.",
       "questions": [
         {
@@ -110,7 +110,7 @@
     },
     {
       "tagGroup": "mobility",
-      "label": "보행/접근성",
+      "label": "걷기/이동",
       "why": "추천지가 실제로 갈 수 있는 장소인지 결정한다.",
       "questions": [
         {
@@ -222,7 +222,7 @@
     },
     {
       "tagGroup": "landscape",
-      "label": "풍경/지형",
+      "label": "풍경 취향",
       "why": "관광지 검색 키워드의 핵심 축이다.",
       "questions": [
         {
@@ -333,8 +333,66 @@
       ]
     },
     {
+      "tagGroup": "outdoor_stay",
+      "label": "캠핑/피크닉",
+      "why": "캠핑장, 야영장, 차박, 피크닉처럼 오래 머무는 야외 목적지 후보를 잡는다.",
+      "questions": [
+        {
+          "id": "gen_outdoor_stay_01",
+          "type": "select_4",
+          "question": "캠핑이나 피크닉 느낌도 좋아요?",
+          "options": [
+            { "key": "A", "label": "돗자리 피크닉", "tags": ["picnic", "outdoor_stay"] },
+            { "key": "B", "label": "당일 캠크닉", "tags": ["campnic", "day_camping"] },
+            { "key": "C", "label": "차박 감성", "tags": ["car_camping", "drive_stay"] },
+            { "key": "D", "label": "편한 글램핑", "tags": ["glamping", "comfort_stay"] }
+          ]
+        },
+        {
+          "id": "gen_outdoor_stay_02",
+          "type": "select_2",
+          "question": "야외에서 오래 머문다면 어느 쪽이에요?",
+          "options": [
+            { "key": "A", "label": "가볍게 낮에만", "tags": ["light_stay", "picnic"] },
+            { "key": "B", "label": "밤 분위기까지", "tags": ["camping", "evening_mood"] }
+          ]
+        },
+        {
+          "id": "gen_outdoor_stay_03",
+          "type": "select_4",
+          "question": "캠핑장 후보라면 무엇이 중요해요?",
+          "options": [
+            { "key": "A", "label": "차 옆에서 편하게", "tags": ["auto_camping", "car_access"] },
+            { "key": "B", "label": "숲속 조용함", "tags": ["forest_camping", "quiet"] },
+            { "key": "C", "label": "물가 풍경", "tags": ["waterfront_camping"] },
+            { "key": "D", "label": "시설 깔끔함", "tags": ["camping_facility", "comfort"] }
+          ]
+        },
+        {
+          "id": "gen_outdoor_stay_04",
+          "type": "select_2",
+          "question": "캠핑 감성은 얼마나 필요해요?",
+          "options": [
+            { "key": "A", "label": "살짝만 있으면 됨", "tags": ["campnic", "light_stay"] },
+            { "key": "B", "label": "캠핑장이면 좋음", "tags": ["camping", "outdoor_stay"] }
+          ]
+        },
+        {
+          "id": "gen_outdoor_stay_05",
+          "type": "select_4",
+          "question": "야외 체류의 핵심 장면은?",
+          "options": [
+            { "key": "A", "label": "잔디 위 쉬기", "tags": ["picnic", "field"] },
+            { "key": "B", "label": "불멍/바비큐", "tags": ["fire_camp", "bbq"] },
+            { "key": "C", "label": "차박 뷰", "tags": ["car_camping", "drive_view"] },
+            { "key": "D", "label": "숲속 야영", "tags": ["forest_camping", "nature_stay"] }
+          ]
+        }
+      ]
+    },
+    {
       "tagGroup": "time_mood",
-      "label": "시간대/무드",
+      "label": "시간대/분위기",
       "why": "운영시간, 야경, 노을, 오전 방문 같은 추천 맥락을 만든다.",
       "questions": [
         {
@@ -390,7 +448,7 @@
     },
     {
       "tagGroup": "culture_style",
-      "label": "문화/공간 스타일",
+      "label": "문화공간 취향",
       "why": "자연 외 후보를 추천할 때 장소의 성격을 구체화한다.",
       "questions": [
         {
@@ -446,7 +504,7 @@
     },
     {
       "tagGroup": "food_link",
-      "label": "맛집/카페 연계",
+      "label": "먹거리/카페",
       "why": "관광지 하나만 추천할지 주변 코스까지 묶을지 결정한다.",
       "questions": [
         {
@@ -502,7 +560,7 @@
     },
     {
       "tagGroup": "accessibility",
-      "label": "편의시설/무장애",
+      "label": "편의/쉬운 이동",
       "why": "강한 제약으로 필터에 가까운 역할을 한다.",
       "questions": [
         {
@@ -614,7 +672,7 @@
     },
     {
       "tagGroup": "photo",
-      "label": "사진/공유성",
+      "label": "사진 취향",
       "why": "결과 카드와 SNS 공유에 적합한 장소를 고르는 데 쓰인다.",
       "questions": [
         {
@@ -670,7 +728,7 @@
     },
     {
       "tagGroup": "healing_energy",
-      "label": "힐링/에너지",
+      "label": "휴식/활동",
       "why": "추천 문구와 페르소나를 여행지 중심으로 만드는 데 쓰인다.",
       "questions": [
         {

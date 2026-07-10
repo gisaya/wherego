@@ -306,6 +306,16 @@ The mockup uses:
 - banner ads remount on `question-set-loading` and each `question-${questionIndex}` screen
 - option numbers are fixed circular badges so long Korean labels do not push or clip the number
 
+## Copy Review
+
+Use this JSON when another AI or a copy reviewer needs to inspect card wording without seeing credentials or implementation noise:
+
+```text
+docs/wherego-copy-review.json
+```
+
+It includes source-question cards, generated general-question cards, option label/caption previews, banned/risky expressions, and result-card Gemini copy constraints. Regenerate it after changing `data/source-question-blueprint.json`, `data/general-question-bank.json`, or result-card copy rules.
+
 
 ## Local Android Dev
 
@@ -383,7 +393,7 @@ git diff --stat
 & 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs build
 git branch --show-current
 git remote -v
-git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/02_구조와_흐름.md docs/03_검증.md pages/index.tsx src/api/wheregoApi.ts
+git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/10_선택지_질문풀_검토.md docs/wherego-copy-review.json data/source-question-blueprint.json data/general-question-bank.json data/travel-question-architecture.json scripts/build-general-question-bank.cjs pages/index.tsx src/api/wheregoApi.ts
 git commit -m "Save wherego handoff state"
 git push origin <branch>
 ```

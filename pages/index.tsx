@@ -314,6 +314,20 @@ const generalQuestionPool: Question[] = [
   },
   {
     type: 'general',
+    id: 'outdoor_stay',
+    eyebrow: '야외 체류',
+    question: '캠핑이나 피크닉 느낌도 좋아요?',
+    subcopy: '캠핑장, 야영장, 차박, 피크닉 같은 야외 체류 후보를 반영합니다.',
+    layout: 'four',
+    options: [
+      { label: '돗자리 피크닉', caption: '공원', tags: ['picnic', 'outdoor_stay'], searchHints: ['피크닉', '잔디광장', '공원'] },
+      { label: '당일 캠크닉', caption: '캠핑장', tags: ['campnic', 'day_camping'], searchHints: ['캠크닉', '캠핑장', '피크닉'] },
+      { label: '차박 감성', caption: '차박', tags: ['car_camping', 'drive_stay'], searchHints: ['차박', '캠핑장', '야영장'] },
+      { label: '편한 글램핑', caption: '글램핑', tags: ['glamping', 'comfort_stay'], searchHints: ['글램핑', '캠핑장'] },
+    ],
+  },
+  {
+    type: 'general',
     id: 'accessibility',
     eyebrow: '편의',
     question: '꼭 챙겨야 하는 편의 조건이 있어요?',

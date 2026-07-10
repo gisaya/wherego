@@ -76,7 +76,9 @@
   - `scripts/probe-question-bank-result.cjs`
 - 질문풀 현재 구조:
   - 원천질문: `movement_scope` 6개, `party_constraints` 7개, `destination_intent` 5개 변형
-  - 일반질문: 13개 태그 그룹, 총 390문항, 그룹당 원천 선택지 12개
+  - 일반질문: 14개 태그 그룹, 총 420문항, 그룹당 원천 선택지 12개
+  - 최신 추가 태그 그룹: `outdoor_stay` / `캠핑/피크닉`
+  - 카피 검토용 JSON: `docs/wherego-copy-review.json`
 - 질문 플로우 목업:
   - `public/mockups/question-flow/index.html`
   - 위치 기준 선택, 원천 3개 + 일반 5개 랜덤 질문, 광고 게이트, 결과 카드까지 포함한다.
@@ -133,6 +135,7 @@
   - 2026-07-10 KST 저장 검증: 추천 흐름을 무료 후보 준비(`/api/wherego/candidates`)와 Gemini 최종 선택(`/api/wherego/recommend`)으로 분리했다. 앱은 리워드 광고 CTA에서 KTO/DataLab 후보 준비를 시작하고, 광고 보상 완료 뒤에만 Gemini를 호출한다. 광고 완료 후에는 별도 AI 로딩 화면을 보여준다. `jbg` Wherego route unittest 18개, `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a38-eefa-7f99-a0b0-217c6cb4363b`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 선택 화면 보조문구를 제거하고 저장용 PNG 카드의 가로 폭, 추천 이유/AI 선택 근거 줄 수, 위치 행 세로 정렬을 조정했다. `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a54-006b-7c33-9188-b575b14278ef`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 선택 카드의 작은 보조문구를 한 줄 첫 조각으로 정리해 middle-dot이 남지 않게 했고, 저장용 PNG 카드 하단의 작은 출처/답변 기준 문구를 제거했다. `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a6c-74da-7641-9d84-451de40c32f3`이며 Git 제외.
+  - 2026-07-10 KST 저장 검증: 일반 질문은행을 14개 태그 그룹 / 420문항으로 확장하고 `캠핑/피크닉` 질문군을 추가했다. 질문카드 자동생성 문구에서 `형님`, 내부 기획어, 콜론식 어색한 문장을 제거했고, 외부 AI 검토용 `docs/wherego-copy-review.json`을 만들었다. `jbg` Gemini 결과카드 프롬프트는 짧은 한국어와 짧은 근거 2~3개를 요구하도록 조정했다. `jbg` Wherego route unittest 20개, `wherego` 위험 문구 scan 0건, terms build, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a9d-4aa5-7dd9-a5b1-80d223a40738`이며 Git 제외.
 
 ## 운영 규칙
 
@@ -147,5 +150,6 @@
 2. 실기기에서 리워드 광고 5번째 질문 preload, `userEarnedReward` 이후 Gemini 호출, AI 로딩 화면, 결과 자동 이동이 정상인지 확인한다.
 3. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
 4. PNG 카드 저장이 Toss 실기기에서 정상 저장되고 공유창이 열리지 않는지 확인한다.
-5. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 리워드 광고, 결과 카드, 네이버지도 열기 검수.
-6. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.
+5. `docs/wherego-copy-review.json`을 다른 AI/카피 검토자에게 돌리고, 검색 태그와 추천 목적을 해치지 않는 문구 개선만 반영한다.
+6. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 리워드 광고, 결과 카드, 네이버지도 열기 검수.
+7. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.
