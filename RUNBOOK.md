@@ -116,7 +116,7 @@ Submission-sensitive config:
 - Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
 - The direct-region button is a custom `Pressable` rather than a TDS button so Korean text does not clip in the Toss surface.
 - Question-card selection shows the selected card and a 1s loading state before advancing.
-- Recommendation analysis starts only when the user taps the rewarded-ad CTA. The final question tap should not call the recommendation API.
+- Public-data candidate preparation starts when the user taps the rewarded-ad CTA. Gemini recommendation analysis starts only after the rewarded ad fires `userEarnedReward`. The final question tap should not call either recommendation endpoint.
 - Recommendation errors stay on the reward gate and show `추천 다시 시도`; do not open local demo results after API failure.
 - The final result screen hides the top app header. This is intentional so the result card and actions are the focus.
 - `카드 저장하기` uses `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data` to save a generated PNG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions show a save-not-supported message.
@@ -130,8 +130,10 @@ production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
 production banner ad group ID: ait.v2.live.67b07bf813d74267
 ```
 
-`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, recommendation API start on the reward CTA, `showFullScreenAd` on the same CTA, and `userEarnedReward` plus successful recommendation completion before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
-- Do not preload the rewarded ad while the question-screen banner is mounted. Apps in Toss announced an Android issue where simultaneous full-screen/reward and banner loads may skip the `loaded` event; the current app loads the rewarded ad only after the reward gate is shown.
+`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` preloads the rewarded ad from the fifth question, `showFullScreenAd` runs on the reward CTA, and `userEarnedReward` plus successful Gemini recommendation completion opens the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
+- The rewarded-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `userEarnedReward`.
+- Apps in Toss announced an Android issue where simultaneous full-screen/reward and banner loads may skip the `loaded` event. Because the current app preloads reward ads from the fifth question while the banner exists, test this on Android 5.266.0+ before review. If `loaded` is unreliable, move reward loading back to the reward gate.
+- After reward completion, the app shows a dedicated AI loading panel with spinner and staged text until Gemini returns. It should not look like the user is still waiting on the ad screen.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
 
@@ -170,6 +172,8 @@ apps/server/env/local.example
 Server endpoint:
 
 ```text
+POST /api/wherego/questions
+POST /api/wherego/candidates
 POST /api/wherego/recommend
 ```
 
@@ -196,8 +200,9 @@ Quota/runtime behavior:
 - Search is capped by `WHEREGO_KTO_SEARCH_MAX_CALLS` per request.
 - The server builds the search plan from selected-answer metadata, not from a first Gemini planning call.
 - For `nationwide` scope, search calls omit `areaCode` so the call budget is spent across keywords.
-- Candidates are compressed to at most five before Gemini sees them.
-- Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place.
+- `POST /api/wherego/candidates` searches KTO, compresses candidates to at most five, attaches DataLab crowd signals, and returns `aiUsed=false`.
+- `POST /api/wherego/recommend` accepts the prepared candidate set and reuses it so KTO search is not repeated. If no candidate set is supplied, it keeps the older all-in-one fallback path.
+- Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place only after reward completion.
 - Only the final selected place gets KTO detail calls.
 - A single KTO search timeout is skipped if other search calls return candidates.
 - `detailImage2` is disabled by default; use search/detail common image fields first.
@@ -231,7 +236,7 @@ $body = @{
 Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/recommend' -ContentType 'application/json' -Body $body -TimeoutSec 90
 ```
 
-Expected: HTTP 200, `recommendedPlaces` has exactly one item, `source.planner` is `metadata`, and `source.curator` is `gemini` when the Gemini model env is valid. A recent successful smoke returned `서울어린이대공원` with an image URL. If `source.curator` returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first.
+Expected: HTTP 200, `recommendedPlaces` has exactly one item, `source.planner` is `metadata`, and `source.curator` is `gemini` when the Gemini model env is valid. A recent successful smoke returned `서울어린이대공원` with an image URL. If `source.curator` returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first. For the production app flow, call `/api/wherego/candidates` first and pass the returned `candidateSet` into `/api/wherego/recommend`; the direct `/recommend` smoke remains as a fallback-path check.
 
 ## Question Bank And API Probe
 
@@ -378,7 +383,7 @@ git diff --stat
 & 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs build
 git branch --show-current
 git remote -v
-git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md granite.config.ts pages/index.tsx public/mockups/question-flow/index.html
+git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/02_구조와_흐름.md docs/03_검증.md pages/index.tsx src/api/wheregoApi.ts
 git commit -m "Save wherego handoff state"
 git push origin <branch>
 ```

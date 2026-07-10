@@ -20,7 +20,7 @@
 - 초기 데이터 소스는 한국관광공사 국문 관광정보 서비스_GW API가 적합하다.
 - 지역 혼잡도는 한국관광공사 빅데이터 지역별 방문자수_GW API를 보조 신호로 쓴다.
 - 공공데이터포털 개인 API 인증키와 한국관광공사 API 엔드포인트는 로컬 `.env.local`에 저장했다. 원문 키는 문서나 Git에 남기지 않는다.
-- AI는 Render 서버의 Gemini Flash-Lite를 최종 큐레이터로 사용한다. 클라이언트 선택지 메타데이터를 서버가 검색 계획으로 바꾸고, 관광지 후보를 5개 이하로 압축한 뒤 Gemini가 최종 1개 장소와 추천 카피를 고른다.
+- AI는 Render 서버의 Gemini Flash-Lite를 최종 큐레이터로 사용한다. 클라이언트 선택지 메타데이터를 서버가 검색 계획으로 바꾸고, 관광공사/DataLab 후보를 5개 이하로 압축한 뒤, 리워드 광고 보상 완료 후 Gemini가 최종 1개 장소와 추천 카피를 고른다.
 - AI/API 키는 클라이언트에 넣지 않는다.
 - 실제 Apps in Toss 앱 구현은 Granite React Native 기준이다. 메인 앱은 TDS Provider로 감싸고 TDS `Text`/`Button`을 사용한다. 선택/지역 카드는 React Native `Pressable` 기반 고정 크기 카드다. 제출 전 실기기 시각 검수는 아직 필요하다.
 - 질문은 필수 3개 + 랜덤 5개 구조로 간다. 랜덤 5개는 `crowd` 1개와 `mobility`/`accessibility` 중 1개를 포함하고, 나머지 3개는 서로 다른 태그 그룹에서 뽑는다.
@@ -56,10 +56,10 @@
   - GitHub 자동 연결은 실패했고 현재는 CLI 수동 배포 상태.
 - 서버/API:
   - 기존 뭐샀지 Render 서버 `https://jbg.onrender.com`을 재사용한다.
-  - `C:\Users\ESOL\Documents\jbg\apps\server`에 `POST /api/wherego/recommend` 라우트를 추가했다.
-  - 서버는 선택지 메타데이터(tags/searchHints/constraints)로 검색 계획을 만들고, 한국관광공사 국문 관광정보 API 후보를 수집한 뒤 5개 이하로 압축한다.
-  - Gemini(`GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`)는 압축 후보와 메타데이터를 보고 최종 1개 장소와 이유를 고른다.
-  - 지역별 방문자수는 최종 선택 전 crowd 보조 신호로 붙인다.
+  - `C:\Users\ESOL\Documents\jbg\apps\server`에 `POST /api/wherego/questions`, `POST /api/wherego/candidates`, `POST /api/wherego/recommend` 라우트를 추가했다.
+  - 서버는 선택지 메타데이터(tags/searchHints/constraints)로 검색 계획을 만들고, `/api/wherego/candidates`에서 한국관광공사 국문 관광정보 API 후보를 수집한 뒤 5개 이하로 압축하고 DataLab 방문자수 신호를 붙인다. 이 단계는 Gemini를 쓰지 않는다.
+  - Gemini(`GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`)는 리워드 광고 보상 완료 뒤 `/api/wherego/recommend`에서 압축 후보와 메타데이터를 보고 최종 1개 장소와 이유를 고른다.
+  - `/api/wherego/recommend`는 준비된 `candidateSet`이 있으면 관광공사 검색을 반복하지 않고, 없으면 기존 all-in-one fallback으로 검색부터 수행한다.
   - 검색 호출은 요청당 6회 기본값이며, `nationwide` 검색은 areaCode 없이 키워드 중심으로 호출한다.
   - 최종 선택 1개에만 상세 API를 조회하고, 검색/상세/DataLab 응답은 서버 메모리 캐시로 재사용한다.
   - 일부 관광공사 검색 호출이 타임아웃되어도 다른 호출에서 후보가 있으면 계속 진행한다.
@@ -93,13 +93,14 @@
   - 결과 카드의 네이버지도 열기 버튼
   - 리워드 광고 그룹 ID: `ait.v2.live.7f9040b7cff746c5`
   - 배너 광고 그룹 ID: `ait.v2.live.67b07bf813d74267`
-  - `loadFullScreenAd`로 미리 로드하고 `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 결과 화면을 연다.
+  - `loadFullScreenAd`로 5번째 질문부터 리워드 광고를 미리 로드하고 `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 Gemini 추천을 시작한다.
   - 질문 화면 하단 배너는 `InlineAd`로 렌더한다.
   - `granite.config.ts`의 `brand.icon`은 사용자 제공 Toss static 로고 URL `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`를 사용한다.
   - 첫 화면은 상단 로고 없이 한국관광공사 기반 추천 문구와 시작 버튼을 보여준다. 문구 블록은 화면 위쪽에 붙지 않도록 중앙 쪽으로 내렸다.
   - 결과 화면 상단 `어디고 / 추천 완료` 헤더는 숨긴다. 결과 카드 저장/공유 중심 화면으로 보이게 하기 위한 의도적 처리다.
   - 질문 카드는 선택 직후 선택 상태와 1초 로딩을 보여준 뒤 다음 질문이나 광고 안내 화면으로 이동한다.
-  - 마지막 질문 선택은 추천 API를 호출하지 않는다. 추천/관광공사 분석은 `광고 보고 결과 보기` CTA를 누르는 시점에 시작하고, 광고 시청과 분석 완료가 모두 끝난 뒤 결과를 연다.
+  - 마지막 질문 선택은 추천 API를 호출하지 않는다. `광고 보고 결과 보기` CTA를 누르면 무료 공공데이터 후보 준비(`/api/wherego/candidates`)만 시작하고, Gemini 최종 추천(`/api/wherego/recommend`)은 `userEarnedReward` 이후에만 호출한다.
+  - 광고 시청 완료 후 Gemini 응답을 기다리는 동안 전용 AI 로딩 화면을 보여준다. 이 화면은 `광고 시청 완료`, 스피너, `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택` 단계를 표시한다.
   - 추천 API 실패 시 임시/demo 결과를 열지 않는다. 리워드 게이트에서 `추천 다시 시도` 버튼을 보여준다.
   - 출발지 선택 뒤 서버 `POST /api/wherego/questions`에서 질문 세트를 받아온다. 서버 실패/미배포 상태에서는 앱 번들 문제은행으로 fallback한다.
   - 질문 세트 로딩 화면은 `질문지를 준비하고 있어요.` 문구를 사용한다. 선택지 번호는 긴 문구에 눌리지 않도록 우상단 고정 원형 배지로 렌더링한다.
@@ -126,6 +127,7 @@
   - 2026-07-10 KST 저장 검증: 선택 카드 전환 로딩을 1초로 조정하고, 광고 전 화면 상단 헤더/진행 바 제거와 광고 CTA 시점 추천 분석 시작 흐름을 반영했다. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f492e-81c6-7044-986f-2f3028a34528`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 지역 직접 선택 버튼/지역 카드 텍스트 클리핑 수정, 추천 실패 시 결과 fallback 차단, `추천 다시 시도` 흐름, 카드 저장 공유 fallback 제거, 저장용 SVG 폰트/렌더링 수정 반영. Render smoke는 HTTP 200, `source.curator=gemini`, 추천 `서울어린이대공원`, 이미지 URL 존재. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f494b-cb34-72b1-a1f3-1ee8f64da56c`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: `jbg` 백엔드 질문 생성 endpoint `POST /api/wherego/questions` 추가, 앱의 서버 질문 세트 우선 호출/fallback, 질문지 생성 로딩 화면, TDS Button loading, 선택지 번호 고정 배지와 긴 문구 제한 반영. `jbg` Wherego route unittest 16개 성공, `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a16-6e2b-7383-a0b6-6d42ff134754`이며 Git 제외.
+  - 2026-07-10 KST 저장 검증: 추천 흐름을 무료 후보 준비(`/api/wherego/candidates`)와 Gemini 최종 선택(`/api/wherego/recommend`)으로 분리했다. 앱은 리워드 광고 CTA에서 KTO/DataLab 후보 준비를 시작하고, 광고 보상 완료 뒤에만 Gemini를 호출한다. 광고 완료 후에는 별도 AI 로딩 화면을 보여준다. `jbg` Wherego route unittest 18개, `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a38-eefa-7f99-a0b0-217c6cb4363b`이며 Git 제외.
 
 ## 운영 규칙
 
@@ -136,8 +138,9 @@
 
 ## 남은 우선순위
 
-1. 실제 Apps in Toss 앱에서 Render 추천 API 연동 흐름 테스트.
-2. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
-3. PNG 카드 저장이 Toss 실기기에서 정상 저장되고 공유창이 열리지 않는지 확인한다.
-4. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 리워드 광고, 결과 카드, 네이버지도 열기 검수.
-5. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.
+1. 실제 Apps in Toss 앱에서 Render 질문/후보/추천 API 연동 흐름 테스트.
+2. 실기기에서 리워드 광고 5번째 질문 preload, `userEarnedReward` 이후 Gemini 호출, AI 로딩 화면, 결과 자동 이동이 정상인지 확인한다.
+3. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
+4. PNG 카드 저장이 Toss 실기기에서 정상 저장되고 공유창이 열리지 않는지 확인한다.
+5. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 리워드 광고, 결과 카드, 네이버지도 열기 검수.
+6. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.

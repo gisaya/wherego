@@ -19,7 +19,7 @@ Core flow:
 - Regional crowd signal direction: 한국관광공사 빅데이터 지역별 방문자수_GW API.
 - Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
 - TMAP congestion API is not part of the MVP because of cost.
-- AI direction: Gemini Flash-Lite runs on the Render backend as the final curator. The server builds the search plan from selected-answer metadata first, compresses KTO candidates to five or fewer, then asks Gemini to choose one place and write persona/result-card copy. Do not put AI API keys in the client.
+- AI direction: Gemini Flash-Lite runs on the Render backend as the final curator. The server builds the search plan from selected-answer metadata first, prepares KTO/DataLab candidates separately, compresses them to five or fewer, then asks Gemini to choose one place and write persona/result-card copy only after rewarded-ad completion. Do not put AI API keys in the client.
 - Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. The main app is wrapped in TDS and uses TDS `Text`/`Button`; selection and region cards use React Native `Pressable` with stable card sizing. Real-device visual QA is still required before submission.
 - Question flow: required 3 questions plus random 5 questions. Random questions must include `crowd` and one of `mobility`/`accessibility`, then fill the remaining three from different tag groups.
 - Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, 15 minutes of drive-time buffer, and 10km of distance buffer.
@@ -48,7 +48,7 @@ Current app flow in `pages/index.tsx`:
 - question flow: 3 required source questions plus 5 random general questions
 - question-card taps now show the selected card and a short 1s loading state before advancing
 - Apps in Toss inline banner ad during questions
-- rewarded ad gate before result using Apps in Toss integrated ads; recommendation analysis starts only after the user taps the rewarded-ad CTA, not on the final question tap
+- rewarded ad gate before result using Apps in Toss integrated ads; public-data candidate preparation starts from the rewarded-ad CTA, while Gemini recommendation analysis starts only after `userEarnedReward`, not on the final question tap
 - result card with tourism info, Apps in Toss card-save action, Naver Map open button, and home reset
 - result screen intentionally hides the top `어디고 / 추천 완료` header so the card is easier to save/share
 
@@ -56,8 +56,9 @@ Rewarded ad:
 
 - production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
 - production banner ad group ID: `ait.v2.live.67b07bf813d74267`
-- `pages/index.tsx` loads the ad with `loadFullScreenAd`, starts recommendation analysis when the rewarded-ad CTA is tapped, shows the ad with `showFullScreenAd`, and opens the result only after both reward access and successful recommendation completion. Recommendation errors stay on the reward gate with a retry CTA instead of showing local demo data.
-- 2026-07-10 KST ad-gate follow-up: Apps in Toss notice says Android 5.266.0+ can miss `loaded` events when full-screen/reward ads and banner ads load simultaneously, so reward ads are no longer preloaded during the question/banner screen. The reward ad is loaded only after entering the reward gate, where the banner is unmounted. The primary CTA remains visible during ad loading; unsupported browser/sandbox environments show a preview CTA with a notice to test real ads through the console QR in Toss.
+- `pages/index.tsx` loads the ad with `loadFullScreenAd`, preloads it from the fifth question, prepares free public-data candidates when the rewarded-ad CTA is tapped, shows the ad with `showFullScreenAd`, and starts Gemini only on the `userEarnedReward` event. The result opens only after both reward access and successful recommendation completion. Recommendation errors stay on the reward gate with a retry CTA instead of showing local demo data.
+- 2026-07-10 KST ad-gate follow-up: reward ads are preloaded from the fifth question to reduce wait time, but the expensive Gemini call is gated behind `userEarnedReward`. If Apps in Toss Android testing shows missed `loaded` events while banner ads are mounted, revisit this preload timing and move it back to the reward gate.
+- After reward completion, `pages/index.tsx` shows a dedicated AI loading panel instead of leaving the user on an ad-looking gate. The panel shows `광고 시청 완료`, a spinner, and the steps `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택`.
 - `pages/index.tsx` renders the question-screen banner with `InlineAd`.
 - Non-Toss/local unsupported environments fall back to a development preview result path.
 
@@ -159,6 +160,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-10 KST save check: direct-region text clipping was fixed with a custom Pressable button and taller region cards; recommendation errors now stay on the reward gate with `추천 다시 시도`; local demo/fallback results no longer open after server failure; card save no longer opens share fallback and uses system-font PNG rendering. Render smoke returned HTTP 200 with `source.curator=gemini`, selected `서울어린이대공원`, and an image URL. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f494b-cb34-72b1-a1f3-1ee8f64da56c`.
   - 2026-07-10 KST save check: saved PNG result card now uses the real KTO place image, a taller hero photo area, a compact address-only location row, and cleaned AI factor copy so the card fits inside 1080x1350. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f49fb-2216-7512-b555-4808770c2e41`.
   - 2026-07-10 KST save check: question generation moved to the `jbg` backend via `POST /api/wherego/questions`; the app fetches that set after origin selection and falls back to the bundled bank if the server is unavailable. SDK-check UI now shows a question-set loading panel, uses TDS `Button` loading for the origin CTA, and renders option numbers as fixed circular badges with two-line text limits. `jbg` Wherego route unittest passed with 16 tests. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a16-6e2b-7383-a0b6-6d42ff134754`.
+  - 2026-07-10 KST save check: recommendation was split into `POST /api/wherego/candidates` for free KTO/DataLab candidate preparation and `POST /api/wherego/recommend` for Gemini final curation. The app starts candidate preparation when the rewarded-ad CTA is tapped, calls Gemini only after `userEarnedReward`, and shows a dedicated AI loading panel after ad completion. `jbg` Wherego route unittest passed with 18 tests. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a38-eefa-7f99-a0b0-217c6cb4363b`.
 
 ## Current Question/API Work
 
@@ -171,7 +173,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
 - `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad position, rewarded-ad gate, Naver Map link, and result card with tourism info.
 - Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, direct-region text no longer clips, origin selection shows a question-set loading screen, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, option numbers are fixed circular badges, long option text is constrained to two lines, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, recommendation failure stays on the retry gate instead of opening a demo result, and the final result hides the top header.
-- Banner ad behavior: the banner is visible from the question-set loading screen. The loading screen stays visible for at least 2 seconds. `InlineAd` is keyed by `question-set-loading` or `question-${questionIndex}` so it remounts once for loading and once per question screen, not on option press.
+- Banner ad behavior: the banner is visible from the question-set loading screen. The loading screen stays visible for at least 2 seconds. `InlineAd` is keyed by `question-set-loading` or `question-${questionIndex}` so it remounts once for loading and once per question screen, not on option press. The rewarded ad is preloaded from the fifth question, while the expensive Gemini call is still delayed until rewarded completion.
 
 Latest known Render smoke result with the Seoul City Hall test origin:
 
@@ -203,16 +205,18 @@ Wherego now reuses the existing `뭐샀지`/`jbg` Render FastAPI service instead
 
 - client API base: `https://jbg.onrender.com`
 - server repo/path: `C:\Users\ESOL\Documents\jbg\apps\server`
-- endpoints: `POST /api/wherego/questions`, `POST /api/wherego/recommend`
+- endpoints: `POST /api/wherego/questions`, `POST /api/wherego/candidates`, `POST /api/wherego/recommend`
 - server route file: `apps/server/backend/app/interfaces/http/routes/wherego.py`
 - client API wrapper: `src/api/wheregoApi.ts`
 
-`/api/wherego/questions` generates the runtime 8-question set from server-side resources: 3 source-axis questions and 5 general questions, with `crowd` required and one of `mobility`/`accessibility` included. `/api/wherego/recommend` accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, and asks Gemini to choose the final single place from those candidates. DataLab regional visitor counts are included as a crowd signal before the Gemini final selection. If the recommendation server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
+`/api/wherego/questions` generates the runtime 8-question set from server-side resources: 3 source-axis questions and 5 general questions, with `crowd` required and one of `mobility`/`accessibility` included. `/api/wherego/candidates` accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, attaches DataLab regional visitor counts, and returns `aiUsed=false`. `/api/wherego/recommend` accepts the prepared candidate set and asks Gemini to choose the final single place from those candidates; if no candidate set is supplied, it keeps the older all-in-one fallback path. If the recommendation server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
 
 Quota/runtime guardrails:
 
 - `WHEREGO_KTO_SEARCH_MAX_CALLS=6` caps KorService2 search calls per recommendation request.
 - `WHEREGO_GEMINI_CANDIDATE_LIMIT=5` caps the candidate list sent to Gemini; the server hard-caps it at five even if the env is higher.
+- `/api/wherego/candidates` does not call Gemini and does not fetch final detail/intro data.
+- `/api/wherego/recommend` reuses a supplied candidate set instead of repeating KTO search.
 - Only the final selected place gets KTO detail calls.
 - For `nationwide` scope, KorService2 search omits `areaCode` so the limited call budget is spent across keywords instead of being exhausted by area-code loops.
 - Single KTO search timeouts/errors are skipped when other calls return candidates; the request only fails if every search call fails or no fallback candidate can be built.
@@ -246,8 +250,9 @@ Required Render env additions:
 
 ## Next Recommended Steps
 
-1. Test the live Apps in Toss SDK/device flow: server-generated question loading, option-number badge rendering on long labels, logo in navigation, location permission, region fallback, banner ad, rewarded ad, retry-on-failure behavior, result rendering, and Naver Map open.
-2. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
-3. Test the PNG card-save flow on real Toss devices and confirm it saves without opening the share sheet.
-4. Watch Render recommendation latency and retry rate after the 45s timeout change; if response time is still unstable, add server-side prewarming or tighter KTO/Gemini timeout tuning.
-5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
+1. Test the live Apps in Toss SDK/device flow: server-generated question loading, option-number badge rendering on long labels, logo in navigation, location permission, region fallback, banner ad, rewarded-ad preload, reward completion, AI loading panel, retry-on-failure behavior, result rendering, and Naver Map open.
+2. Confirm on Android 5.266.0+ that preloading the reward ad from the fifth question does not miss the `loaded` event while banner ads are mounted; if it does, move reward loading back to the reward gate.
+3. For policy-sensitive ad testing, switch to Apps in Toss test ad IDs before review-device testing, then restore production IDs only when appropriate.
+4. Test the PNG card-save flow on real Toss devices and confirm it saves without opening the share sheet.
+5. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
+6. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.

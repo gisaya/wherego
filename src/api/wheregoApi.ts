@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '../config';
 
 const QUESTION_SET_TIMEOUT_MS = 8000;
+const CANDIDATE_SET_TIMEOUT_MS = 25000;
 const RECOMMENDATION_TIMEOUT_MS = 45000;
 
 export type WheregoRecommendOrigin = {
@@ -118,6 +119,22 @@ export type WheregoRecommendation = {
   };
 };
 
+export type WheregoCandidateSet = {
+  version?: string;
+  preparedAt?: string;
+  plan?: Record<string, unknown>;
+  candidates: Record<string, unknown>[];
+  candidateCount?: number;
+  compressedCandidateCount?: number;
+  source?: {
+    planner?: string;
+    kto?: string;
+    crowd?: string;
+    answerCount?: number;
+    aiUsed?: boolean;
+  };
+};
+
 export class WheregoApiError extends Error {
   status?: number;
 
@@ -164,9 +181,48 @@ export async function fetchWheregoQuestionSet(params: {
   }
 }
 
+export async function prepareWheregoCandidates(params: {
+  origin: WheregoRecommendOrigin;
+  answers: WheregoRecommendAnswer[];
+}): Promise<WheregoCandidateSet> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new WheregoApiError('관광지 후보 준비가 지연되고 있어요.', 408));
+    }, CANDIDATE_SET_TIMEOUT_MS);
+  });
+
+  try {
+    const response = await Promise.race([
+      fetch(`${API_BASE_URL}/api/wherego/candidates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          origin: params.origin,
+          answers: params.answers,
+        }),
+      }),
+      timeoutPromise,
+    ]);
+
+    if (!response.ok) {
+      throw await parseApiError(response);
+    }
+
+    return (await response.json()) as WheregoCandidateSet;
+  } finally {
+    if (timeoutId != null) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 export async function recommendWheregoDestination(params: {
   origin: WheregoRecommendOrigin;
   answers: WheregoRecommendAnswer[];
+  candidateSet?: WheregoCandidateSet | null;
 }): Promise<WheregoRecommendation> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -186,6 +242,7 @@ export async function recommendWheregoDestination(params: {
           origin: params.origin,
           answers: params.answers,
           limit: 1,
+          candidateSet: params.candidateSet || undefined,
         }),
       }),
       timeoutPromise,

@@ -27,7 +27,9 @@ import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Path, Rect, Text as 
 
 import {
   fetchWheregoQuestionSet,
+  prepareWheregoCandidates,
   recommendWheregoDestination,
+  type WheregoCandidateSet,
   type WheregoQuestion,
   type WheregoRecommendation,
   type WheregoRecommendedPlace,
@@ -746,6 +748,7 @@ const RESULT_CARD_FONT_FAMILY = Platform.select({
 });
 const QUESTION_ADVANCE_DELAY_MS = 1000;
 const QUESTION_SET_LOADING_MIN_MS = 2000;
+const REWARDED_AD_PRELOAD_START_INDEX = 4;
 
 function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
@@ -753,6 +756,7 @@ function Index() {
   const resultCardSvgRef = useRef<Svg | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionSetRequestIdRef = useRef(0);
+  const candidateSetPromiseRef = useRef<Promise<WheregoCandidateSet | null> | null>(null);
   const selectedAnswersRef = useRef<SelectedAnswer[]>([]);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
@@ -793,6 +797,20 @@ function Index() {
     rewardGateLoadRequestedRef.current = true;
     loadRewardAd();
   }, [step]);
+
+  useEffect(() => {
+    if (step !== 'question' || rewardGateLoadRequestedRef.current || questionSet.length === 0) {
+      return;
+    }
+
+    const preloadStartIndex = Math.min(REWARDED_AD_PRELOAD_START_INDEX, questionSet.length - 1);
+    if (questionIndex < preloadStartIndex) {
+      return;
+    }
+
+    rewardGateLoadRequestedRef.current = true;
+    loadRewardAd();
+  }, [questionIndex, questionSet.length, step]);
 
   useEffect(() => {
     if (step !== 'rewardGate' || !hasRewardAccess) {
@@ -860,6 +878,7 @@ function Index() {
     setIsQuestionSetLoading(false);
     setWaitingForLocation(false);
     setLocationStatus('');
+    candidateSetPromiseRef.current = null;
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
@@ -919,6 +938,26 @@ function Index() {
     void prepareRecommendation(selectedAnswersRef.current);
   }
 
+  function startCandidatePreparation() {
+    if (origin == null || selectedAnswersRef.current.length === 0) {
+      return null;
+    }
+
+    if (candidateSetPromiseRef.current != null) {
+      return candidateSetPromiseRef.current;
+    }
+
+    candidateSetPromiseRef.current = prepareWheregoCandidates({
+      origin,
+      answers: selectedAnswersRef.current,
+    }).catch(() => {
+      candidateSetPromiseRef.current = null;
+      return null;
+    });
+
+    return candidateSetPromiseRef.current;
+  }
+
   function showRewardAd() {
     if (rewardAdStatus === 'showing') {
       return;
@@ -930,6 +969,7 @@ function Index() {
     }
 
     if (rewardAdStatus === 'unsupported') {
+      startCandidatePreparation();
       startRecommendationAnalysis();
       setHasRewardAccess(true);
       setRewardAdMessage('AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
@@ -942,13 +982,12 @@ function Index() {
       return;
     }
 
-    startRecommendationAnalysis();
-
     let didEarnReward = false;
     let unregisterShowAd: (() => void) | null = null;
 
+    startCandidatePreparation();
     setRewardAdStatus('showing');
-    setRewardAdMessage('광고를 여는 중이에요. 동시에 추천 결과를 만들고 있어요.');
+    setRewardAdMessage('광고를 여는 중이에요. 관광지 후보를 먼저 준비하고 있어요.');
 
     unregisterShowAd = showFullScreenAd({
       options: {
@@ -961,24 +1000,27 @@ function Index() {
         }
 
         if (event.type === 'show') {
-          setRewardAdMessage('광고 시청이 끝나면 결과를 열어드릴게요.');
+          setRewardAdMessage('광고 시청이 끝나면 AI가 최종 장소를 고를게요.');
           return;
         }
 
         if (event.type === 'userEarnedReward') {
           didEarnReward = true;
           setHasRewardAccess(true);
-          setRewardAdMessage('광고 시청 완료. 추천 결과를 마무리하고 있어요.');
+          startRecommendationAnalysis();
+          setRewardAdMessage('광고 시청 완료. AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
           return;
         }
 
         if (event.type === 'dismissed') {
           unregisterShowAd?.();
           setIsRewardAdLoaded(false);
-          loadRewardAd();
 
           if (!didEarnReward) {
+            loadRewardAd();
             setRewardAdMessage('광고 시청을 완료하면 결과를 볼 수 있어요.');
+          } else {
+            setRewardAdStatus('idle');
           }
           return;
         }
@@ -1013,6 +1055,7 @@ function Index() {
     setIsQuestionSetLoading(true);
     setWaitingForLocation(false);
     setLocationStatus('질문 세트를 준비하고 있어요.');
+    candidateSetPromiseRef.current = null;
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
@@ -1106,9 +1149,11 @@ function Index() {
     setResultMessage('');
 
     try {
+      const candidateSet = (await candidateSetPromiseRef.current) ?? null;
       const nextRecommendation = await recommendWheregoDestination({
         origin,
         answers,
+        candidateSet,
       });
       setRecommendation(nextRecommendation);
       setRecommendationStatus('ready');
@@ -1121,6 +1166,7 @@ function Index() {
 
   function retryRecommendation() {
     setRewardAdMessage('');
+    startCandidatePreparation();
     startRecommendationAnalysis();
   }
 
@@ -1502,6 +1548,16 @@ function RewardGate({
   const isRecommendationError = recommendationStatus === 'error';
   const isRecommendationDone = recommendationStatus === 'ready';
   const hasStartedRecommendation = recommendationStatus !== 'idle';
+
+  if (hasRewardAccess && !isRecommendationError) {
+    return (
+      <AiRecommendationLoading
+        done={isRecommendationDone}
+        message={message}
+      />
+    );
+  }
+
   const isButtonDisabled = status === 'showing' || (hasRewardAccess && !isRecommendationError);
   const buttonLabel = isRecommendationError
     ? '추천 다시 시도'
@@ -1530,7 +1586,7 @@ function RewardGate({
       ? '광고를 불러오는 동안에도 버튼은 유지됩니다. 준비가 끝나면 바로 시청할 수 있어요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
-      : '광고를 시작하면 AI 분석도 함께 시작되고, 완료되면 추천 카드와 지도 연결을 열어드릴게요.';
+      : '광고 시청을 완료하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
 
   return (
     <View style={styles.centerScreen}>
@@ -1554,6 +1610,42 @@ function RewardGate({
           label={buttonLabel}
           onPress={isRecommendationError ? onRetryRecommendation : onWatchAd}
         />
+      </View>
+    </View>
+  );
+}
+
+function AiRecommendationLoading({ done, message }: { done: boolean; message: string }) {
+  const steps = [
+    { label: '관광정보 후보 확인', done: true },
+    { label: '방문자수 신호 비교', done: true },
+    { label: 'AI 최종 장소 선택', done },
+  ];
+
+  return (
+    <View style={styles.centerScreen}>
+      <View style={styles.aiLoadingPanel}>
+        <Pill label="광고 시청 완료" />
+        <View style={styles.aiLoadingIcon}>
+          <ActivityIndicator color="#2B84FC" size="large" />
+        </View>
+        <Text style={styles.panelTitle}>AI가 최종 여행지를 고르고 있어요.</Text>
+        <Text style={styles.panelCopy}>
+          준비된 관광정보 후보와 방문자수 데이터를 비교해서 결과 카드를 만들고 있습니다.
+        </Text>
+        <View style={styles.aiStepList}>
+          {steps.map((step) => (
+            <View key={step.label} style={styles.aiStepRow}>
+              <View style={[styles.aiStepDot, step.done ? styles.aiStepDotDone : null]}>
+                <Text style={[styles.aiStepDotText, step.done ? styles.aiStepDotTextDone : null]}>
+                  {step.done ? '✓' : ''}
+                </Text>
+              </View>
+              <Text style={[styles.aiStepText, step.done ? styles.aiStepTextDone : null]}>{step.label}</Text>
+            </View>
+          ))}
+        </View>
+        {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
       </View>
     </View>
   );
@@ -2474,6 +2566,68 @@ const styles = StyleSheet.create({
     ...cardBase,
     alignItems: 'center',
     padding: 20,
+  },
+  aiLoadingPanel: {
+    ...cardBase,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+  },
+  aiLoadingIcon: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(43, 132, 252, 0.08)',
+    borderRadius: 999,
+    height: 72,
+    justifyContent: 'center',
+    marginTop: 20,
+    width: 72,
+  },
+  aiStepList: {
+    alignSelf: 'stretch',
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E8EB',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  aiStepRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    minHeight: 34,
+  },
+  aiStepDot: {
+    alignItems: 'center',
+    backgroundColor: '#E5E8EB',
+    borderRadius: 999,
+    height: 20,
+    justifyContent: 'center',
+    marginRight: 10,
+    width: 20,
+  },
+  aiStepDotDone: {
+    backgroundColor: '#2B84FC',
+  },
+  aiStepDotText: {
+    color: '#8B95A1',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  aiStepDotTextDone: {
+    color: '#FFFFFF',
+  },
+  aiStepText: {
+    color: '#6B7684',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 19,
+  },
+  aiStepTextDone: {
+    color: '#191F28',
   },
   questionSetLoadingIcon: {
     alignItems: 'center',
