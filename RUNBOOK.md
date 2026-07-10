@@ -120,6 +120,7 @@ Submission-sensitive config:
 - Recommendation errors stay on the reward gate and show `추천 다시 시도`; do not open local demo results after API failure.
 - The final result screen hides the top app header. This is intentional so the result card and actions are the focus.
 - `카드 저장하기` uses `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data` to save a generated PNG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions show a save-not-supported message.
+- The app does not call the Apps in Toss `share` API from the save button. If a system sheet appears while saving, treat it as the native `saveBase64Data` file-save flow; the current framework API has no option to suppress that sheet.
 - The saved card format is PNG only. The save button must not open the share sheet. Run real-device save/gallery checks before launch.
 
 Rewarded ad:
@@ -130,6 +131,7 @@ production banner ad group ID: ait.v2.live.67b07bf813d74267
 ```
 
 `pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` before the result gate, recommendation API start on the reward CTA, `showFullScreenAd` on the same CTA, and `userEarnedReward` plus successful recommendation completion before opening the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
+- Do not preload the rewarded ad while the question-screen banner is mounted. Apps in Toss announced an Android issue where simultaneous full-screen/reward and banner loads may skip the `loaded` event; the current app loads the rewarded ad only after the reward gate is shown.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
 
@@ -295,6 +297,24 @@ The mockup uses:
 - result card with tourism info, PNG card-download button, Naver Map open button, and home reset. The mock save flow downloads PNG only and does not open share.
 - result screen hides the top `어디고 / 추천 완료` header
 
+
+## Local Android Dev
+
+`yarn dev` runs on Metro/Granite port `8081`. For wireless Android testing:
+
+```powershell
+adb connect <device-ip>:<adb-port>
+adb reverse tcp:8081 tcp:8081
+adb shell am start -a android.intent.action.VIEW -d "intoss://wherego"
+```
+
+React Native `0.84.0` uses newer Flow/TS-style syntax that Granite `1.0.20`/Metro dev could not parse on Windows. Keep the Yarn patches for `@granite-js/mpack`, `metro-react-native-babel-transformer`, and `react-native`; they are required for local sandbox bundling. The verified local bundle URL is:
+
+```text
+http://127.0.0.1:8081/index.bundle?platform=android&dev=true&minify=false
+```
+
+Expected check: HTTP 200. If the phone screenshot is black, wake/unlock the device; this is not a bundle failure.
 
 ## Deployment
 

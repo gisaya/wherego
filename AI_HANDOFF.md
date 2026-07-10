@@ -57,6 +57,7 @@ Rewarded ad:
 - production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
 - production banner ad group ID: `ait.v2.live.67b07bf813d74267`
 - `pages/index.tsx` loads the ad with `loadFullScreenAd`, starts recommendation analysis when the rewarded-ad CTA is tapped, shows the ad with `showFullScreenAd`, and opens the result only after both reward access and successful recommendation completion. Recommendation errors stay on the reward gate with a retry CTA instead of showing local demo data.
+- 2026-07-10 KST ad-gate follow-up: Apps in Toss notice says Android 5.266.0+ can miss `loaded` events when full-screen/reward ads and banner ads load simultaneously, so reward ads are no longer preloaded during the question/banner screen. The reward ad is loaded only after entering the reward gate, where the banner is unmounted. The primary CTA remains visible during ad loading; unsupported browser/sandbox environments show a preview CTA with a notice to test real ads through the console QR in Toss.
 - `pages/index.tsx` renders the question-screen banner with `InlineAd`.
 - Non-Toss/local unsupported environments fall back to a development preview result path.
 
@@ -156,6 +157,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
   - 2026-07-10 KST save check: first-screen intro copy was lowered toward the vertical center in both the app and mockup. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4916-8162-7022-8180-1e354788acc6`.
   - 2026-07-10 KST save check: question-card tap delay was reduced to 1s, reward-gate top header/progress stays hidden, and recommendation analysis now starts from the rewarded-ad CTA while the ad flow is running. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f492e-81c6-7044-986f-2f3028a34528`.
   - 2026-07-10 KST save check: direct-region text clipping was fixed with a custom Pressable button and taller region cards; recommendation errors now stay on the reward gate with `추천 다시 시도`; local demo/fallback results no longer open after server failure; card save no longer opens share fallback and uses system-font PNG rendering. Render smoke returned HTTP 200 with `source.curator=gemini`, selected `서울어린이대공원`, and an image URL. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f494b-cb34-72b1-a1f3-1ee8f64da56c`.
+  - 2026-07-10 KST save check: saved PNG result card now uses the real KTO place image, a taller hero photo area, a compact address-only location row, and cleaned AI factor copy so the card fits inside 1080x1350. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f49fb-2216-7512-b555-4808770c2e41`.
 
 ## Current Question/API Work
 
@@ -187,9 +189,11 @@ Latest known Render smoke result with the Seoul City Hall test origin:
 - Apps in Toss UI now calls the `jbg` Render-backed recommendation API. Server/API/Gemini failures stay on the reward gate with a retry CTA; demo data is retained only as a defensive local fallback and should not surface in the normal result flow.
 - KTO `searchKeyword2` can intermittently time out on some nationwide keyword calls; the server now skips single failed search calls, but live monitoring should watch empty-candidate rates.
 - Card-save now writes a PNG card file through Apps in Toss `saveBase64Data`, but real-device validation is still needed.
+- 2026-07-10 KST follow-up: saved PNG card clipping was caused by the hidden SVG card's lower text/AI box coordinates being too close to the 1080x1350 card bottom. `pages/index.tsx` and the mockup card SVG now reserve more bottom space and specify Korean-capable system fonts. The app no longer calls `share`; if a sheet still appears after `saveBase64Data`, it is the native Toss file-save UI because `saveBase64Data` exposes no no-sheet option in the local framework source.
 - `brand.icon` now uses the Toss static logo URL supplied by the user. Still confirm in the Apps in Toss Console/device preview that the same icon appears in the Toss navigation surface before launch submission.
 - The UI is now TDS-based, but the final pass still needs a real Toss app device check for typography, hit areas, ad rendering, and permission prompts.
 - Recommendation failures no longer open a fallback/demo result. The user remains on the reward gate and can retry the recommendation request.
+- Local Android sandbox dev now requires Yarn patches for `@granite-js/mpack`, `metro-react-native-babel-transformer`, and `react-native` because React Native `0.84.0` syntax breaks the older Granite/Metro parser path. Verified on device that `yarn dev` serves `http://127.0.0.1:8081/index.bundle?platform=android&dev=true&minify=false` with HTTP 200, the app opens through `intoss://wherego`, and the first screen -> origin screen -> current-location question flow reaches `출발 기준: 현재 위치(고양시)`.
 
 ## Current Server Direction
 

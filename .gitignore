@@ -13,6 +13,7 @@ dist/
 .pnp.*
 npm-debug.log
 yarn-error.log
+.codex-dev*.log
 __pycache__/
 *.pyc
 .env

@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -22,9 +23,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import Svg, { Circle, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Path, Rect, Text as SvgText } from 'react-native-svg';
 
-import logoImage from '../assets/logo.png';
 import {
   recommendWheregoDestination,
   type WheregoRecommendation,
@@ -116,6 +116,8 @@ type DemoResult = {
   mapLink?: string;
   isFallback?: boolean;
 };
+
+const LOGO_IMAGE_URL = 'https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png';
 
 const sourceQuestionPool: Question[] = [
   {
@@ -670,10 +672,16 @@ const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
+const RESULT_CARD_HERO_HEIGHT = 460;
+const RESULT_CARD_FONT_FAMILY = Platform.select({
+  android: 'sans-serif',
+  ios: 'Apple SD Gothic Neo',
+});
 const QUESTION_ADVANCE_DELAY_MS = 1000;
 
 function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
+  const rewardGateLoadRequestedRef = useRef(false);
   const resultCardSvgRef = useRef<Svg | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedAnswersRef = useRef<SelectedAnswer[]>([]);
@@ -693,16 +701,26 @@ function Index() {
   const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
+  const currentQuestion = questionSet[questionIndex];
+  const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
+  const result = getResult(origin, recommendation);
 
   useEffect(() => {
-    loadRewardAd();
-
     return () => {
       rewardAdUnregisterRef.current?.();
       rewardAdUnregisterRef.current = null;
       clearQuestionAdvanceTimer();
     };
   }, []);
+
+  useEffect(() => {
+    if (step !== 'rewardGate' || rewardGateLoadRequestedRef.current) {
+      return;
+    }
+
+    rewardGateLoadRequestedRef.current = true;
+    loadRewardAd();
+  }, [step]);
 
   useEffect(() => {
     if (step !== 'rewardGate' || !hasRewardAccess) {
@@ -716,6 +734,14 @@ function Index() {
   }, [hasRewardAccess, recommendationStatus, step]);
 
   useEffect(() => {
+    if (step !== 'result' || !result.imageUrl) {
+      return;
+    }
+
+    void Image.prefetch(result.imageUrl).catch(() => undefined);
+  }, [result.imageUrl, step]);
+
+  useEffect(() => {
     if (!waitingForLocation) {
       return;
     }
@@ -726,10 +752,6 @@ function Index() {
 
     return () => clearTimeout(timeoutId);
   }, [waitingForLocation]);
-
-  const currentQuestion = questionSet[questionIndex];
-  const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
-  const result = getResult(origin, recommendation);
 
   function startFlowWithCurrentLocation(geolocation: TossLocation) {
     startFlowWithOrigin({
@@ -764,10 +786,20 @@ function Index() {
     setIsQuestionAdvancing(false);
     setWaitingForLocation(false);
     setLocationStatus('');
-    setHasRewardAccess(false);
+    resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
+  }
+
+  function resetRewardAdState() {
+    rewardAdUnregisterRef.current?.();
+    rewardAdUnregisterRef.current = null;
+    rewardGateLoadRequestedRef.current = false;
+    setIsRewardAdLoaded(false);
+    setRewardAdStatus('idle');
+    setRewardAdMessage('');
+    setHasRewardAccess(false);
   }
 
   function loadRewardAd() {
@@ -779,7 +811,7 @@ function Index() {
 
     if (!supportsRewardAd) {
       setRewardAdStatus('unsupported');
-      setRewardAdMessage('현재 환경은 리워드 광고를 지원하지 않아 개발 미리보기로 결과를 열 수 있어요.');
+      setRewardAdMessage('브라우저나 샌드박스는 리워드 광고를 지원하지 않아요. 콘솔 QR의 토스 앱 테스트에서 광고를 확인해주세요.');
       return;
     }
 
@@ -814,13 +846,17 @@ function Index() {
   }
 
   function showRewardAd() {
-    if (rewardAdStatus === 'loading' || rewardAdStatus === 'showing') {
+    if (rewardAdStatus === 'showing') {
       return;
     }
 
-    startRecommendationAnalysis();
+    if (rewardAdStatus === 'loading') {
+      setRewardAdMessage('광고를 준비하고 있어요. 잠시 후 다시 눌러주세요.');
+      return;
+    }
 
     if (rewardAdStatus === 'unsupported') {
+      startRecommendationAnalysis();
       setHasRewardAccess(true);
       setRewardAdMessage('AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
       return;
@@ -828,9 +864,11 @@ function Index() {
 
     if (rewardAdStatus === 'error' || !isRewardAdLoaded) {
       loadRewardAd();
-      setRewardAdMessage('광고를 다시 준비하고 있어요. 추천 결과도 함께 만들고 있어요.');
+      setRewardAdMessage('광고를 다시 준비하고 있어요.');
       return;
     }
+
+    startRecommendationAnalysis();
 
     let didEarnReward = false;
     let unregisterShowAd: (() => void) | null = null;
@@ -898,7 +936,7 @@ function Index() {
     setIsQuestionAdvancing(false);
     setWaitingForLocation(false);
     setLocationStatus('');
-    setHasRewardAccess(false);
+    resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
@@ -945,10 +983,6 @@ function Index() {
         setQuestionIndex((index) => index + 1);
       }, QUESTION_ADVANCE_DELAY_MS);
       return;
-    }
-
-    if (!isRewardAdLoaded && rewardAdStatus !== 'loading') {
-      loadRewardAd();
     }
 
     questionAdvanceTimeoutRef.current = setTimeout(() => {
@@ -1051,7 +1085,6 @@ function Index() {
                 <ResultScreen
                   answerCount={selectedAnswers.length}
                   message={resultMessage}
-                  origin={origin}
                   result={result}
                   onHome={resetToIntro}
                   onMap={openMap}
@@ -1060,7 +1093,6 @@ function Index() {
                 <ResultCardPngSource
                   ref={resultCardSvgRef}
                   answerCount={selectedAnswers.length}
-                  origin={origin}
                   result={result}
                 />
               </>
@@ -1096,7 +1128,7 @@ function Header({ counter }: { counter: string }) {
   return (
     <View style={styles.header}>
       <View style={styles.brand}>
-        <Image source={logoImage} style={styles.logo} />
+        <Image source={{ uri: LOGO_IMAGE_URL }} style={styles.logo} />
         <Text style={styles.brandName}>어디고</Text>
       </View>
       <Text style={styles.counter}>{counter}</Text>
@@ -1338,11 +1370,12 @@ function RewardGate({
   recommendationStatus: RecommendationStatus;
   status: RewardAdStatus;
 }) {
+  const isAdLoading = status === 'loading';
   const isRecommendationLoading = recommendationStatus === 'loading';
   const isRecommendationError = recommendationStatus === 'error';
   const isRecommendationDone = recommendationStatus === 'ready';
   const hasStartedRecommendation = recommendationStatus !== 'idle';
-  const isButtonDisabled = status === 'loading' || status === 'showing' || (hasRewardAccess && !isRecommendationError);
+  const isButtonDisabled = status === 'showing' || (hasRewardAccess && !isRecommendationError);
   const buttonLabel = isRecommendationError
     ? '추천 다시 시도'
     : hasRewardAccess
@@ -1366,6 +1399,8 @@ function RewardGate({
     ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
     : isRecommendationDone
     ? '광고 시청을 완료하면 추천 카드와 지도 연결을 바로 열어드릴게요.'
+    : isAdLoading
+      ? '광고를 불러오는 동안에도 버튼은 유지됩니다. 준비가 끝나면 바로 시청할 수 있어요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
       : '광고를 시작하면 AI 분석도 함께 시작되고, 완료되면 추천 카드와 지도 연결을 열어드릴게요.';
@@ -1376,10 +1411,14 @@ function RewardGate({
         <Pill label={pillLabel} />
         <Text style={styles.panelTitle}>{title}</Text>
         <Text style={styles.panelCopy}>{copy}</Text>
-        {isRecommendationLoading ? (
+        {isAdLoading || isRecommendationLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color="#2B84FC" size="small" />
-            <Text style={styles.loadingText}>AI가 관광정보와 방문자수 데이터를 비교하고 있어요.</Text>
+            <Text style={styles.loadingText}>
+              {isAdLoading
+                ? '리워드 광고를 준비하고 있어요.'
+                : 'AI가 관광정보와 방문자수 데이터를 비교하고 있어요.'}
+            </Text>
           </View>
         ) : null}
         {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
@@ -1399,7 +1438,6 @@ function ResultScreen({
   onHome,
   onMap,
   onSave,
-  origin,
   result,
 }: {
   answerCount: number;
@@ -1407,9 +1445,10 @@ function ResultScreen({
   onHome: () => void;
   onMap: () => void;
   onSave: () => void;
-  origin: Origin | null;
   result: DemoResult;
 }) {
+  const locationText = resultLocationText(result);
+
   return (
     <View style={styles.resultScreen}>
       <View style={styles.resultCard}>
@@ -1428,13 +1467,9 @@ function ResultScreen({
           <Text style={styles.place}>{result.place}</Text>
           <Text style={styles.reason}>{result.reason}</Text>
           <AiDecision result={result} />
-          <View style={styles.infoTable}>
-            <InfoRow label="출발" value={origin?.label || '지역 미선택'} />
-            <InfoRow label="지역" value={result.region} />
-            <InfoRow label="주소" value={result.address} />
-            <InfoRow label="이동" value={result.travel} />
-            <InfoRow label="방문 신호" value={result.signal} />
-            <InfoRow label="편의" value={result.comfort} />
+          <View style={styles.locationSummaryBox}>
+            <Text style={styles.locationSummaryLabel}>위치</Text>
+            <Text style={styles.locationSummaryText}>{locationText}</Text>
           </View>
           <Text style={styles.sourceNote}>{resultSourceNote(result, answerCount)}</Text>
           <View style={styles.resultActions}>
@@ -1453,20 +1488,18 @@ const ResultCardPngSource = React.forwardRef<
   Svg,
   {
     answerCount: number;
-    origin: Origin | null;
     result: DemoResult;
   }
->(function ResultCardPngSource({ answerCount, origin, result }, ref) {
-  const placeLines = svgTextLines(result.place, 18, 2);
+>(function ResultCardPngSource({ answerCount, result }, ref) {
+  const hasHeroImage = Boolean(result.imageUrl);
+  const placeLines = svgTextLines(result.place, 17, 2);
   const personaLines = svgTextLines(result.persona, 24, 2);
-  const reasonLines = svgTextLines(result.reason, 30, 3);
-  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 38, 2);
-  const highlights = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 3);
-  const factorLines = svgTextLines(
-    highlights.join(' · ') || result.overview || result.aiTradeoff || result.comfort,
-    35,
-    2,
-  );
+  const reasonLines = svgTextLines(result.reason, 29, 3);
+  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 48, 2);
+  const locationLines = svgTextLines(resultLocationText(result), 45, 2);
+  const factorLines = svgTextLines(resultCardFactorText(result), 42, 4);
+  const heroTitleColor = hasHeroImage ? '#FFFFFF' : '#1E63D6';
+  const heroPlaceColor = hasHeroImage ? '#FFFFFF' : '#191F28';
 
   return (
     <View pointerEvents="none" style={styles.hiddenCardRenderer}>
@@ -1476,53 +1509,65 @@ const ResultCardPngSource = React.forwardRef<
         viewBox={`0 0 ${RESULT_CARD_IMAGE_WIDTH} ${RESULT_CARD_IMAGE_HEIGHT}`}
         width={RESULT_CARD_IMAGE_WIDTH}
       >
+        <Defs>
+          <ClipPath id="wherego-result-hero-clip">
+            <Rect height={RESULT_CARD_HERO_HEIGHT} rx={48} width={952} x={64} y={64} />
+          </ClipPath>
+        </Defs>
         <Rect fill="#F5F7FA" height={RESULT_CARD_IMAGE_HEIGHT} width={RESULT_CARD_IMAGE_WIDTH} x={0} y={0} />
         <Rect fill="#FFFFFF" height={1222} rx={48} width={952} x={64} y={64} />
         <Rect fill="none" height={1222} rx={48} stroke="#E5E8EB" strokeWidth={2} width={952} x={64} y={64} />
-        <Rect fill="#EAF3FF" height={330} rx={48} width={952} x={64} y={64} />
-        <Circle cx={855} cy={185} fill="#FFE1A3" r={92} />
-        <Path
-          d="M64 340 C210 244 327 298 438 238 C592 154 746 276 1016 172 L1016 394 L64 394 Z"
-          fill="#B9E6CF"
-        />
-        <Path
-          d="M64 376 C232 298 352 352 500 300 C640 252 766 350 1016 268 L1016 394 L64 394 Z"
-          fill="#86D1F2"
-          opacity={0.72}
-        />
-        <SvgText fill="#1E63D6" fontSize={34} fontWeight="800" x={112} y={150}>
+        <G clipPath="url(#wherego-result-hero-clip)">
+          {result.imageUrl ? (
+            <>
+              <SvgImage
+                height={RESULT_CARD_HERO_HEIGHT}
+                href={{ uri: result.imageUrl }}
+                preserveAspectRatio="xMidYMid slice"
+                width={952}
+                x={64}
+                y={64}
+              />
+              <Rect fill="#000000" height={RESULT_CARD_HERO_HEIGHT} opacity={0.28} width={952} x={64} y={64} />
+            </>
+          ) : (
+            <>
+              <Rect fill="#EAF3FF" height={RESULT_CARD_HERO_HEIGHT} width={952} x={64} y={64} />
+              <Circle cx={855} cy={225} fill="#FFE1A3" r={92} />
+              <Path
+                d="M64 456 C210 348 327 410 438 342 C592 258 746 388 1016 276 L1016 524 L64 524 Z"
+                fill="#B9E6CF"
+              />
+              <Path
+                d="M64 496 C232 402 352 454 500 406 C640 358 766 454 1016 372 L1016 524 L64 524 Z"
+                fill="#86D1F2"
+                opacity={0.72}
+              />
+            </>
+          )}
+        </G>
+        <SvgText fill={heroTitleColor} fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={34} fontWeight="800" x={112} y={150}>
           어디고 추천 카드
         </SvgText>
-        <SvgTextBlock color="#191F28" lineHeight={64} lines={placeLines} weight="800" x={112} y={234} />
-        <SvgTextBlock color="#1E63D6" lineHeight={34} lines={personaLines} weight="800" x={112} y={482} />
-        <SvgTextBlock color="#4E5968" lineHeight={36} lines={reasonLines} weight="700" x={112} y={570} />
-        <Rect fill="#E5E8EB" height={2} width={856} x={112} y={704} />
-        <SvgInfoRow label="출발" value={origin?.label || '지역 미선택'} y={764} />
-        <SvgInfoRow label="지역" value={result.region} y={840} />
-        <SvgInfoRow label="주소" value={result.address} y={916} />
-        <SvgInfoRow label="이동" value={result.travel} y={992} />
-        <SvgInfoRow label="방문 신호" value={result.signal} y={1068} />
-        <Rect fill="#F9FAFB" height={112} rx={28} stroke="#E5E8EB" width={856} x={112} y={1112} />
-        <SvgText fill="#1E63D6" fontSize={27} fontWeight="800" x={146} y={1160}>
+        <SvgTextBlock color={heroPlaceColor} lineHeight={62} lines={placeLines} weight="800" x={112} y={234} />
+        <SvgTextBlock color="#1E63D6" lineHeight={34} lines={personaLines} weight="800" x={112} y={588} />
+        <SvgTextBlock color="#4E5968" lineHeight={36} lines={reasonLines} weight="700" x={112} y={662} />
+        <Rect fill="#E5E8EB" height={2} width={856} x={112} y={770} />
+        <Rect fill="#F9FAFB" height={86} rx={24} stroke="#E5E8EB" width={856} x={112} y={800} />
+        <SvgText fill="#8B95A1" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={24} fontWeight="800" x={146} y={852}>
+          위치
+        </SvgText>
+        <SvgTextBlock color="#191F28" lineHeight={29} lines={locationLines} weight="800" x={240} y={840} />
+        <Rect fill="#F9FAFB" height={220} rx={28} stroke="#E5E8EB" width={856} x={112} y={920} />
+        <SvgText fill="#1E63D6" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={27} fontWeight="800" x={146} y={970}>
           AI 선택 근거
         </SvgText>
-        <SvgTextBlock color="#191F28" lineHeight={29} lines={factorLines} weight="700" x={146} y={1198} />
-        <SvgTextBlock color="#8B95A1" lineHeight={25} lines={sourceLines} weight="700" x={112} y={1262} />
+        <SvgTextBlock color="#191F28" lineHeight={30} lines={factorLines} weight="700" x={146} y={1016} />
+        <SvgTextBlock color="#8B95A1" lineHeight={23} lines={sourceLines} weight="700" x={112} y={1188} />
       </Svg>
     </View>
   );
 });
-
-function SvgInfoRow({ label, value, y }: { label: string; value: string; y: number }) {
-  return (
-    <>
-      <SvgText fill="#8B95A1" fontSize={27} fontWeight="800" x={112} y={y}>
-        {label}
-      </SvgText>
-      <SvgTextBlock color="#191F28" lineHeight={31} lines={svgTextLines(value, 32, 2)} weight="800" x={300} y={y} />
-    </>
-  );
-}
 
 function SvgTextBlock({
   color,
@@ -1545,6 +1590,7 @@ function SvgTextBlock({
         <SvgText
           key={`${x}-${y}-${index}-${line}`}
           fill={color}
+          fontFamily={RESULT_CARD_FONT_FAMILY}
           fontSize={Math.round(lineHeight * 0.78)}
           fontWeight={weight}
           x={x}
@@ -1576,15 +1622,6 @@ function AiDecision({ result }: { result: DemoResult }) {
       ) : null}
       {result.aiTradeoff ? <Text style={styles.aiDecisionSubText}>{result.aiTradeoff}</Text> : null}
       {result.aiCrowdNote ? <Text style={styles.aiDecisionSubText}>{result.aiCrowdNote}</Text> : null}
-    </View>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
 }
@@ -1844,6 +1881,40 @@ function resultSourceNote(result: DemoResult, answerCount: number) {
   return `AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. ${answerCount}개 답변 기준 추천입니다.`;
 }
 
+function resultLocationText(result: DemoResult) {
+  const address = cleanResultCardSentence(result.address);
+  const region = cleanResultCardSentence(result.region.split(/[·•]/)[0] || result.region);
+
+  if (address) {
+    return address;
+  }
+
+  return region || '위치 확인 필요';
+}
+
+function resultCardFactorText(result: DemoResult) {
+  const source = result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || [];
+  const cleanedFactors = source
+    .flatMap((value) => value.split(/[·•]/))
+    .map(cleanResultCardSentence)
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (cleanedFactors.length > 0) {
+    return cleanedFactors.join(' · ');
+  }
+
+  return cleanResultCardSentence(result.overview || result.aiTradeoff || result.comfort || result.reason);
+}
+
+function cleanResultCardSentence(value: string) {
+  return value
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s.:;,\-ㆍ·•]+/, '')
+    .replace(/\s+([,.!?])/g, '$1')
+    .trim();
+}
+
 async function saveResultCard(result: DemoResult, cardRef: Svg | null): Promise<void> {
   const canSaveFile = isMinVersionSupported({
     android: '5.218.0',
@@ -1856,6 +1927,10 @@ async function saveResultCard(result: DemoResult, cardRef: Svg | null): Promise<
 
   if (cardRef == null) {
     throw new Error('Result card renderer is not ready');
+  }
+
+  if (result.imageUrl) {
+    await Image.prefetch(result.imageUrl).catch(() => undefined);
   }
 
   const pngBase64 = await captureResultCardPng(cardRef);
@@ -1964,11 +2039,11 @@ function naverSearchLink(keyword: string) {
 }
 
 function rewardButtonLabel(status: RewardAdStatus, isRecommendationLoading = false) {
-  if (status === 'loading') return '광고 준비 중';
+  if (status === 'loading') return '광고 보기';
   if (status === 'showing') return '광고 여는 중';
-  if (status === 'unsupported') return isRecommendationLoading ? '추천 마무리 중' : '결과 보기';
+  if (status === 'unsupported') return isRecommendationLoading ? '추천 마무리 중' : '미리보기로 결과 보기';
   if (status === 'error') return '광고 다시 불러오기';
-  return isRecommendationLoading ? '광고 보고 기다리기' : '광고 보고 결과 보기';
+  return isRecommendationLoading ? '광고 보기' : '광고 보고 결과 보기';
 }
 
 function toErrorMessage(error: unknown) {
@@ -2433,7 +2508,7 @@ const styles = StyleSheet.create({
   },
   resultArt: {
     backgroundColor: '#CDE7FF',
-    height: 162,
+    height: 196,
     overflow: 'hidden',
   },
   resultImage: {
@@ -2517,31 +2592,25 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 6,
   },
-  infoTable: {
-    borderBottomColor: '#E5E8EB',
-    borderBottomWidth: 1,
-    borderTopColor: '#E5E8EB',
-    borderTopWidth: 1,
-    marginTop: 14,
+  locationSummaryBox: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E8EB',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
   },
-  infoRow: {
-    borderTopColor: '#E5E8EB',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    paddingVertical: 9,
-  },
-  infoLabel: {
+  locationSummaryLabel: {
     color: '#8B95A1',
     fontSize: 12,
     fontWeight: '800',
-    width: 74,
   },
-  infoValue: {
+  locationSummaryText: {
     color: '#191F28',
-    flex: 1,
     fontSize: 13,
     fontWeight: '800',
     lineHeight: 18,
+    marginTop: 4,
   },
   sourceNote: {
     color: '#7C86A0',

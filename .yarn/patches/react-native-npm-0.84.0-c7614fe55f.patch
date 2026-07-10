@@ -1,0 +1,13 @@
+diff --git a/index.js b/index.js
+index 2c47d5f2b5b7026b70f09fb8d4fe9ee3e3967b69..f9f16605a1e2162aae37adcdc5ca2499d0baa820 100644
+--- a/index.js
++++ b/index.js
+@@ -358,7 +358,7 @@ module.exports = {
+       .VirtualViewMode;
+   },
+   // #endregion
+-} as ReactNativePublicAPI;
++};
+ 
+ if (__DEV__) {
+   /* $FlowFixMe[prop-missing] This is intentional: Flow will error when

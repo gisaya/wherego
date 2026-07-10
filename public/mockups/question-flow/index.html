@@ -1828,26 +1828,10 @@
                   ${result.aiTradeoff ? `<p class="ai-decision-sub">${result.aiTradeoff}</p>` : ""}
                   ${result.aiCrowdNote ? `<p class="ai-decision-sub">${result.aiCrowdNote}</p>` : ""}
                 </div>
-                <div class="tour-info" aria-label="관광지 정보">
+                <div class="tour-info" aria-label="관광지 위치">
                   <div class="info-row">
-                    <span class="info-label">지역</span>
-                    <strong class="info-value">${result.region}</strong>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">주소</span>
-                    <strong class="info-value">${result.address}</strong>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">이동</span>
-                    <strong class="info-value">${result.travel}</strong>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">방문 신호</span>
-                    <strong class="info-value">${result.signal}</strong>
-                  </div>
-                  <div class="info-row">
-                    <span class="info-label">편의</span>
-                    <strong class="info-value">${result.comfort}</strong>
+                    <span class="info-label">위치</span>
+                    <strong class="info-value">${[result.region, result.address].filter(Boolean).join(" · ")}</strong>
                   </div>
                 </div>
                 <p class="source-note">AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요.</p>
@@ -1910,41 +1894,46 @@
         const height = 1350;
         const placeLines = svgTextLines(result.place, 17, 2);
         const personaLines = svgTextLines(result.persona, 24, 2);
-        const reasonLines = svgTextLines(result.reason, 30, 3);
-        const factors = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || []).slice(0, 3);
-        const factorLines = svgTextLines(factors.join(" · ") || result.comfort, 35, 2);
+        const reasonLines = svgTextLines(result.reason, 29, 3);
+        const factors = (result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors || [])
+          .flatMap((value) => String(value).split(/[·•]/))
+          .map(cleanCardText)
+          .filter(Boolean)
+          .slice(0, 3);
+        const factorLines = svgTextLines(factors.join(" · ") || cleanCardText(result.comfort), 42, 4);
+        const locationLines = svgTextLines(cleanCardText(result.address || String(result.region || "").split(/[·•]/)[0]), 45, 2);
+        const fontFamily = "'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif";
 
         return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${fontFamily}">
   <rect width="${width}" height="${height}" fill="#F5F7FA"/>
   <rect x="64" y="64" width="952" height="1222" rx="48" fill="#FFFFFF"/>
   <rect x="64" y="64" width="952" height="1222" rx="48" fill="none" stroke="#E5E8EB" stroke-width="2"/>
-  <rect x="64" y="64" width="952" height="330" rx="48" fill="#EAF3FF"/>
-  <circle cx="856" cy="184" r="92" fill="#FFE1A3"/>
-  <path d="M64 340 C210 244 327 298 438 238 C592 154 746 276 1016 172 L1016 394 L64 394 Z" fill="#B9E6CF"/>
-  <path d="M64 376 C232 298 352 352 500 300 C640 252 766 350 1016 268 L1016 394 L64 394 Z" fill="#86D1F2" opacity="0.72"/>
+  <rect x="64" y="64" width="952" height="460" rx="48" fill="#EAF3FF"/>
+  <circle cx="856" cy="225" r="92" fill="#FFE1A3"/>
+  <path d="M64 456 C210 348 327 410 438 342 C592 258 746 388 1016 276 L1016 524 L64 524 Z" fill="#B9E6CF"/>
+  <path d="M64 496 C232 402 352 454 500 406 C640 358 766 454 1016 372 L1016 524 L64 524 Z" fill="#86D1F2" opacity="0.72"/>
   <text x="112" y="150" fill="#1E63D6" font-size="34" font-weight="800">어디고 추천 카드</text>
-  ${svgMultilineText(placeLines, 112, 234, 66, "#191F28", 800)}
-  ${svgMultilineText(personaLines, 112, 482, 34, "#1E63D6", 800)}
-  ${svgMultilineText(reasonLines, 112, 570, 36, "#4E5968", 700)}
-  <rect x="112" y="704" width="856" height="2" fill="#E5E8EB"/>
-  ${svgInfoRow("지역", result.region, 112, 764)}
-  ${svgInfoRow("주소", result.address, 112, 840)}
-  ${svgInfoRow("이동", result.travel, 112, 916)}
-  ${svgInfoRow("방문 신호", result.signal, 112, 992)}
-  ${svgInfoRow("편의", result.comfort, 112, 1068)}
-  <rect x="112" y="1118" width="856" height="106" rx="28" fill="#F9FAFB" stroke="#E5E8EB"/>
-  <text x="146" y="1164" fill="#1E63D6" font-size="27" font-weight="800">AI 선택 근거</text>
-  ${svgMultilineText(factorLines, 146, 1202, 29, "#191F28", 700)}
-  <text x="112" y="1262" fill="#8B95A1" font-size="25" font-weight="700">한국관광공사 관광정보와 지역별 방문자수 데이터를 함께 비교했어요.</text>
+  ${svgMultilineText(placeLines, 112, 234, 62, "#191F28", 800)}
+  ${svgMultilineText(personaLines, 112, 588, 34, "#1E63D6", 800)}
+  ${svgMultilineText(reasonLines, 112, 662, 36, "#4E5968", 700)}
+  <rect x="112" y="770" width="856" height="2" fill="#E5E8EB"/>
+  <rect x="112" y="800" width="856" height="86" rx="24" fill="#F9FAFB" stroke="#E5E8EB"/>
+  <text x="146" y="852" fill="#8B95A1" font-size="24" font-weight="800">위치</text>
+  ${svgMultilineText(locationLines, 240, 840, 29, "#191F28", 800)}
+  <rect x="112" y="920" width="856" height="220" rx="28" fill="#F9FAFB" stroke="#E5E8EB"/>
+  <text x="146" y="970" fill="#1E63D6" font-size="27" font-weight="800">AI 선택 근거</text>
+  ${svgMultilineText(factorLines, 146, 1016, 30, "#191F28", 700)}
+  <text x="112" y="1190" fill="#8B95A1" font-size="20" font-weight="700">AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요.</text>
 </svg>`;
       }
 
-      function svgInfoRow(label, value, x, y) {
-        const lines = svgTextLines(value, 32, 2);
-        return `
-  <text x="${x}" y="${y}" fill="#8B95A1" font-size="27" font-weight="800">${escapeSvgText(label)}</text>
-  ${svgMultilineText(lines, x + 188, y, 31, "#191F28", 800)}`;
+      function cleanCardText(value) {
+        return String(value || "")
+          .replace(/\s+/g, " ")
+          .replace(/^[\s.:;,\-ㆍ·•]+/, "")
+          .replace(/\s+([,.!?])/g, "$1")
+          .trim();
       }
 
       function svgMultilineText(lines, x, y, lineHeight, color, weight) {

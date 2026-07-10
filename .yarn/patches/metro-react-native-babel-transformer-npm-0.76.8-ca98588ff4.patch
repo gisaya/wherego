@@ -1,0 +1,32 @@
+diff --git a/src/index.js b/src/index.js
+index 888766bae1b4591d524ba68c1b6ff51221e40ba8..36329be732f2d8b9006c5e63f7a4ff78bcaa470e 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -33,6 +33,15 @@ function isTSXSource(fileName) {
+   return !!fileName && fileName.endsWith(".tsx");
+ }
+ 
++function getHermesParser() {
++  try {
++    const mpackRoot = path.dirname(require.resolve("@granite-js/mpack/package.json"));
++    return require(path.join(mpackRoot, "node_modules/hermes-parser"));
++  } catch {
++    return require("hermes-parser");
++  }
++}
++
+ /**
+  * Return a memoized function that checks for the existence of a
+  * project level .babelrc file, and if it doesn't exist, reads the
+@@ -194,8 +203,10 @@ const transform = ({ filename, options, src, plugins }) => {
+       isTSXSource(filename) ||
+       !options.hermesParser
+         ? parseSync(src, babelConfig)
+-        : require("hermes-parser").parse(src, {
++        : getHermesParser().parse(src, {
+             babel: true,
++            enableExperimentalComponentSyntax: true,
++            flow: "all",
+             sourceType: babelConfig.sourceType,
+           });
+     const result = transformFromAstSync(sourceAst, src, babelConfig);

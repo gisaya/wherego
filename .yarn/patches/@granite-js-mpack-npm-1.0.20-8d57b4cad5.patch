@@ -1,0 +1,39 @@
+diff --git a/dist/metro/getMetroConfig.js b/dist/metro/getMetroConfig.js
+index 6a35a1281ba81e35d90f867ecb14d487fd864ae0..a30517311b3a0ea8c5898bf95db687d5777560ad 100644
+--- a/dist/metro/getMetroConfig.js
++++ b/dist/metro/getMetroConfig.js
+@@ -82,6 +82,7 @@ async function getMetroConfig({ rootPath }, additionalConfig) {
+         }
+       }),
+       babelTransformerPath: require.resolve("metro-react-native-babel-transformer"),
++      hermesParser: true,
+       asyncRequireModulePath: require.resolve("metro-runtime/src/modules/asyncRequire"),
+       unstable_collectDependenciesPath: resolveVendors("metro/src/ModuleGraph/worker/collectDependencies"),
+       unstable_allowRequireContext: true,
+diff --git a/dist/bundler/plugins/transformPlugin/steps/createFlowStripStep.js b/dist/bundler/plugins/transformPlugin/steps/createFlowStripStep.js
+index a5a212c0d391f2d162189c862db00a0634d99dc3..037efac81f198fd326bd0f4c802a52ddbd27644d 100644
+--- a/dist/bundler/plugins/transformPlugin/steps/createFlowStripStep.js
++++ b/dist/bundler/plugins/transformPlugin/steps/createFlowStripStep.js
+@@ -45,7 +45,8 @@ function createFlowStripStep() {
+       const transformedCode = (0, import_flow_remove_types.default)(code, {});
+       const parsedAst = HermesParser.parse(transformedCode.toString(), {
+         flow: "all",
+-        babel: true
++        babel: true,
++        enableExperimentalComponentSyntax: true
+       });
+       const transformedResult = (0, import_generator.generate)(parsedAst);
+       return { code: transformedResult?.code ?? code };
+diff --git a/dist/bundler/plugins/transformPlugin/steps/createFullyTransformStep.js b/dist/bundler/plugins/transformPlugin/steps/createFullyTransformStep.js
+index 8648367ee4672d6a77e4bc9871870340e77f172b..8c1927e1701c14a3e0e5939334621aa567c8f3d8 100644
+--- a/dist/bundler/plugins/transformPlugin/steps/createFullyTransformStep.js
++++ b/dist/bundler/plugins/transformPlugin/steps/createFullyTransformStep.js
+@@ -72,6 +72,8 @@ function createFullyTransformStep({
+       /**
+        * react-native에서 직접 export 하는 flow 파일 대응을 위해 strip types 추가 필요
+        */
++      require.resolve("babel-plugin-syntax-hermes-parser"),
++      require.resolve("@babel/plugin-transform-flow-strip-types"),
+       [require.resolve("@babel/plugin-proposal-class-properties"), { loose: true }],
+       [require.resolve("@babel/plugin-proposal-private-property-in-object"), { loose: true }],
+       [require.resolve("@babel/plugin-proposal-private-methods"), { loose: true }],
