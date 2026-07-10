@@ -1519,7 +1519,7 @@ function OptionCard({
         <Text adjustsFontSizeToFit minimumFontScale={0.86} numberOfLines={2} style={styles.optionLabel}>
           {option.label}
         </Text>
-        <Text adjustsFontSizeToFit minimumFontScale={0.88} numberOfLines={2} style={styles.optionCaption}>
+        <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.optionCaption}>
           {option.caption}
         </Text>
       </View>
@@ -1708,12 +1708,11 @@ const ResultCardPngSource = React.forwardRef<
     answerCount: number;
     result: DemoResult;
   }
->(function ResultCardPngSource({ answerCount, result }, ref) {
+>(function ResultCardPngSource({ result }, ref) {
   const hasHeroImage = Boolean(result.imageUrl);
   const placeLines = svgTextLines(result.place, 15, 2);
   const personaLines = svgTextLines(result.persona, 21, 2);
   const reasonLines = svgTextLines(result.reason, 28, 5);
-  const sourceLines = svgTextLines(resultSourceNote(result, answerCount), 43, 2);
   const locationLines = svgTextLines(resultLocationText(result), 36, 2);
   const factorLines = svgTextLines(resultCardFactorText(result), 37, 5);
   const heroTitleColor = hasHeroImage ? '#FFFFFF' : '#1E63D6';
@@ -1789,7 +1788,6 @@ const ResultCardPngSource = React.forwardRef<
           AI 선택 근거
         </SvgText>
         <SvgTextBlock color="#191F28" lineHeight={27} lines={factorLines} weight="700" x={178} y={1070} />
-        <SvgTextBlock color="#8B95A1" lineHeight={23} lines={sourceLines} weight="700" x={contentX} y={1234} />
       </Svg>
     </View>
   );
@@ -1950,14 +1948,17 @@ function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
         subcopy: question.subcopy || '선택한 조건을 관광지 추천에 반영합니다.',
         layout: question.layout === 'four' ? 'four' : 'two',
         tags: question.tags || [],
-        options: question.options.map((option) => ({
-          key: option.key,
-          label: option.label,
-          caption: option.caption || '추천 조건 반영',
-          tags: option.tags || [],
-          searchHints: option.searchHints || [],
-          constraints: option.constraints || {},
-        })),
+        options: question.options.map((option) => {
+          const searchHints = option.searchHints || [];
+          return {
+            key: option.key,
+            label: option.label,
+            caption: optionCaption(searchHints, option.caption),
+            tags: option.tags || [],
+            searchHints,
+            constraints: option.constraints || {},
+          };
+        }),
       };
     });
 
@@ -2098,8 +2099,29 @@ function sourceQuestionSubcopy(axis: SourceQuestionAxis) {
   return '관광지 검색 키워드와 목적지 분위기를 정합니다.';
 }
 
-function optionCaption(searchHints: string[]) {
-  return searchHints.slice(0, 2).join(' · ') || '추천 조건 반영';
+function optionCaption(searchHints: string[], rawCaption?: string) {
+  const captionSegment = firstOptionCaptionSegment(rawCaption || '');
+  const hintSegment = searchHints.map(firstOptionCaptionSegment).find(Boolean);
+  const source = captionSegment || hintSegment || '추천 조건 반영';
+
+  return source.length <= 10 ? source : source.slice(0, 10).trim();
+}
+
+function firstOptionCaptionSegment(value: string) {
+  return (
+    cleanOptionCaption(value)
+      .split(/[·ㆍ•/|]/)
+      .map((segment) => cleanOptionCaption(segment))
+      .find(Boolean) || ''
+  );
+}
+
+function cleanOptionCaption(value: string) {
+  return value
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([·ㆍ•/|])\s*/g, ' $1 ')
+    .replace(/[\s·ㆍ•/|]+$/g, '')
+    .trim();
 }
 
 function mergeOptionMetadata(fallback: OptionMetadata | undefined, option: Option): OptionMetadata {
@@ -2951,8 +2973,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 13,
     fontWeight: '800',
+    includeFontPadding: false,
     lineHeight: 17,
-    marginTop: 7,
+    marginTop: 8,
     textAlign: 'center',
   },
   questionLoadingBox: {

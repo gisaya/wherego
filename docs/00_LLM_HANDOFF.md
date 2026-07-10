@@ -105,9 +105,10 @@
   - 출발지 선택 뒤 서버 `POST /api/wherego/questions`에서 질문 세트를 받아온다. 서버 실패/미배포 상태에서는 앱 번들 문제은행으로 fallback한다.
   - 질문 세트 로딩 화면은 `질문지를 준비하고 있어요.` 문구를 사용한다. 선택지 번호는 긴 문구에 눌리지 않도록 우상단 고정 원형 배지로 렌더링한다.
   - 선택 화면은 두 번째 보조문구를 숨기고 출발 기준, eyebrow, 질문 제목, 선택 카드만 보여준다.
+  - 선택 카드의 작은 보조문구는 한 줄 첫 조각만 보여준다. 서버 caption이나 검색 힌트가 `A · B` 형태여도 화면에는 첫 조각만 보여 middle-dot이 남지 않게 한다.
   - `카드 저장하기`는 숨겨진 `react-native-svg` 결과 카드를 `toDataURL`로 캡처한 뒤 Apps in Toss `saveBase64Data`로 1080x1350 PNG 결과 카드를 저장한다. Android `5.218.0`, iOS `5.216.0` 미만에서는 저장 미지원 메시지만 보여주며 공유창은 열지 않는다.
   - 저장용 SVG는 Arial 고정 폰트를 제거했고, 화면 밖이 아니라 투명 상태로 화면 안에 렌더해 PNG 저장 깨짐 위험을 줄였다.
-  - 저장용 PNG 카드는 화면 안쪽으로 더 좁게 중앙 배치했고, 추천 이유/AI 선택 근거 줄 수를 늘렸으며, 위치 박스의 라벨과 주소 세로 정렬을 다시 맞췄다.
+  - 저장용 PNG 카드는 화면 안쪽으로 더 좁게 중앙 배치했고, 추천 이유/AI 선택 근거 줄 수를 늘렸으며, 위치 박스의 라벨과 주소 세로 정렬을 다시 맞췄다. 맨 아래 작은 출처/답변 기준 문구는 제거했다.
   - 리워드 게이트는 상단 헤더/진행 바를 숨기고, 추천 API/관광정보 준비가 시작된 뒤 로딩 스피너를 보여준다.
 - 최근 검증:
   - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
@@ -131,6 +132,7 @@
   - 2026-07-10 KST 저장 검증: `jbg` 백엔드 질문 생성 endpoint `POST /api/wherego/questions` 추가, 앱의 서버 질문 세트 우선 호출/fallback, 질문지 생성 로딩 화면, TDS Button loading, 선택지 번호 고정 배지와 긴 문구 제한 반영. `jbg` Wherego route unittest 16개 성공, `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a16-6e2b-7383-a0b6-6d42ff134754`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 추천 흐름을 무료 후보 준비(`/api/wherego/candidates`)와 Gemini 최종 선택(`/api/wherego/recommend`)으로 분리했다. 앱은 리워드 광고 CTA에서 KTO/DataLab 후보 준비를 시작하고, 광고 보상 완료 뒤에만 Gemini를 호출한다. 광고 완료 후에는 별도 AI 로딩 화면을 보여준다. `jbg` Wherego route unittest 18개, `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a38-eefa-7f99-a0b0-217c6cb4363b`이며 Git 제외.
   - 2026-07-10 KST 저장 검증: 선택 화면 보조문구를 제거하고 저장용 PNG 카드의 가로 폭, 추천 이유/AI 선택 근거 줄 수, 위치 행 세로 정렬을 조정했다. `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a54-006b-7c33-9188-b575b14278ef`이며 Git 제외.
+  - 2026-07-10 KST 저장 검증: 선택 카드의 작은 보조문구를 한 줄 첫 조각으로 정리해 middle-dot이 남지 않게 했고, 저장용 PNG 카드 하단의 작은 출처/답변 기준 문구를 제거했다. `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a6c-74da-7641-9d84-451de40c32f3`이며 Git 제외.
 
 ## 운영 규칙
 
