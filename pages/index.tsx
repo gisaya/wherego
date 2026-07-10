@@ -745,6 +745,7 @@ const RESULT_CARD_FONT_FAMILY = Platform.select({
   ios: 'Apple SD Gothic Neo',
 });
 const QUESTION_ADVANCE_DELAY_MS = 1000;
+const QUESTION_SET_LOADING_MIN_MS = 2000;
 
 function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
@@ -773,6 +774,8 @@ function Index() {
   const currentQuestion = questionSet[questionIndex];
   const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
   const result = getResult(origin, recommendation);
+  const shouldShowBannerAd = step === 'question' || (step === 'origin' && isQuestionSetLoading);
+  const bannerAdKey = step === 'question' ? `question-${questionIndex}` : 'question-set-loading';
 
   useEffect(() => {
     return () => {
@@ -1015,16 +1018,17 @@ function Index() {
     setRecommendationStatus('idle');
     setResultMessage('');
 
-    let nextQuestionSet = buildQuestionSet();
-    try {
-      const response = await fetchWheregoQuestionSet({ origin: nextOrigin });
-      const remoteQuestions = normalizeRemoteQuestions(response.questions);
-      if (remoteQuestions.length === 8) {
-        nextQuestionSet = remoteQuestions;
-      }
-    } catch (_) {
-      nextQuestionSet = buildQuestionSet();
-    }
+    const fallbackQuestionSet = buildQuestionSet();
+    const questionSetPromise = fetchWheregoQuestionSet({ origin: nextOrigin })
+      .then((response) => {
+        const remoteQuestions = normalizeRemoteQuestions(response.questions);
+        return remoteQuestions.length === 8 ? remoteQuestions : fallbackQuestionSet;
+      })
+      .catch(() => fallbackQuestionSet);
+    const [nextQuestionSet] = await Promise.all([
+      questionSetPromise,
+      delay(QUESTION_SET_LOADING_MIN_MS),
+    ]);
 
     if (questionSetRequestIdRef.current !== requestId) {
       return;
@@ -1191,7 +1195,7 @@ function Index() {
                 />
               </>
             ) : null}
-            {step === 'question' ? <BannerAd /> : null}
+            {shouldShowBannerAd ? <BannerAd key={bannerAdKey} /> : null}
             {waitingForLocation ? <CurrentLocationResolver onLocation={startFlowWithCurrentLocation} /> : null}
           </View>
         </ScrollView>
@@ -1273,7 +1277,7 @@ function OriginScreen({
           <View style={styles.questionSetLoadingIcon}>
             <ActivityIndicator color="#2B84FC" size="large" />
           </View>
-          <Text style={styles.panelTitle}>질문지를 준비하고 있어요.</Text>
+          <Text style={styles.panelTitle}>질문지를 생성할게요.</Text>
           <Text style={styles.panelCopy}>출발지와 추천 기준에 맞춰 질문을 고르는 중입니다.</Text>
         </View>
       </View>
@@ -2032,6 +2036,12 @@ function shuffle<T>(items: T[]) {
     .map((item) => ({ item, sort: Math.random() }))
     .sort((a, b) => a.sort - b.sort)
     .map(({ item }) => item);
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function nearestRegionLabel(nextOrigin: Origin | null) {

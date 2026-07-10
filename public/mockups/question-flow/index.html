@@ -1553,7 +1553,7 @@
         setTimeout(() => {
           questions = buildQuestionSet();
           renderQuestion(true);
-        }, 700);
+        }, 2000);
       }
 
       function renderQuestionSetLoading() {
@@ -1561,8 +1561,9 @@
         counter.textContent = "";
         progress.style.visibility = "hidden";
         progressFill.style.width = "0%";
-        bannerAd.style.display = "none";
-        stage.classList.add("no-bottom-ad");
+        bannerAd.style.display = "flex";
+        bannerAd.textContent = "배너 광고 · 질문지 생성";
+        stage.classList.remove("no-bottom-ad");
         stage.innerHTML = `
           <div class="location-view">
             <div class="location-panel center">
@@ -1571,7 +1572,7 @@
                 <span class="spinner" aria-hidden="true"></span>
                 <span>출발지와 추천 기준에 맞춰 질문을 고르는 중입니다.</span>
               </div>
-              <h1 class="location-title">질문지를 준비하고 있어요.</h1>
+              <h1 class="location-title">질문지를 생성할게요.</h1>
             </div>
           </div>
         `;
@@ -1713,6 +1714,7 @@
         stage.classList.remove("no-bottom-ad");
         progress.style.visibility = "visible";
         bannerAd.style.display = "flex";
+        bannerAd.textContent = `배너 광고 · 질문 ${index + 1}`;
         counter.textContent = `${index + 1} / ${questions.length}`;
         progressFill.style.width = `${((index + 1) / questions.length) * 100}%`;
 

@@ -171,6 +171,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
 - `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad position, rewarded-ad gate, Naver Map link, and result card with tourism info.
 - Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, direct-region text no longer clips, origin selection shows a question-set loading screen, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, option numbers are fixed circular badges, long option text is constrained to two lines, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, recommendation failure stays on the retry gate instead of opening a demo result, and the final result hides the top header.
+- Banner ad behavior: the banner is visible from the question-set loading screen. The loading screen stays visible for at least 2 seconds. `InlineAd` is keyed by `question-set-loading` or `question-${questionIndex}` so it remounts once for loading and once per question screen, not on option press.
 
 Latest known Render smoke result with the Seoul City Hall test origin:
 
