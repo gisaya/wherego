@@ -7,38 +7,38 @@ const OUTPUT_PATH = path.resolve(__dirname, '../data/general-question-bank.json'
 
 const TWO_PROMPTS = [
   '{label}, 어느 쪽이 더 좋아요?',
-  '이번 여행에서 {label} 선택은 어떻게 할까요?',
-  '{label} 선택지를 하나만 고르면?',
-  '오늘 목적지의 {label} 선택은 어떤 쪽이 좋아요?',
-  '{label} 쪽으로 더 끌리는 건?',
-  '{label} 선택은 추천에 어떻게 반영할까요?',
-  '여행지를 고를 때 {label} 선택은 어느 쪽이에요?',
-  '오늘은 {label} 방향을 어떤 느낌으로 잡을까요?',
+  '이번 여행의 {label}, 어떤 쪽이에요?',
+  '{label} 중 더 끌리는 쪽은?',
+  '오늘 가고 싶은 곳, {label} 기준은?',
+  '{label}에서 더 중요한 건?',
+  '지금 원하는 {label}, 어느 쪽이에요?',
+  '여행지를 고를 때 보는 {label} 기준은?',
+  '오늘 기분에 맞는 {label}, 어느 쪽이에요?',
   '{label}에서 피하고 싶은 쪽은?',
-  '{label} 기준으로 좁히면?',
-  '도착했을 때 {label} 선택은 어떤 쪽이면 좋겠어요?',
-  '이번 추천에서 {label} 항목은 얼마나 중요해요?',
-  '{label} 선택지는 어느 쪽이 가까워요?',
-  '만족도를 위해 {label}에서 무엇이 중요해요?',
-  '지금 기분에 맞는 {label} 선택지는?'
+  '{label} 기준으로 하나를 고르면?',
+  '도착했을 때 원하는 {label}, 어느 쪽이에요?',
+  '이번 여행의 {label} 취향은?',
+  '내 선택에 가까운 {label}, 어느 쪽이에요?',
+  '{label}에서 놓치기 싫은 건?',
+  '지금 더 끌리는 {label}, 어떤 쪽이에요?'
 ];
 
 const FOUR_PROMPTS = [
-  '{label} 항목을 조금 더 구체적으로 고르면?',
-  '오늘 목적지의 {label} 선택은 어떤 쪽이면 좋겠어요?',
+  '{label}, 조금 더 구체적으로 고르면?',
+  '목적지에서 원하는 {label}, 하나를 고르면?',
   '{label} 중 하나를 고르면?',
-  '여행지 추천에서 {label} 항목은 무엇을 우선할까요?',
-  '도착 후 체감할 {label} 포인트는?',
-  '이번 여행에서 중요한 {label} 포인트는?',
-  '{label} 항목을 장소 조건으로 바꾸면?',
-  '후보지를 좁히는 {label} 기준은?',
-  '오늘 하루에 맞는 {label} 조합은?',
-  '내 취향에 가까운 {label} 선택지는?',
-  '추천 결과에서 더 보고 싶은 {label} 포인트는?',
-  '{label} 항목을 가장 잘 설명하는 선택지는?',
-  '여행지 분위기를 좌우할 {label} 포인트는?',
-  '{label} 기준은 어느 방향이 좋아요?',
-  '오늘 {label} 기준을 고르면?'
+  '이번 여행에서 우선할 {label}, 하나를 고르면?',
+  '도착해서 느끼고 싶은 {label}, 하나를 고르면?',
+  '이번 여행에서 중요한 {label}, 하나를 고르면?',
+  '{label}, 장소 조건으로 고르면?',
+  '{label} 중 더 끌리는 건?',
+  '오늘 하루에 맞는 {label}, 하나를 고르면?',
+  '내 취향에 가까운 {label}, 하나를 고르면?',
+  '여행지에서 기대하는 {label}, 하나를 고르면?',
+  '내 선택과 가까운 {label}, 하나를 고르면?',
+  '여행지 분위기를 좌우할 {label}, 하나를 고르면?',
+  '{label}, 어느 방향이 좋아요?',
+  '오늘 원하는 {label}, 하나를 고르면?'
 ];
 
 const TWO_PAIR_PATTERNS = [
@@ -85,15 +85,15 @@ const GROUPS = [
     options: [
       opt('low_crowd', '한산한 숨은 곳', ['low_crowd', 'hidden'], ['한적한', '숨은 명소', '방문자수 낮은 지역']),
       opt('hotplace', '활기찬 인기 명소', ['hotplace', 'crowd_ok'], ['핫플', '인기 명소', '활기찬 거리']),
-      opt('medium_crowd', '적당히 사람 있는 유명지', ['medium_crowd', 'popular'], ['유명 관광지', '적당한 인파']),
+      opt('medium_crowd', '적당히 붐비는 유명지', ['medium_crowd', 'popular'], ['유명 관광지', '적당한 인파']),
       opt('controlled', '예약/정원 제한 공간', ['controlled_crowd', 'reservation'], ['예약제', '정원 제한', '관리형 공간']),
       opt('weekday', '평일에 여유로운 곳', ['weekday_low_crowd'], ['평일 추천', '여유로운 방문']),
       opt('weekend', '주말 에너지 있는 곳', ['weekend_lively'], ['주말 명소', '활기 있는 장소']),
-      opt('local', '현지인이 많은 로컬 장소', ['local_crowd'], ['로컬 명소', '현지인 추천']),
+      opt('local', '현지인 로컬 명소', ['local_crowd'], ['로컬 명소', '현지인 추천']),
       opt('landmark', '관광객 많은 랜드마크', ['tourist_landmark'], ['랜드마크', '대표 관광지']),
       opt('off_peak', '시간대 피해서 여유롭게', ['off_peak', 'crowd_flexible'], ['오전 방문', '평일', '혼잡 시간 회피']),
-      opt('spacious', '넓어서 답답하지 않은 곳', ['spacious', 'low_density'], ['넓은 공원', '넓은 광장', '개방감']),
-      opt('popular_spacious', '유명하지만 동선 넓은 곳', ['popular', 'spacious'], ['대표 관광지', '넓은 동선']),
+      opt('spacious', '넓고 여유로운 곳', ['spacious', 'low_density'], ['넓은 공원', '넓은 광장', '개방감']),
+      opt('popular_spacious', '유명해도 넓은 곳', ['popular', 'spacious'], ['대표 관광지', '넓은 동선']),
       opt('quiet_reservation', '조용한 예약제 공간', ['quiet', 'reservation'], ['예약제', '소규모 관람'])
     ]
   },
@@ -113,7 +113,7 @@ const GROUPS = [
       opt('stroller', '유모차 밀기 편한 곳', ['stroller_ok', 'flat_walk'], ['유모차', '평지', '무장애']),
       opt('low_stairs', '계단 적은 곳', ['low_stairs', 'easy_path_required'], ['계단 적음', '완만한 길']),
       opt('short_transfer', '입구까지 환승 적은 곳', ['short_transfer', 'access_easy'], ['역 근처', '정류장 근처']),
-      opt('drive_view', '차에서 풍경 보기 좋은 곳', ['drive_view', 'minimal_walk'], ['드라이브 코스', '전망'])
+      opt('drive_view', '차에서 보는 풍경', ['drive_view', 'minimal_walk'], ['드라이브 코스', '전망'])
     ]
   },
   {
@@ -131,7 +131,7 @@ const GROUPS = [
       opt('outdoor_only', '완전 야외도 괜찮음', ['outdoor_only_ok'], ['야외 명소', '자연 경관']),
       opt('heat_safe', '더위 피하기 좋은 곳', ['heat_safe', 'shade_required'], ['그늘', '실내', '수목원']),
       opt('cold_safe', '추워도 괜찮은 곳', ['cold_safe', 'indoor_mix'], ['실내', '온실', '박물관']),
-      opt('fine_dust_safe', '미세먼지 피할 수 있는 곳', ['fine_dust_safe', 'indoor_required'], ['실내 관광지', '전시관']),
+      opt('fine_dust_safe', '미세먼지 피하기', ['fine_dust_safe', 'indoor_required'], ['실내 관광지', '전시관']),
       opt('canopy', '나무 그늘 산책', ['canopy_walk', 'forest'], ['숲길', '나무 그늘'])
     ]
   },
@@ -175,21 +175,21 @@ const GROUPS = [
   },
   {
     tagGroup: 'outdoor_stay',
-    label: '캠핑/피크닉',
-    why: '캠핑장, 야영장, 차박, 피크닉처럼 오래 머무는 야외 목적지 후보를 잡는다.',
+    label: '야외 체류 여부',
+    why: '원할 때만 캠핑장, 야영장, 글램핑, 피크닉 가능한 공원을 목적지 후보로 좁힌다.',
     options: [
-      opt('picnic_day', '돗자리 피크닉', ['picnic', 'outdoor_stay', 'light_stay'], ['피크닉', '잔디광장', '공원']),
-      opt('campnic', '당일 캠크닉', ['campnic', 'day_camping', 'outdoor_stay'], ['캠크닉', '캠핑장', '피크닉']),
-      opt('auto_camping', '오토캠핑장', ['camping', 'auto_camping', 'car_access'], ['오토캠핑장', '캠핑장']),
-      opt('glamping', '편한 글램핑', ['glamping', 'comfort_stay', 'camping'], ['글램핑', '캠핑장']),
-      opt('car_camping', '차박 감성', ['car_camping', 'drive_stay', 'camping'], ['차박', '캠핑장', '야영장']),
-      opt('forest_camp', '숲속 야영장', ['forest_camping', 'forest', 'quiet'], ['숲속야영장', '자연휴양림', '야영장']),
-      opt('waterfront_camp', '물가 캠핑', ['waterfront_camping', 'waterfront', 'camping'], ['강변 캠핑장', '해변 캠핑장', '야영장']),
-      opt('family_camp', '가족 캠핑', ['family_camping', 'kids', 'camping'], ['가족캠핑장', '오토캠핑장', '캠핑장']),
-      opt('pet_camp', '반려견 캠핑', ['pet_friendly', 'camping', 'pet_required'], ['반려견 캠핑장', '반려견 동반', '캠핑장']),
-      opt('fire_bbq', '불멍/바비큐', ['fire_camp', 'bbq', 'evening_mood'], ['바비큐장', '캠핑장', '글램핑']),
-      opt('quiet_camp', '조용한 자연 숙영', ['quiet_camping', 'low_crowd', 'nature_stay'], ['야영장', '자연휴양림', '숲']),
-      opt('facility_camp', '시설 좋은 캠핑장', ['camping_facility', 'comfort', 'restroom'], ['캠핑장', '오토캠핑장', '샤워장'])
+      opt('picnic_park', '돗자리 피크닉', ['picnic', 'outdoor_stay', 'light_stay'], ['피크닉', '도시공원', '잔디광장'], { destinationCategory: 'picnic', ktoContentTypeIds: ['12'] }),
+      opt('picnic_waterfront', '물가 피크닉', ['picnic', 'waterfront', 'light_stay'], ['호수공원', '강변공원', '피크닉'], { destinationCategory: 'picnic', ktoContentTypeIds: ['12'] }),
+      opt('picnic_forest', '숲 그늘 피크닉', ['picnic', 'forest', 'quiet'], ['수목원', '생태공원', '피크닉'], { destinationCategory: 'picnic', ktoContentTypeIds: ['12'] }),
+      opt('campnic', '당일 캠크닉', ['campnic', 'day_camping', 'outdoor_stay'], ['캠핑장', '야영장', '캠크닉'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('auto_camping', '오토캠핑장', ['camping', 'auto_camping', 'car_access'], ['오토캠핑장', '캠핑장'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('glamping', '편한 글램핑', ['glamping', 'comfort_stay', 'camping'], ['글램핑', '캠핑장'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('car_camping', '차박 가능한 곳', ['car_camping', 'drive_stay', 'camping'], ['차박', '오토캠핑장', '야영장'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('forest_camp', '숲속 야영장', ['forest_camping', 'forest', 'quiet'], ['숲속야영장', '자연휴양림', '야영장'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('waterfront_camp', '물가 캠핑장', ['waterfront_camping', 'waterfront', 'camping'], ['강변 캠핑장', '해변 캠핑장', '야영장'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('family_camp', '가족 캠핑장', ['family_camping', 'kids', 'camping'], ['가족캠핑장', '오토캠핑장', '캠핑장'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('facility_camp', '시설 좋은 캠핑장', ['camping_facility', 'comfort', 'restroom'], ['캠핑장', '오토캠핑장', '글램핑'], { destinationCategory: 'camping', ktoContentTypeIds: ['28'] }),
+      opt('no_outdoor_stay', '캠핑·피크닉 제외', ['no_outdoor_stay'], [], { destinationCategory: 'standard', ktoContentTypeIds: ['12'] }, '일반 관광지')
     ]
   },
   {
@@ -202,7 +202,7 @@ const GROUPS = [
       opt('sunset', '노을 지는 저녁', ['sunset'], ['노을명소', '낙조']),
       opt('night', '조명 켜진 밤', ['night_view'], ['야경', '빛축제']),
       opt('always_open', '상시 개방 선호', ['always_open_preferred'], ['상시 개방', '공원']),
-      opt('reservation_ok', '예약/마감 있어도 괜찮음', ['reservation_ok'], ['예약제', '운영시간']),
+      opt('reservation_ok', '예약제도 괜찮음', ['reservation_ok'], ['예약제', '운영시간']),
       opt('early_start', '아침 일찍 출발', ['early_start'], ['일출', '오전']),
       opt('late_start', '느지막이 출발', ['late_start'], ['오후 코스', '저녁']),
       opt('half_day', '반나절만 가볍게', ['half_day', 'short_stay'], ['반나절', '짧은 외출']),
@@ -251,7 +251,7 @@ const GROUPS = [
   },
   {
     tagGroup: 'accessibility',
-    label: '편의/쉬운 이동',
+    label: '편의 조건',
     why: '강한 제약으로 필터에 가까운 역할을 한다.',
     options: [
       opt('baby', '아이 편의시설', ['kids_facility_required', 'baby_facility'], ['수유실', '기저귀 교환대']),
@@ -298,7 +298,7 @@ const GROUPS = [
       opt('architecture_photo', '건축물 사진', ['architecture_photo'], ['건축명소']),
       opt('night_photo', '야경 사진', ['night_photo'], ['야경', '조명']),
       opt('street_photo', '감성 골목 사진', ['street_photo'], ['골목', '벽화마을']),
-      opt('shareable', 'SNS 공유하기 좋은 곳', ['shareable'], ['SNS', '공유']),
+      opt('shareable', 'SNS 공유용 사진', ['shareable'], ['SNS', '공유']),
       opt('private_hidden', '나만 알고 싶은 곳', ['private_hidden'], ['숨은 명소']),
       opt('landmark_object', '큰 조형물 앞 사진', ['landmark_object', 'photo_required'], ['조형물', '랜드마크']),
       opt('reflection_photo', '물가 반영 사진', ['reflection_photo', 'waterfront'], ['호수', '반영 사진']),
@@ -346,8 +346,8 @@ const GROUPS = [
   }
 ];
 
-function opt(id, label, tags, searchHints) {
-  return { id, label, tags, searchHints };
+function opt(id, label, tags, searchHints, constraints = {}, caption = '') {
+  return { id, label, tags, searchHints, constraints, caption };
 }
 
 function render(template, group) {
@@ -362,12 +362,14 @@ function makeOptions(group, indexes) {
       sourceId: source.id,
       label: source.label,
       tags: source.tags,
-      searchHints: source.searchHints
+      searchHints: source.searchHints,
+      ...(Object.keys(source.constraints || {}).length > 0 ? { constraints: source.constraints } : {}),
+      ...(source.caption ? { caption: source.caption } : {})
     };
   });
 }
 
-function makeQuestion(group, type, index, optionIndexes) {
+function makeQuestion(group, type, index, optionIndexes, questionOverride = '') {
   const prompt = type === 'select_2' ? TWO_PROMPTS[index] : FOUR_PROMPTS[index];
   const offset = type === 'select_2' ? index + 1 : index + 16;
 
@@ -376,19 +378,76 @@ function makeQuestion(group, type, index, optionIndexes) {
     type,
     tagGroup: group.tagGroup,
     label: group.label,
-    question: render(prompt, group),
+    question: questionOverride || render(prompt, group),
     tags: [group.tagGroup],
     options: makeOptions(group, optionIndexes)
   };
 }
 
 function buildGroup(group) {
+  if (group.tagGroup === 'outdoor_stay') {
+    return buildOutdoorStayGroup(group);
+  }
+
   const twoQuestions = TWO_PROMPTS.map((_, index) =>
     makeQuestion(group, 'select_2', index, TWO_PAIR_PATTERNS[index])
   );
   const fourQuestions = FOUR_PROMPTS.map((_, index) =>
     makeQuestion(group, 'select_4', index, FOUR_SET_PATTERNS[index])
   );
+  const questions = [...twoQuestions, ...fourQuestions];
+
+  return {
+    tagGroup: group.tagGroup,
+    label: group.label,
+    why: group.why,
+    questionCount: questions.length,
+    select2Count: twoQuestions.length,
+    select4Count: fourQuestions.length,
+    questions
+  };
+}
+
+function buildOutdoorStayGroup(group) {
+  const neutralIndex = group.options.findIndex((option) => option.id === 'no_outdoor_stay');
+  const positiveIndexes = group.options.map((_, index) => index).filter((index) => index !== neutralIndex);
+  const twoQuestions = TWO_PROMPTS.map((_, index) => {
+    const positiveIndex = positiveIndexes[index % positiveIndexes.length];
+    const positiveLabel = group.options[positiveIndex].label;
+    const prompts = [
+      `${positiveLabel} 가능한 곳도 후보에 넣을까요?`,
+      `이번 여행에 ${positiveLabel}을 반영할까요?`,
+      `${positiveLabel} 중심 여행지도 괜찮아요?`,
+      `목적지가 ${positiveLabel}에 맞으면 더 좋아요?`
+    ];
+    return makeQuestion(group, 'select_2', index, [positiveIndex, neutralIndex], prompts[index % prompts.length]);
+  });
+  const fourPrompts = [
+    '이번 여행에서 원하는 야외 체류 방식은?',
+    '캠핑이나 피크닉을 넣는다면 어떤 쪽이에요?',
+    '여행지에서 해보고 싶은 야외 체류는?',
+    '오늘 일정에 가장 가까운 야외 방식은?',
+    '목적지 조건으로 넣고 싶은 야외 체류는?',
+    '낮부터 머물기 좋은 방식은?',
+    '자연에서 시간을 보낸다면 어떤 형태가 좋아요?',
+    '준비 부담까지 생각하면 어느 쪽이에요?',
+    '차를 타고 떠나 즐기고 싶은 방식은?',
+    '한 장소에 오래 머문다면 어떤 쪽이에요?',
+    '바깥에서 쉬는 하루를 고른다면?',
+    '이번 추천에 반영할 야외 활동은?',
+    '여행지의 체류 형태를 하나 고르면?',
+    '풍경과 휴식을 함께 즐길 방식은?',
+    '야외에서 보내는 시간을 어떻게 만들까요?'
+  ];
+  const fourQuestions = FOUR_PROMPTS.map((_, index) => {
+    const optionIndexes = [
+      positiveIndexes[index % positiveIndexes.length],
+      positiveIndexes[(index + 4) % positiveIndexes.length],
+      positiveIndexes[(index + 7) % positiveIndexes.length],
+      neutralIndex
+    ];
+    return makeQuestion(group, 'select_4', index, optionIndexes, fourPrompts[index]);
+  });
   const questions = [...twoQuestions, ...fourQuestions];
 
   return {
@@ -414,8 +473,24 @@ const output = {
     questionsPerSelectedTagGroup: 1,
     requiredTagGroups: ['crowd'],
     oneOfTagGroups: ['mobility', 'accessibility'],
+    mutuallyExclusiveTagGroups: [
+      ['mobility', 'accessibility'],
+      ['activity', 'healing_energy'],
+      ['landscape', 'photo'],
+      ['weather', 'season']
+    ],
+    excludedSourceQuestionIds: ['intent_mood_01'],
+    sourceQuestionConflicts: {
+      party_mobility_binary_01: ['mobility'],
+      party_mobility_01: ['mobility'],
+      party_pet_amenity_01: ['accessibility'],
+      intent_landscape_01: ['landscape', 'photo'],
+      intent_nature_city_binary_01: ['landscape', 'photo', 'culture_style'],
+      intent_rest_active_binary_01: ['activity', 'healing_energy'],
+      intent_activity_01: ['activity', 'healing_energy']
+    },
     remainingRandomTagGroupCount: 3,
-    rule: '일반질문 실행 시 crowd 1개와 mobility/accessibility 중 1개를 먼저 포함하고, 나머지 3개는 서로 다른 tagGroup에서 뽑는다.'
+    rule: '일반질문 실행 시 crowd 1개와 mobility/accessibility 중 1개를 먼저 포함한다. 나머지 3개는 서로 다른 tagGroup에서 뽑되 상호배타 테마와 선택된 원천질문 주제는 함께 출제하지 않는다.'
   },
   minimums: {
     tagGroupCount: 10,

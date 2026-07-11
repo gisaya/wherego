@@ -79,6 +79,7 @@ type BankOption = {
   key?: string;
   sourceId?: string;
   label: string;
+  caption?: string;
   tags?: string[];
   searchHints?: string[];
   constraints?: Record<string, boolean | number | string | string[]>;
@@ -122,6 +123,9 @@ type GeneralQuestionGroup = {
 type GeneralQuestionRuntimeSelection = {
   requiredTagGroups?: string[];
   oneOfTagGroups?: string[];
+  mutuallyExclusiveTagGroups?: string[][];
+  excludedSourceQuestionIds?: string[];
+  sourceQuestionConflicts?: Record<string, string[]>;
 };
 
 type GeneralQuestionBank = {
@@ -315,15 +319,15 @@ const generalQuestionPool: Question[] = [
   {
     type: 'general',
     id: 'outdoor_stay',
-    eyebrow: '야외 체류',
-    question: '캠핑이나 피크닉 느낌도 좋아요?',
-    subcopy: '캠핑장, 야영장, 차박, 피크닉 같은 야외 체류 후보를 반영합니다.',
+    eyebrow: '야외 체류 여부',
+    question: '이번 여행에 캠핑이나 피크닉을 넣을까요?',
+    subcopy: '원할 때만 캠핑장이나 피크닉 가능한 장소를 후보로 좁힙니다.',
     layout: 'four',
     options: [
-      { label: '돗자리 피크닉', caption: '공원', tags: ['picnic', 'outdoor_stay'], searchHints: ['피크닉', '잔디광장', '공원'] },
-      { label: '당일 캠크닉', caption: '캠핑장', tags: ['campnic', 'day_camping'], searchHints: ['캠크닉', '캠핑장', '피크닉'] },
-      { label: '차박 감성', caption: '차박', tags: ['car_camping', 'drive_stay'], searchHints: ['차박', '캠핑장', '야영장'] },
-      { label: '편한 글램핑', caption: '글램핑', tags: ['glamping', 'comfort_stay'], searchHints: ['글램핑', '캠핑장'] },
+      { label: '돗자리 피크닉', caption: '공원', tags: ['picnic', 'outdoor_stay'], searchHints: ['피크닉', '도시공원', '잔디광장'], constraints: { destinationCategory: 'picnic', ktoContentTypeIds: ['12'] } },
+      { label: '당일 캠크닉', caption: '캠핑장', tags: ['campnic', 'day_camping'], searchHints: ['캠핑장', '야영장', '캠크닉'], constraints: { destinationCategory: 'camping', ktoContentTypeIds: ['28'] } },
+      { label: '편한 글램핑', caption: '글램핑', tags: ['glamping', 'comfort_stay'], searchHints: ['글램핑', '캠핑장'], constraints: { destinationCategory: 'camping', ktoContentTypeIds: ['28'] } },
+      { label: '캠핑·피크닉 제외', caption: '일반 관광지', tags: ['no_outdoor_stay'], searchHints: [], constraints: { destinationCategory: 'standard', ktoContentTypeIds: ['12'] } },
     ],
   },
   {
@@ -751,10 +755,8 @@ const demoResultsByRegion: Record<string, DemoResult> = {
 };
 
 const GENERAL_QUESTION_COUNT = 5;
-const LIVE_REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
-const LIVE_BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
-const REWARDED_AD_GROUP_ID = __DEV__ ? 'ait-ad-test-rewarded-id' : LIVE_REWARDED_AD_GROUP_ID;
-const BANNER_AD_GROUP_ID = __DEV__ ? 'ait-ad-test-banner-id' : LIVE_BANNER_AD_GROUP_ID;
+const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
+const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
 const RESULT_CARD_HERO_HEIGHT = 460;
@@ -926,7 +928,7 @@ function Index() {
 
     setRewardAdStatus('loading');
     setRewardAdMessage('리워드 광고를 준비하고 있어요.');
-    console.info('[wherego:reward-ad] load requested', { mode: __DEV__ ? 'test' : 'live' });
+    console.info('[wherego:reward-ad] load requested');
 
     rewardAdLoadTimeoutRef.current = setTimeout(() => {
       console.warn('[wherego:reward-ad] load timed out');
@@ -1975,7 +1977,7 @@ function Pill({ label }: { label: string }) {
 
 function buildQuestionSet() {
   const sourceQuestions = buildSourceQuestions();
-  const generalQuestions = buildGeneralQuestions();
+  const generalQuestions = buildGeneralQuestions(sourceQuestions);
   return shuffle([...sourceQuestions, ...generalQuestions]);
 }
 
@@ -2019,9 +2021,11 @@ function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
 }
 
 function buildSourceQuestions() {
+  const excludedQuestionIds = new Set(generalQuestionData.runtimeSelection?.excludedSourceQuestionIds || []);
   const questions = sourceQuestionData.requiredAxes
     .map((axis) => {
-      const variant = randomItem(axis.variants);
+      const eligibleVariants = axis.variants.filter((variant) => !excludedQuestionIds.has(variant.id));
+      const variant = randomItem(eligibleVariants.length > 0 ? eligibleVariants : axis.variants);
       return variant == null ? null : toSourceQuestion(axis, variant);
     })
     .filter((question): question is Question => question != null);
@@ -2029,29 +2033,58 @@ function buildSourceQuestions() {
   return questions.length === 3 ? questions : sourceQuestionPool;
 }
 
-function buildGeneralQuestions() {
+function buildGeneralQuestions(sourceQuestions: Question[]) {
   const groups = generalQuestionData.tagGroups;
   const selectedGroups: GeneralQuestionGroup[] = [];
   const selectedTagGroups = new Set<string>();
-  const requiredTagGroups = generalQuestionData.runtimeSelection?.requiredTagGroups || ['crowd'];
-  const oneOfTagGroups = generalQuestionData.runtimeSelection?.oneOfTagGroups || ['mobility', 'accessibility'];
+  const runtimeSelection = generalQuestionData.runtimeSelection;
+  const requiredTagGroups = runtimeSelection?.requiredTagGroups || ['crowd'];
+  const oneOfTagGroups = runtimeSelection?.oneOfTagGroups || ['mobility', 'accessibility'];
+  const mutuallyExclusiveTagGroups = runtimeSelection?.mutuallyExclusiveTagGroups || [oneOfTagGroups];
+  const blockedTagGroups = sourceQuestions.reduce((blocked, question) => {
+    for (const tagGroup of runtimeSelection?.sourceQuestionConflicts?.[question.id] || []) {
+      blocked.add(tagGroup);
+    }
+    return blocked;
+  }, new Set<string>());
 
   for (const tagGroup of requiredTagGroups) {
-    addGeneralQuestionGroup(groups.find((group) => group.tagGroup === tagGroup), selectedGroups, selectedTagGroups);
+    addGeneralQuestionGroup(
+      groups.find((group) => group.tagGroup === tagGroup),
+      selectedGroups,
+      selectedTagGroups,
+      blockedTagGroups,
+      mutuallyExclusiveTagGroups,
+    );
   }
 
   addGeneralQuestionGroup(
-    randomItem(shuffle(oneOfTagGroups).map((tagGroup) => groups.find((group) => group.tagGroup === tagGroup)).filter(isDefined)),
+    randomItem(
+      shuffle(oneOfTagGroups)
+        .filter((tagGroup) => !blockedTagGroups.has(tagGroup))
+        .map((tagGroup) => groups.find((group) => group.tagGroup === tagGroup))
+        .filter(isDefined),
+    ),
     selectedGroups,
     selectedTagGroups,
+    blockedTagGroups,
+    mutuallyExclusiveTagGroups,
   );
 
-  const remainingGroups = shuffle(groups.filter((group) => !selectedTagGroups.has(group.tagGroup)));
+  const remainingGroups = shuffle(
+    groups.filter((group) => !selectedTagGroups.has(group.tagGroup) && !blockedTagGroups.has(group.tagGroup)),
+  );
   for (const group of remainingGroups) {
     if (selectedGroups.length >= GENERAL_QUESTION_COUNT) {
       break;
     }
-    addGeneralQuestionGroup(group, selectedGroups, selectedTagGroups);
+    addGeneralQuestionGroup(
+      group,
+      selectedGroups,
+      selectedTagGroups,
+      blockedTagGroups,
+      mutuallyExclusiveTagGroups,
+    );
   }
 
   const questions = selectedGroups
@@ -2062,34 +2095,68 @@ function buildGeneralQuestions() {
     })
     .filter((question): question is Question => question != null);
 
-  return questions.length === GENERAL_QUESTION_COUNT ? questions : buildFallbackGeneralQuestions();
+  return questions.length === GENERAL_QUESTION_COUNT
+    ? questions
+    : buildFallbackGeneralQuestions(blockedTagGroups, mutuallyExclusiveTagGroups);
 }
 
-function buildFallbackGeneralQuestions() {
-  const crowdQuestion = generalQuestionPool.find((question) => question.id === 'crowd');
-  const accessQuestion = shuffle(
-    generalQuestionPool.filter((question) => question.id === 'mobility' || question.id === 'accessibility'),
-  )[0];
-  const requiredGeneralQuestions = [crowdQuestion, accessQuestion].filter(
-    (question): question is Question => question != null,
+function buildFallbackGeneralQuestions(blockedTagGroups: Set<string>, mutuallyExclusiveTagGroups: string[][]) {
+  const selectedQuestions: Question[] = [];
+  const selectedTagGroups = new Set<string>();
+  const addQuestion = (question: Question | undefined) => {
+    if (question == null || selectedTagGroups.has(question.id) || blockedTagGroups.has(question.id)) {
+      return;
+    }
+    selectedQuestions.push(question);
+    selectedTagGroups.add(question.id);
+    blockSiblingTagGroups(question.id, blockedTagGroups, mutuallyExclusiveTagGroups);
+  };
+
+  addQuestion(generalQuestionPool.find((question) => question.id === 'crowd'));
+  addQuestion(
+    shuffle(
+      generalQuestionPool.filter(
+        (question) =>
+          (question.id === 'mobility' || question.id === 'accessibility') && !blockedTagGroups.has(question.id),
+      ),
+    )[0],
   );
-  const remainingGeneralQuestions = shuffle(
-    generalQuestionPool.filter((question) => !requiredGeneralQuestions.includes(question)),
-  ).slice(0, GENERAL_QUESTION_COUNT - requiredGeneralQuestions.length);
-  return [...requiredGeneralQuestions, ...remainingGeneralQuestions];
+  for (const question of shuffle(generalQuestionPool)) {
+    if (selectedQuestions.length >= GENERAL_QUESTION_COUNT) {
+      break;
+    }
+    addQuestion(question);
+  }
+  return selectedQuestions;
 }
 
 function addGeneralQuestionGroup(
   group: GeneralQuestionGroup | undefined,
   selectedGroups: GeneralQuestionGroup[],
   selectedTagGroups: Set<string>,
+  blockedTagGroups: Set<string>,
+  mutuallyExclusiveTagGroups: string[][],
 ) {
-  if (group == null || selectedTagGroups.has(group.tagGroup)) {
+  if (group == null || selectedTagGroups.has(group.tagGroup) || blockedTagGroups.has(group.tagGroup)) {
     return;
   }
 
   selectedGroups.push(group);
   selectedTagGroups.add(group.tagGroup);
+  blockSiblingTagGroups(group.tagGroup, blockedTagGroups, mutuallyExclusiveTagGroups);
+}
+
+function blockSiblingTagGroups(tagGroup: string, blockedTagGroups: Set<string>, families: string[][]) {
+  for (const family of families) {
+    if (!family.includes(tagGroup)) {
+      continue;
+    }
+    for (const sibling of family) {
+      if (sibling !== tagGroup) {
+        blockedTagGroups.add(sibling);
+      }
+    }
+  }
 }
 
 function toSourceQuestion(axis: SourceQuestionAxis, variant: SourceQuestionVariant): Question {
@@ -2125,7 +2192,7 @@ function toQuestionOption(option: BankOption): Option {
   return {
     key: option.key || option.sourceId,
     label: option.label,
-    caption: optionCaption(searchHints),
+    caption: optionCaption(searchHints, option.caption),
     tags,
     searchHints,
     constraints: option.constraints || {},

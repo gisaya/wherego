@@ -95,7 +95,7 @@
   - 결과 카드의 네이버지도 열기 버튼
   - 리워드 광고 그룹 ID: `ait.v2.live.7f9040b7cff746c5`
   - 배너 광고 그룹 ID: `ait.v2.live.67b07bf813d74267`
-  - 질문 화면 배너가 사라진 리워드 게이트 진입 후 `loadFullScreenAd`를 호출하고, `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 Gemini 추천을 시작한다. 개발 실행은 공식 테스트 광고 ID, 운영 빌드는 라이브 ID를 사용하며 15초 로드 타임아웃과 재시도를 제공한다.
+  - 질문 화면 배너가 사라진 리워드 게이트 진입 후 `loadFullScreenAd`를 호출하고, `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 Gemini 추천을 시작한다. 출시 소스에는 라이브 광고 그룹 ID만 두고 15초 로드 타임아웃과 재시도를 제공한다.
   - 질문 화면 하단 배너는 `InlineAd`로 렌더한다.
   - `granite.config.ts`의 `brand.icon`은 사용자 제공 Toss static 로고 URL `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`를 사용한다.
   - 첫 화면은 상단 로고 없이 한국관광공사 기반 추천 문구와 시작 버튼을 보여준다. 문구 블록은 화면 위쪽에 붙지 않도록 중앙 쪽으로 내렸다.
