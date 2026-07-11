@@ -415,7 +415,7 @@ async function main() {
     planner: plan,
     candidateCount: candidates.length,
     resultCard: {
-      personaTitle: `형님은 ${plan.persona.title}입니다!`,
+      personaTitle: `${plan.persona.title} 유형이에요!`,
       oneLine: plan.persona.oneLine,
       recommendedPlaces: placeResults,
       shareText: `${placeResults[0]?.title || '오늘의 여행지'} 어때요? 어디고가 취향에 맞춰 골라봤어요.`,

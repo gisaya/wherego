@@ -656,7 +656,7 @@ async function main() {
       tags: answer.tags,
     })),
     geminiSubstituteResult: {
-      personaTitle: `형님은 ${plan.persona.title}입니다!`,
+      personaTitle: `${plan.persona.title} 유형이에요!`,
       oneLine: plan.persona.oneLine,
       searchPlan: plan.toolPlan.searchTourPlaces,
       locationFilter: plan.toolPlan.locationFilter,

@@ -95,7 +95,7 @@
   - 결과 카드의 네이버지도 열기 버튼
   - 리워드 광고 그룹 ID: `ait.v2.live.7f9040b7cff746c5`
   - 배너 광고 그룹 ID: `ait.v2.live.67b07bf813d74267`
-  - `loadFullScreenAd`로 5번째 질문부터 리워드 광고를 미리 로드하고 `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 Gemini 추천을 시작한다.
+  - 질문 화면 배너가 사라진 리워드 게이트 진입 후 `loadFullScreenAd`를 호출하고, `showFullScreenAd`의 `userEarnedReward` 이벤트 이후 Gemini 추천을 시작한다. 개발 실행은 공식 테스트 광고 ID, 운영 빌드는 라이브 ID를 사용하며 15초 로드 타임아웃과 재시도를 제공한다.
   - 질문 화면 하단 배너는 `InlineAd`로 렌더한다.
   - `granite.config.ts`의 `brand.icon`은 사용자 제공 Toss static 로고 URL `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`를 사용한다.
   - 첫 화면은 상단 로고 없이 한국관광공사 기반 추천 문구와 시작 버튼을 보여준다. 문구 블록은 화면 위쪽에 붙지 않도록 중앙 쪽으로 내렸다.
@@ -147,7 +147,7 @@
 ## 남은 우선순위
 
 1. 실제 Apps in Toss 앱에서 Render 질문/후보/추천 API 연동 흐름 테스트.
-2. 실기기에서 리워드 광고 5번째 질문 preload, `userEarnedReward` 이후 Gemini 호출, AI 로딩 화면, 결과 자동 이동이 정상인지 확인한다.
+2. 실기기에서 리워드 게이트 광고 로드, `userEarnedReward` 이후 Gemini 호출, AI 로딩 화면, 결과 자동 이동이 정상인지 확인한다.
 3. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
 4. PNG 카드 저장이 Toss 실기기에서 정상 저장되고 공유창이 열리지 않는지 확인한다.
 5. `docs/wherego-copy-review.json`을 다른 AI/카피 검토자에게 돌리고, 검색 태그와 추천 목적을 해치지 않는 문구 개선만 반영한다.

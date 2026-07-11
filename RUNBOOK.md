@@ -130,9 +130,9 @@ production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
 production banner ad group ID: ait.v2.live.67b07bf813d74267
 ```
 
-`pages/index.tsx` uses the Apps in Toss integrated ad API: `loadFullScreenAd` preloads the rewarded ad from the fifth question, `showFullScreenAd` runs on the reward CTA, and `userEarnedReward` plus successful Gemini recommendation completion opens the result screen. Use the Apps in Toss test rewarded ID when policy-sensitive development testing requires a test ad.
+`pages/index.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts after entering the reward gate, once the question banner has unmounted; `showFullScreenAd` runs on the reward CTA, and `userEarnedReward` plus successful Gemini recommendation completion opens the result screen. `__DEV__` uses `ait-ad-test-rewarded-id` and `ait-ad-test-banner-id`; production builds use the live IDs below.
 - The rewarded-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `userEarnedReward`.
-- Apps in Toss announced an Android issue where simultaneous full-screen/reward and banner loads may skip the `loaded` event. Because the current app preloads reward ads from the fifth question while the banner exists, test this on Android 5.266.0+ before review. If `loaded` is unreliable, move reward loading back to the reward gate.
+- Reward loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:reward-ad]` prefix. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
 - After reward completion, the app shows a dedicated AI loading panel with spinner and staged text until Gemini returns. It should not look like the user is still waiting on the ad screen.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
