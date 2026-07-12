@@ -293,6 +293,8 @@ Back navigation build verification (2026-07-13 KST): TypeScript and AIT Android/
 
 Repeat-run failure diagnosis (2026-07-13 KST): the second run created a fresh session correctly, but the selected `고양시 + 10km 안쪽 + 자연/물가 + 주차 가까움` combination produced zero keyword candidates and logged `wherego_no_place_candidates`. The JBG backend now performs one `locationBasedList2` fallback only for zero-result requests with a maximum distance/time constraint, keeps the original distance filter, and caps the fallback radius at 20km. Backend tests passed 52 cases; production verification remains pending until the JBG change is saved/deployed.
 
+Repeat-run production verification (2026-07-13 KST): Render commit `516aa62870df019538c168b8f04304eda6133936` completed the same failed combination with candidate counts `1 -> 1 -> 1`, Gemini `gemini-3.1-flash-lite`, final place `장흥자생수목원`, and 5669ms server total. The chosen fallback candidate had estimated road distance 19.1km and no image, so nearby candidate diversity and fallback-image rate remain monitoring items. Smoke usage/QC rows were removed.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
