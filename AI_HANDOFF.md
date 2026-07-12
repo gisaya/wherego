@@ -262,6 +262,8 @@ Required Render env additions:
 - `WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400`
 - `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false`
 
+Latest question/filter verification (2026-07-12 KST): destination choices now match the KTO classification system used by backend search. Lake/riverside parks use `VE03`, hanok villages use `HS010600`, traditional markets use `SH06`, and culture streets use `VE040100`. The `활기찬 핫플` option carries explicit `전통시장 / 문화거리 / 축제` hints in both server and client fallback banks. The audit covered 122 runtime destination-specific questions and found zero missing intent mappings and zero unclassified intent keys. Backend tests passed 42 cases; TypeScript and AIT build passed. Ignored artifact deploymentId: `019f549b-f407-7e79-815a-76adc369d386`.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.

@@ -594,9 +594,10 @@
             {
               "key": "C",
               "label": "활기찬 핫플",
+              "caption": "시장 · 문화거리",
               "tags": ["hotplace", "crowd_ok", "trend"],
               "constraints": { "moodPreference": "hotplace" },
-              "searchHints": ["핫플", "거리", "카페거리", "시장"]
+              "searchHints": ["전통시장", "문화거리", "축제"]
             },
             {
               "key": "D",
