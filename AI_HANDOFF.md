@@ -281,6 +281,8 @@ Production save smoke (2026-07-12 KST): Render served question-bank version `202
 
 Latest save verification (2026-07-12 KST): the frontend now reads `/api/wherego/usage`, displays remaining AI recommendations on the intro screen, and opens a quota recovery screen when exhausted. Rewarded-ad `userEarnedReward` grants +1 through `/api/wherego/usage/reward`; contacts sharing uses module `1e6b212b-9093-4546-9991-99f478262910` and grants +3 once per day. Reward credits skip the mandatory result interstitial. The backend stores anonymous daily counters, idempotent grant IDs, and recommendation reservation states in RLS-enabled tables. Backend Wherego tests passed 51 cases, TypeScript passed, and the final AIT build deploymentId is `019f563a-5b8e-7271-a1f4-120e83da8183`.
 
+Production usage smoke (2026-07-12 KST): Render health reached `jbg` commit `ff65b8a8a503645193bac5007cd1f68a5dc3f7f2`. `POST /api/wherego/usage` returned `limitEnabled=true`, base limit/remaining `3/3`, ad rewards `0`, share reward unused, and KST reset `2026-07-13T00:00:00+09:00`.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
