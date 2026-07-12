@@ -134,9 +134,11 @@ contacts share-reward module ID: 1e6b212b-9093-4546-9991-99f478262910
 
 `pages/index.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts on the banner-free intro screen and the loaded ad is preserved across origin/question transitions; the ad gate loads again only if the earlier request failed or timed out. `showFullScreenAd` runs on the ad CTA, and `show`/`impression` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
 - The full-screen-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `show`/`impression`; `dismissed` is a fallback if the native display event was omitted.
-- Base recommendations use the interstitial gate. Rewarded-ad and contacts-share credits skip that duplicate gate and start Gemini directly from the result CTA.
+- Every recommendation uses the result interstitial gate, including recommendations funded by rewarded-ad and contacts-share credits. The rewarded ad is only for adding recommendation credits.
 - Daily usage is KST-based: base 3, rewarded ad +1 up to 10/day, contacts share +3 once/day. Candidate preparation reserves a credit; failures refund it; abandoned reservations expire after 30 minutes.
 - Rewarded-ad credits are granted only on `userEarnedReward`. Contacts sharing requires Toss app 5.223.0+.
+- After `/api/wherego/usage/reward` confirms the grant, return to the intro screen and show the updated remaining count. Do not navigate away on ad dismissal or grant failure.
+- `useBackEvent` must remain registered on the single-route app. Internal steps return to intro; intro back shows an exit confirmation and only `나가기` calls `closeView`.
 - Interstitial loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:interstitial-ad]` prefix and include `attempt` and `elapsedMs`. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
 - Gemini starts on the interstitial `show`/`impression` event while the full-screen ad is visible. After `dismissed`, the app shows a dedicated AI loading panel with spinner and staged text only while Gemini is still pending.
 - The AI loading screen and result screen each render their own bottom `InlineAd`. These banners mount only after the full-screen ad is dismissed and use separate keys so the two screens do not share a stale banner instance.

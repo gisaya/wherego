@@ -279,9 +279,17 @@ Latest save verification (2026-07-12 KST): the client now obtains the Apps in To
 
 Production save smoke (2026-07-12 KST): Render served question-bank version `2026-07-12+2026-07-12` with seven questions. A complete questions -> candidates -> recommend request produced `8 -> 7 -> 5` candidates, selected `노을캠핑장(서울)` with `gemini-3.1-flash-lite`, and reported 3201ms server total. The QC row stored answer counts `7 / 3 / 4`, Gemini curator, image present, and map present; the smoke row was deleted after verification. Vercel production deployment `dpl_AZ1p4nVd9TJif3c4BL5ZUxfn3LTW` is READY and aliased to `https://wherego-lake.vercel.app`.
 
-Latest save verification (2026-07-12 KST): the frontend now reads `/api/wherego/usage`, displays remaining AI recommendations on the intro screen, and opens a quota recovery screen when exhausted. Rewarded-ad `userEarnedReward` grants +1 through `/api/wherego/usage/reward`; contacts sharing uses module `1e6b212b-9093-4546-9991-99f478262910` and grants +3 once per day. Reward credits skip the mandatory result interstitial. The backend stores anonymous daily counters, idempotent grant IDs, and recommendation reservation states in RLS-enabled tables. Backend Wherego tests passed 51 cases, TypeScript passed, and the final AIT build deploymentId is `019f563a-5b8e-7271-a1f4-120e83da8183`.
+Latest save verification (2026-07-12 KST): the frontend now reads `/api/wherego/usage`, displays remaining AI recommendations on the intro screen, and opens a quota recovery screen when exhausted. Rewarded-ad `userEarnedReward` grants +1 through `/api/wherego/usage/reward`; contacts sharing uses module `1e6b212b-9093-4546-9991-99f478262910` and grants +3 once per day. The backend stores anonymous daily counters, idempotent grant IDs, and recommendation reservation states in RLS-enabled tables. Backend Wherego tests passed 51 cases, TypeScript passed, and the AIT build deploymentId was `019f563a-5b8e-7271-a1f4-120e83da8183`.
 
 Production usage smoke (2026-07-12 KST): Render health reached `jbg` commit `ff65b8a8a503645193bac5007cd1f68a5dc3f7f2`. `POST /api/wherego/usage` returned `limitEnabled=true`, base limit/remaining `3/3`, ad rewards `0`, share reward unused, and KST reset `2026-07-13T00:00:00+09:00`.
+
+Ad policy update verification (2026-07-13 KST): recommendations funded by base, rewarded-ad, or contacts-share credits all use the same result interstitial gate. The rewarded ad only adds recommendation credits. After a reward grant and ad dismissal, the app returns to intro with the updated count. TypeScript and AIT Android/iOS builds passed; deploymentId is `019f5778-7420-7555-ae22-aa499cda7567`.
+
+Reward completion UX (2026-07-13 KST): after the server confirms rewarded-ad +1 or contacts-share +3, the app returns directly to the intro screen and shows the grant message with the updated remaining count. Dismissed ads and failed grants stay on the quota screen.
+
+Back navigation UX (2026-07-13 KST): `useBackEvent` intercepts the Apps in Toss navigation/hardware back action. Back from any internal step returns to the intro instead of closing the mini app. Back from intro shows a native `계속하기 / 나가기` confirmation and calls `closeView` only after explicit exit confirmation.
+
+Back navigation build verification (2026-07-13 KST): TypeScript and AIT Android/iOS builds passed with `useBackEvent`, native exit confirmation, and explicit `closeView`; deploymentId is `019f577c-5315-7250-9776-f8154e2446bc`.
 
 ## Operating Rules
 
@@ -294,7 +302,7 @@ Production usage smoke (2026-07-12 KST): Render health reached `jbg` commit `ff6
 ## Next Recommended Steps
 
 1. After the Render deployment is healthy, verify the intro starts at three recommendations and a failed recommendation restores the reserved credit.
-2. On a Toss app 5.223.0+ device, exhaust base credits and verify rewarded ad +1, contacts share +3 once, and no duplicate interstitial when a reward credit is consumed.
+2. On a Toss app 5.223.0+ device, exhaust base credits and verify rewarded ad +1, contacts share +3 once, and the result interstitial for every recommendation.
 3. Reconnect the Android device and verify `[wherego:interstitial-ad] load requested -> loaded -> show/impression -> dismissed` in logcat using the Apps in Toss dev server.
 4. Test the complete SDK/device flow: server-generated questions, banner ads, interstitial completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
 5. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.

@@ -10,11 +10,12 @@ import {
   Storage,
   useGeolocation,
 } from '@apps-in-toss/framework';
-import { createRoute, openURL } from '@granite-js/react-native';
+import { closeView, createRoute, openURL, useBackEvent } from '@granite-js/react-native';
 import { Button as TDSButton, TDSProvider, Text } from '@toss/tds-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Platform,
@@ -36,7 +37,6 @@ import {
   recommendWheregoDestination,
   WheregoApiError,
   type WheregoCandidateSet,
-  type WheregoCreditSource,
   type WheregoQuestion,
   type WheregoRecommendation,
   type WheregoRecommendedPlace,
@@ -794,6 +794,7 @@ const DESTINATION_GENERAL_TAG_GROUPS = new Set([
 ]);
 
 function Index() {
+  const backEvent = useBackEvent();
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
   const rewardAdLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rewardAdShowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -803,9 +804,11 @@ function Index() {
   const quotaAdUnregisterRef = useRef<(() => void) | null>(null);
   const quotaAdLoadedRef = useRef(false);
   const quotaRewardGrantedRef = useRef(false);
+  const quotaRewardDismissedRef = useRef(false);
+  const pendingAdRewardRef = useRef<{ message: string; usage: WheregoUsage } | null>(null);
   const contactsViralCleanupRef = useRef<(() => void) | null>(null);
-  const sessionCreditSourceRef = useRef<WheregoCreditSource | null>(null);
   const quotaExceededRef = useRef(false);
+  const exitPromptOpenRef = useRef(false);
   const resultCardSvgRef = useRef<Svg | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionSetRequestIdRef = useRef(0);
@@ -873,6 +876,21 @@ function Index() {
       contactsViralCleanupRef.current?.();
     };
   }, []);
+
+  useEffect(() => {
+    const handleBack = () => {
+      if (step !== 'intro') {
+        resetToIntro();
+        return;
+      }
+      showExitConfirmation();
+    };
+
+    backEvent.addEventListener(handleBack);
+    return () => {
+      backEvent.removeEventListener(handleBack);
+    };
+  }, [backEvent, step]);
 
   useEffect(() => {
     const shouldPreloadRewardAd =
@@ -1010,6 +1028,32 @@ function Index() {
     setStep('origin');
   }
 
+  function showExitConfirmation() {
+    if (exitPromptOpenRef.current) {
+      return;
+    }
+    exitPromptOpenRef.current = true;
+    const closePrompt = () => {
+      exitPromptOpenRef.current = false;
+    };
+    Alert.alert(
+      '어디고를 종료할까요?',
+      '여행지 추천을 계속할 수 있어요.',
+      [
+        { text: '계속하기', style: 'cancel', onPress: closePrompt },
+        {
+          text: '나가기',
+          style: 'destructive',
+          onPress: () => {
+            closePrompt();
+            void closeView();
+          },
+        },
+      ],
+      { cancelable: true, onDismiss: closePrompt },
+    );
+  }
+
   function loadQuotaRewardAd() {
     if (usage != null && usage.adRewardsUsed >= usage.adRewardsLimit) {
       setQuotaAdStatus('error');
@@ -1060,6 +1104,8 @@ function Index() {
     }
 
     quotaRewardGrantedRef.current = false;
+    quotaRewardDismissedRef.current = false;
+    pendingAdRewardRef.current = null;
     const grantId = `ad-${createWheregoSessionId()}`;
     quotaAdUnregisterRef.current?.();
     quotaAdUnregisterRef.current = null;
@@ -1077,9 +1123,11 @@ function Index() {
             return;
           }
           if (event.type === 'dismissed') {
+            quotaRewardDismissedRef.current = true;
             quotaAdUnregisterRef.current?.();
             quotaAdUnregisterRef.current = null;
             setQuotaAdStatus('idle');
+            finishAdRewardNavigation();
             if (!quotaRewardGrantedRef.current) {
               setQuotaRewardMessage('광고를 끝까지 시청하면 추천 횟수가 추가돼요.');
             }
@@ -1107,7 +1155,13 @@ function Index() {
         grantId,
       });
       setUsage(nextUsage);
-      setQuotaRewardMessage(source === 'ad' ? 'AI 추천 1회가 추가됐어요.' : 'AI 추천 3회가 추가됐어요.');
+      const message = source === 'ad' ? 'AI 추천 1회가 추가됐어요.' : 'AI 추천 3회가 추가됐어요.';
+      if (source === 'ad') {
+        pendingAdRewardRef.current = { message, usage: nextUsage };
+        finishAdRewardNavigation();
+      } else {
+        resetToIntro({ message, refresh: false });
+      }
     } catch (error) {
       if (error instanceof WheregoApiError && error.usage) {
         setUsage(error.usage);
@@ -1116,6 +1170,16 @@ function Index() {
     } finally {
       setIsRewardGranting(false);
     }
+  }
+
+  function finishAdRewardNavigation() {
+    const pendingReward = pendingAdRewardRef.current;
+    if (!quotaRewardDismissedRef.current || pendingReward == null) {
+      return;
+    }
+    pendingAdRewardRef.current = null;
+    setUsage(pendingReward.usage);
+    resetToIntro({ message: pendingReward.message, refresh: false });
   }
 
   function openShareReward() {
@@ -1147,7 +1211,12 @@ function Index() {
     }
   }
 
-  function resetToIntro() {
+  function resetToIntro(
+    options: {
+      message?: string;
+      refresh?: boolean;
+    } = {},
+  ) {
     questionSetRequestIdRef.current += 1;
     clearQuestionAdvanceTimer();
     setStep('intro');
@@ -1163,13 +1232,18 @@ function Index() {
     setLocationStatus('');
     candidateSetPromiseRef.current = null;
     recommendationSessionIdRef.current = createWheregoSessionId();
-    sessionCreditSourceRef.current = null;
     quotaExceededRef.current = false;
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
-    void refreshUsage();
+    setQuotaRewardMessage('');
+    setUsageMessage(options.message || '');
+    if (options.refresh !== false) {
+      void refreshUsage();
+    } else {
+      setIsUsageLoading(false);
+    }
   }
 
   function resetRewardAdState() {
@@ -1309,9 +1383,6 @@ function Index() {
         if (candidateSet.usage) {
           setUsage(candidateSet.usage);
         }
-        if (candidateSet.creditSource) {
-          sessionCreditSourceRef.current = candidateSet.creditSource;
-        }
         return candidateSet;
       })
       .catch((error) => {
@@ -1333,15 +1404,6 @@ function Index() {
 
   function showRewardAd() {
     if (rewardAdStatus === 'showing') {
-      return;
-    }
-
-    if (sessionCreditSourceRef.current === 'ad' || sessionCreditSourceRef.current === 'share') {
-      startCandidatePreparation();
-      startRecommendationAnalysis();
-      setHasRewardAccess(true);
-      setHasClosedFullScreenAd(true);
-      setRewardAdMessage('보상 추천 횟수를 사용해 AI 분석을 시작했어요.');
       return;
     }
 
@@ -1473,7 +1535,6 @@ function Index() {
     setLocationStatus('질문 세트를 준비하고 있어요.');
     candidateSetPromiseRef.current = null;
     recommendationSessionIdRef.current = createWheregoSessionId();
-    sessionCreditSourceRef.current = nextUsageCreditSource(usage);
     quotaExceededRef.current = false;
     setRecommendation(null);
     setRecommendationStatus('idle');
@@ -1588,9 +1649,6 @@ function Index() {
       if (nextRecommendation.usage) {
         setUsage(nextRecommendation.usage);
       }
-      if (nextRecommendation.creditSource) {
-        sessionCreditSourceRef.current = nextRecommendation.creditSource;
-      }
       setRecommendationStatus('ready');
     } catch (error) {
       setRecommendation(null);
@@ -1669,7 +1727,6 @@ function Index() {
                 hasRewardAccess={hasRewardAccess}
                 message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
                 recommendationStatus={recommendationStatus}
-                requiresInterstitial={sessionCreditSourceRef.current !== 'ad' && sessionCreditSourceRef.current !== 'share'}
                 status={rewardAdStatus}
                 onRetryRecommendation={retryRecommendation}
                 onWatchAd={showRewardAd}
@@ -2091,7 +2148,6 @@ function RewardGate({
   onRetryRecommendation,
   onWatchAd,
   recommendationStatus,
-  requiresInterstitial,
   status,
 }: {
   hasRewardAccess: boolean;
@@ -2099,7 +2155,6 @@ function RewardGate({
   onRetryRecommendation: () => void;
   onWatchAd: () => void;
   recommendationStatus: RecommendationStatus;
-  requiresInterstitial: boolean;
   status: RewardAdStatus;
 }) {
   const isAdLoading = status === 'loading';
@@ -2117,34 +2172,26 @@ function RewardGate({
     );
   }
 
-  const isButtonDisabled =
-    (requiresInterstitial && (status === 'loading' || status === 'showing')) ||
-    (hasRewardAccess && !isRecommendationError);
+  const isButtonDisabled = status === 'loading' || status === 'showing' || (hasRewardAccess && !isRecommendationError);
   const buttonLabel = isRecommendationError
     ? '추천 다시 시도'
     : hasRewardAccess
       ? '추천 마무리 중'
-      : requiresInterstitial
-        ? rewardButtonLabel(status, isRecommendationLoading)
-        : 'AI 추천 시작';
+      : rewardButtonLabel(status, isRecommendationLoading);
   const pillLabel = isRecommendationError
     ? '추천 재시도 필요'
     : isRecommendationDone
       ? '추천 준비 완료'
       : hasStartedRecommendation
         ? 'AI 추천 준비'
-        : requiresInterstitial
-          ? '결과 확인 전'
-          : '보상 추천 사용';
+        : '결과 확인 전';
   const title = isRecommendationError
     ? '추천을 다시 시도해주세요.'
     : isRecommendationDone
     ? '추천 카드 준비가 끝났어요.'
     : hasStartedRecommendation
       ? 'AI가 맞춤 여행지를 고르고 있어요.'
-      : requiresInterstitial
-        ? '광고를 보면 맞춤 여행지를 추천해드려요.'
-        : '추가된 추천 횟수로 여행지를 골라드려요.';
+      : '광고를 보면 맞춤 여행지를 추천해드려요.';
   const copy = isRecommendationError
     ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
     : isRecommendationDone
@@ -2153,9 +2200,7 @@ function RewardGate({
       ? '광고를 불러오는 동안에도 버튼은 유지됩니다. 준비가 끝나면 바로 시청할 수 있어요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
-      : requiresInterstitial
-        ? '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.'
-        : '이 추천에는 광고가 다시 나오지 않아요. AI 분석을 바로 시작합니다.';
+      : '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
 
   return (
     <View style={styles.centerScreen}>
@@ -2163,11 +2208,11 @@ function RewardGate({
         <Pill label={pillLabel} />
         <Text style={styles.panelTitle}>{title}</Text>
         <Text style={styles.panelCopy}>{copy}</Text>
-        {(requiresInterstitial && isAdLoading) || isRecommendationLoading ? (
+        {isAdLoading || isRecommendationLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color="#2B84FC" size="small" />
             <Text style={styles.loadingText}>
-              {requiresInterstitial && isAdLoading
+              {isAdLoading
                 ? '전면 광고를 준비하고 있어요.'
                 : 'AI가 관광정보와 방문자수 데이터를 비교하고 있어요.'}
             </Text>
@@ -2869,22 +2914,6 @@ async function resolveAnonymousUserKey(): Promise<string> {
   } catch (_) {
     return `runtime-${createWheregoSessionId()}`;
   }
-}
-
-function nextUsageCreditSource(usage: WheregoUsage | null): WheregoCreditSource | null {
-  if (usage == null || !usage.limitEnabled) {
-    return 'base';
-  }
-  if (usage.baseRemaining > 0) {
-    return 'base';
-  }
-  if (usage.adCreditsRemaining > 0) {
-    return 'ad';
-  }
-  if (usage.shareCreditsRemaining > 0) {
-    return 'share';
-  }
-  return null;
 }
 
 function delay(ms: number) {
