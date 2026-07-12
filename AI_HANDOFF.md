@@ -287,9 +287,9 @@ Ad policy update verification (2026-07-13 KST): recommendations funded by base, 
 
 Reward completion UX (2026-07-13 KST): after the server confirms rewarded-ad +1 or contacts-share +3, the app returns directly to the intro screen and shows the grant message with the updated remaining count. Dismissed ads and failed grants stay on the quota screen.
 
-Back navigation UX (2026-07-13 KST): `useBackEvent` intercepts the Apps in Toss navigation/hardware back action. Back from any internal step returns to the intro instead of closing the mini app. Back from intro shows a native `계속하기 / 나가기` confirmation and calls `closeView` only after explicit exit confirmation.
+Back navigation UX (2026-07-13 KST): `useBackEvent` intercepts the Apps in Toss navigation/hardware back action on every app step. It always shows a native `계속하기 / 나가기` confirmation, keeps the current screen on continue, and calls `closeView` only after explicit exit confirmation.
 
-Back navigation build verification (2026-07-13 KST): TypeScript and AIT Android/iOS builds passed with `useBackEvent`, native exit confirmation, and explicit `closeView`; deploymentId is `019f577c-5315-7250-9776-f8154e2446bc`.
+Back navigation build verification (2026-07-13 KST): TypeScript and AIT Android/iOS builds passed with the all-screen `useBackEvent` exit confirmation and explicit `closeView`; deploymentId is `019f577f-5b18-7ccc-90ee-78d318bd58b6`.
 
 ## Operating Rules
 

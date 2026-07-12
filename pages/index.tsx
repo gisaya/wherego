@@ -879,10 +879,6 @@ function Index() {
 
   useEffect(() => {
     const handleBack = () => {
-      if (step !== 'intro') {
-        resetToIntro();
-        return;
-      }
       showExitConfirmation();
     };
 
@@ -890,7 +886,7 @@ function Index() {
     return () => {
       backEvent.removeEventListener(handleBack);
     };
-  }, [backEvent, step]);
+  }, [backEvent]);
 
   useEffect(() => {
     const shouldPreloadRewardAd =

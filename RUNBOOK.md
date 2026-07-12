@@ -138,7 +138,7 @@ contacts share-reward module ID: 1e6b212b-9093-4546-9991-99f478262910
 - Daily usage is KST-based: base 3, rewarded ad +1 up to 10/day, contacts share +3 once/day. Candidate preparation reserves a credit; failures refund it; abandoned reservations expire after 30 minutes.
 - Rewarded-ad credits are granted only on `userEarnedReward`. Contacts sharing requires Toss app 5.223.0+.
 - After `/api/wherego/usage/reward` confirms the grant, return to the intro screen and show the updated remaining count. Do not navigate away on ad dismissal or grant failure.
-- `useBackEvent` must remain registered on the single-route app. Internal steps return to intro; intro back shows an exit confirmation and only `나가기` calls `closeView`.
+- `useBackEvent` must remain registered on the single-route app. Back from every step shows an exit confirmation, `계속하기` keeps the current screen, and only `나가기` calls `closeView`.
 - Interstitial loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:interstitial-ad]` prefix and include `attempt` and `elapsedMs`. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
 - Gemini starts on the interstitial `show`/`impression` event while the full-screen ad is visible. After `dismissed`, the app shows a dedicated AI loading panel with spinner and staged text only while Gemini is still pending.
 - The AI loading screen and result screen each render their own bottom `InlineAd`. These banners mount only after the full-screen ad is dismissed and use separate keys so the two screens do not share a stale banner instance.
