@@ -245,6 +245,7 @@ Quota/runtime behavior:
 - The server builds the search plan from selected-answer metadata, not from a first Gemini planning call.
 - For `nationwide` scope, search calls omit `areaCode` so the call budget is spent across keywords.
 - `POST /api/wherego/candidates` evaluates all fetched KTO rows, filters invalid/expired results, clusters sub-facilities, caps the pool at 6 per intent, attaches DataLab crowd signals, then compresses to five through seven score-qualified, intent-diverse candidates and returns `aiUsed=false`.
+- If keyword candidates are empty and the user selected a maximum distance/time, the server spends the final call-budget slot on `locationBasedList2`. It keeps the original distance filter, caps the fallback radius at 20km, and never exceeds `WHEREGO_KTO_SEARCH_MAX_CALLS`.
 - `POST /api/wherego/recommend` accepts the prepared candidate set and reuses it so KTO search is not repeated. If no candidate set is supplied, it keeps the older all-in-one fallback path.
 - Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place only after the full-screen ad starts showing; failed or omitted ad events use the bounded fallback path.
 - Only the final selected place gets KTO detail calls.

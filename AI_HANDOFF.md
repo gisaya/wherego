@@ -291,6 +291,8 @@ Back navigation UX (2026-07-13 KST): `useBackEvent` intercepts the Apps in Toss 
 
 Back navigation build verification (2026-07-13 KST): TypeScript and AIT Android/iOS builds passed with the all-screen `useBackEvent` exit confirmation and explicit `closeView`; deploymentId is `019f577f-5b18-7ccc-90ee-78d318bd58b6`.
 
+Repeat-run failure diagnosis (2026-07-13 KST): the second run created a fresh session correctly, but the selected `고양시 + 10km 안쪽 + 자연/물가 + 주차 가까움` combination produced zero keyword candidates and logged `wherego_no_place_candidates`. The JBG backend now performs one `locationBasedList2` fallback only for zero-result requests with a maximum distance/time constraint, keeps the original distance filter, and caps the fallback radius at 20km. Backend tests passed 52 cases; production verification remains pending until the JBG change is saved/deployed.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
