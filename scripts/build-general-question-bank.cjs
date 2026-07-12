@@ -207,7 +207,12 @@ const GROUPS = [
       opt('city_view', '도시 전망과 야경', ['city_view', 'night_view'], ['전망대', '야경', '도시뷰']),
       opt('valley', '계곡과 물소리', ['valley', 'river'], ['계곡', '강', '폭포']),
       opt('garden', '정원과 꽃길', ['garden', 'flower'], ['정원', '꽃', '식물원']),
-      opt('plain', '넓은 평지와 들판', ['open_plain', 'field'], ['들판', '초원', '평지']),
+      opt(
+        'geological_wonder',
+        '동굴과 지질 절경',
+        ['cave', 'geology', 'unique_landscape'],
+        ['동굴', '지질공원', '주상절리']
+      ),
       opt('mountain', '높은 산과 조망', ['mountain', 'altitude_view'], ['산', '전망', '능선']),
       opt('wetland', '습지와 갈대길', ['wetland', 'reed'], ['습지', '갈대', '생태공원']),
       opt('island_port', '섬과 작은 항구', ['island', 'port'], ['섬', '항구', '해안 산책']),
@@ -280,7 +285,12 @@ const GROUPS = [
       opt('traditional', '한옥과 전통 골목', ['traditional', 'hanok'], ['한옥마을', '전통거리']),
       opt('modern', '모던한 건축물', ['modern', 'architecture'], ['건축명소', '복합문화공간']),
       opt('vintage', '오래된 공간 재생', ['vintage', 'culture_space'], ['폐공장', '문화공간']),
-      opt('raw_nature', '자연 그대로의 공간', ['raw_nature'], ['자연경관', '숲길']),
+      opt(
+        'temple_meditation',
+        '사찰과 명상 공간',
+        ['temple', 'meditation', 'heritage'],
+        ['사찰', '산사', '템플스테이']
+      ),
       opt('history', '역사와 유래 있는 곳', ['history', 'heritage'], ['문화재', '역사명소']),
       opt('trend', '요즘 새로 뜨는 곳', ['new_hotplace', 'trend'], ['신상 명소', '핫플']),
       opt('exhibition', '전시/해설이 있는 곳', ['learning', 'exhibition'], ['전시', '박물관']),
@@ -548,7 +558,7 @@ function buildOutdoorStayGroup(group) {
 const tagGroups = GROUPS.map(buildGroup);
 
 const output = {
-  version: '2026-07-09',
+  version: '2026-07-12',
   appName: '어디고',
   philosophy:
     '어디고의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.',
@@ -572,6 +582,7 @@ const output = {
       intent_landscape_01: ['landscape', 'photo'],
       intent_nature_city_binary_01: ['landscape', 'photo', 'culture_style'],
       intent_rest_active_binary_01: ['activity', 'healing_energy'],
+      intent_edu_play_binary_01: ['activity', 'culture_style'],
       intent_activity_01: ['activity', 'healing_energy']
     },
     remainingRandomTagGroupCount: 1,

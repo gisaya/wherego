@@ -267,8 +267,12 @@ Required Render env additions:
 - `WHEREGO_KTO_DETAIL_CACHE_SECONDS=604800`
 - `WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400`
 - `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false`
+- `WHEREGO_ANALYTICS_ENABLED=true`
+- `WHEREGO_ANALYTICS_HMAC_SECRET=<long-random-secret>`
 
 Latest question/filter verification (2026-07-12 KST): destination choices now match the KTO classification system used by backend search. Lake/riverside parks use `VE03`, hanok villages use `HS010600`, traditional markets use `SH06`, and culture streets use `VE040100`. The `활기찬 핫플` option carries explicit `전통시장 / 문화거리 / 축제` hints in both server and client fallback banks. The audit covered 122 runtime destination-specific questions and found zero missing intent mappings and zero unclassified intent keys. Backend tests passed 42 cases; TypeScript and AIT build passed. Ignored artifact deploymentId: `019f549b-f407-7e79-815a-76adc369d386`.
+
+Latest save verification (2026-07-12 KST): the client now obtains the Apps in Toss anonymous key, keeps a per-question-set session id, and sends both only to the Wherego API. The server rehashes the anonymous key, stores no exact coordinates, and retains answer metadata, candidate counts, the selected destination, Gemini reason, media/map availability, and latency for 90 days in the RLS-enabled `wherego_recommendation_logs` table. Success writes run after the API response; failure writes are captured synchronously so QC failure rates remain accurate. `backend.scripts.wherego_qc_report` checks failure/fallback/media/distance/latency/concentration issues, and Codex automation `qc` runs daily at 09:30 KST with an additional 7-day bias review on Mondays. The frontend bug that accepted remote questions only when there were eight was fixed to accept the current 3+4 question set. Question options now include cave/geology and temple/meditation, plus the source-axis binary `배우고 관람하기 / 신나게 놀기`; KTO intent mappings use `동굴`, `산사`, `테마파크`, and `루지`. Live KTO probes returned 10/20/10/9 first-page results respectively. Backend tests passed 48 cases, the runtime probe returned seven questions, TypeScript passed, and AIT build deploymentId is `019f55cd-b4e1-7a76-bd40-b840763dc74b`.
 
 ## Operating Rules
 
@@ -285,3 +289,4 @@ Latest question/filter verification (2026-07-12 KST): destination choices now ma
 3. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
 4. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
 5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
+6. After production recommendations accumulate, review the first daily and Monday QC reports and tune thresholds only after at least 10 successful samples.

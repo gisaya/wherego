@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-09",
+  "version": "2026-07-12",
   "appName": "어디고",
   "philosophy": "어디고의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.",
   "runtimeSelection": {
@@ -224,6 +224,10 @@
       "intent_rest_active_binary_01": [
         "activity",
         "healing_energy"
+      ],
+      "intent_edu_play_binary_01": [
+        "activity",
+        "culture_style"
       ],
       "intent_activity_01": [
         "activity",
@@ -5082,16 +5086,17 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "plain",
-              "label": "넓은 평지와 들판",
+              "sourceId": "geological_wonder",
+              "label": "동굴과 지질 절경",
               "tags": [
-                "open_plain",
-                "field"
+                "cave",
+                "geology",
+                "unique_landscape"
               ],
               "searchHints": [
-                "들판",
-                "초원",
-                "평지"
+                "동굴",
+                "지질공원",
+                "주상절리"
               ]
             },
             {
@@ -5360,16 +5365,17 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "plain",
-              "label": "넓은 평지와 들판",
+              "sourceId": "geological_wonder",
+              "label": "동굴과 지질 절경",
               "tags": [
-                "open_plain",
-                "field"
+                "cave",
+                "geology",
+                "unique_landscape"
               ],
               "searchHints": [
-                "들판",
-                "초원",
-                "평지"
+                "동굴",
+                "지질공원",
+                "주상절리"
               ]
             },
             {
@@ -5652,16 +5658,17 @@
             },
             {
               "key": "C",
-              "sourceId": "plain",
-              "label": "넓은 평지와 들판",
+              "sourceId": "geological_wonder",
+              "label": "동굴과 지질 절경",
               "tags": [
-                "open_plain",
-                "field"
+                "cave",
+                "geology",
+                "unique_landscape"
               ],
               "searchHints": [
-                "들판",
-                "초원",
-                "평지"
+                "동굴",
+                "지질공원",
+                "주상절리"
               ]
             },
             {
@@ -5908,16 +5915,17 @@
             },
             {
               "key": "B",
-              "sourceId": "plain",
-              "label": "넓은 평지와 들판",
+              "sourceId": "geological_wonder",
+              "label": "동굴과 지질 절경",
               "tags": [
-                "open_plain",
-                "field"
+                "cave",
+                "geology",
+                "unique_landscape"
               ],
               "searchHints": [
-                "들판",
-                "초원",
-                "평지"
+                "동굴",
+                "지질공원",
+                "주상절리"
               ]
             },
             {
@@ -6055,16 +6063,17 @@
             },
             {
               "key": "C",
-              "sourceId": "plain",
-              "label": "넓은 평지와 들판",
+              "sourceId": "geological_wonder",
+              "label": "동굴과 지질 절경",
               "tags": [
-                "open_plain",
-                "field"
+                "cave",
+                "geology",
+                "unique_landscape"
               ],
               "searchHints": [
-                "들판",
-                "초원",
-                "평지"
+                "동굴",
+                "지질공원",
+                "주상절리"
               ]
             },
             {
@@ -6243,16 +6252,17 @@
             },
             {
               "key": "B",
-              "sourceId": "plain",
-              "label": "넓은 평지와 들판",
+              "sourceId": "geological_wonder",
+              "label": "동굴과 지질 절경",
               "tags": [
-                "open_plain",
-                "field"
+                "cave",
+                "geology",
+                "unique_landscape"
               ],
               "searchHints": [
-                "들판",
-                "초원",
-                "평지"
+                "동굴",
+                "지질공원",
+                "주상절리"
               ]
             },
             {
@@ -6458,16 +6468,17 @@
             },
             {
               "key": "C",
-              "sourceId": "plain",
-              "label": "넓은 평지와 들판",
+              "sourceId": "geological_wonder",
+              "label": "동굴과 지질 절경",
               "tags": [
-                "open_plain",
-                "field"
+                "cave",
+                "geology",
+                "unique_landscape"
               ],
               "searchHints": [
-                "들판",
-                "초원",
-                "평지"
+                "동굴",
+                "지질공원",
+                "주상절리"
               ]
             },
             {
@@ -11771,14 +11782,17 @@
             },
             {
               "key": "B",
-              "sourceId": "raw_nature",
-              "label": "자연 그대로의 공간",
+              "sourceId": "temple_meditation",
+              "label": "사찰과 명상 공간",
               "tags": [
-                "raw_nature"
+                "temple",
+                "meditation",
+                "heritage"
               ],
               "searchHints": [
-                "자연경관",
-                "숲길"
+                "사찰",
+                "산사",
+                "템플스테이"
               ]
             }
           ]
@@ -12000,14 +12014,17 @@
             },
             {
               "key": "B",
-              "sourceId": "raw_nature",
-              "label": "자연 그대로의 공간",
+              "sourceId": "temple_meditation",
+              "label": "사찰과 명상 공간",
               "tags": [
-                "raw_nature"
+                "temple",
+                "meditation",
+                "heritage"
               ],
               "searchHints": [
-                "자연경관",
-                "숲길"
+                "사찰",
+                "산사",
+                "템플스테이"
               ]
             }
           ]
@@ -12331,14 +12348,17 @@
             },
             {
               "key": "D",
-              "sourceId": "raw_nature",
-              "label": "자연 그대로의 공간",
+              "sourceId": "temple_meditation",
+              "label": "사찰과 명상 공간",
               "tags": [
-                "raw_nature"
+                "temple",
+                "meditation",
+                "heritage"
               ],
               "searchHints": [
-                "자연경관",
-                "숲길"
+                "사찰",
+                "산사",
+                "템플스테이"
               ]
             }
           ]
@@ -12563,14 +12583,17 @@
             },
             {
               "key": "B",
-              "sourceId": "raw_nature",
-              "label": "자연 그대로의 공간",
+              "sourceId": "temple_meditation",
+              "label": "사찰과 명상 공간",
               "tags": [
-                "raw_nature"
+                "temple",
+                "meditation",
+                "heritage"
               ],
               "searchHints": [
-                "자연경관",
-                "숲길"
+                "사찰",
+                "산사",
+                "템플스테이"
               ]
             },
             {
@@ -12677,14 +12700,17 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "raw_nature",
-              "label": "자연 그대로의 공간",
+              "sourceId": "temple_meditation",
+              "label": "사찰과 명상 공간",
               "tags": [
-                "raw_nature"
+                "temple",
+                "meditation",
+                "heritage"
               ],
               "searchHints": [
-                "자연경관",
-                "숲길"
+                "사찰",
+                "산사",
+                "템플스테이"
               ]
             },
             {
@@ -12884,14 +12910,17 @@
             },
             {
               "key": "B",
-              "sourceId": "raw_nature",
-              "label": "자연 그대로의 공간",
+              "sourceId": "temple_meditation",
+              "label": "사찰과 명상 공간",
               "tags": [
-                "raw_nature"
+                "temple",
+                "meditation",
+                "heritage"
               ],
               "searchHints": [
-                "자연경관",
-                "숲길"
+                "사찰",
+                "산사",
+                "템플스테이"
               ]
             },
             {
@@ -13077,14 +13106,17 @@
             },
             {
               "key": "B",
-              "sourceId": "raw_nature",
-              "label": "자연 그대로의 공간",
+              "sourceId": "temple_meditation",
+              "label": "사찰과 명상 공간",
               "tags": [
-                "raw_nature"
+                "temple",
+                "meditation",
+                "heritage"
               ],
               "searchHints": [
-                "자연경관",
-                "숲길"
+                "사찰",
+                "산사",
+                "템플스테이"
               ]
             },
             {

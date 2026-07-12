@@ -1,5 +1,6 @@
 import {
   Accuracy,
+  getAnonymousKey,
   InlineAd,
   isMinVersionSupported,
   loadFullScreenAd,
@@ -794,6 +795,8 @@ function Index() {
   const questionSetRequestIdRef = useRef(0);
   const candidateSetPromiseRef = useRef<Promise<WheregoCandidateSet | null> | null>(null);
   const selectedAnswersRef = useRef<SelectedAnswer[]>([]);
+  const recommendationSessionIdRef = useRef(createWheregoSessionId());
+  const anonymousUserKeyRef = useRef<string | null>(null);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [questionSet, setQuestionSet] = useState<Question[]>([]);
@@ -830,6 +833,14 @@ function Index() {
           : 'question-set-loading';
 
   useEffect(() => {
+    void getAnonymousKey()
+      .then((result) => {
+        if (result && result !== 'ERROR' && result.type === 'HASH') {
+          anonymousUserKeyRef.current = result.hash;
+        }
+      })
+      .catch(() => undefined);
+
     return () => {
       rewardAdUnregisterRef.current?.();
       rewardAdUnregisterRef.current = null;
@@ -935,6 +946,7 @@ function Index() {
     setWaitingForLocation(false);
     setLocationStatus('');
     candidateSetPromiseRef.current = null;
+    recommendationSessionIdRef.current = createWheregoSessionId();
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
@@ -1071,6 +1083,8 @@ function Index() {
     candidateSetPromiseRef.current = prepareWheregoCandidates({
       origin,
       answers: selectedAnswersRef.current,
+      sessionId: recommendationSessionIdRef.current,
+      anonymousUserKey: anonymousUserKeyRef.current,
     }).catch((error) => {
       console.error('[wherego:candidates] preparation failed', error);
       candidateSetPromiseRef.current = null;
@@ -1212,17 +1226,25 @@ function Index() {
     setWaitingForLocation(false);
     setLocationStatus('질문 세트를 준비하고 있어요.');
     candidateSetPromiseRef.current = null;
+    recommendationSessionIdRef.current = createWheregoSessionId();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
 
     const fallbackQuestionSet = buildQuestionSet();
+    const fallbackSessionId = recommendationSessionIdRef.current;
     const questionSetPromise = fetchWheregoQuestionSet({ origin: nextOrigin })
       .then((response) => {
         const remoteQuestions = normalizeRemoteQuestions(response.questions);
-        return remoteQuestions.length === 8 ? remoteQuestions : fallbackQuestionSet;
+        return {
+          questions:
+            remoteQuestions.length === SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT
+              ? remoteQuestions
+              : fallbackQuestionSet,
+          sessionId: response.questionSetId || fallbackSessionId,
+        };
       })
-      .catch(() => fallbackQuestionSet);
+      .catch(() => ({ questions: fallbackQuestionSet, sessionId: fallbackSessionId }));
     const [nextQuestionSet] = await Promise.all([
       questionSetPromise,
       delay(QUESTION_SET_LOADING_MIN_MS),
@@ -1232,7 +1254,8 @@ function Index() {
       return;
     }
 
-    setQuestionSet(nextQuestionSet);
+    recommendationSessionIdRef.current = nextQuestionSet.sessionId;
+    setQuestionSet(nextQuestionSet.questions);
     setIsQuestionSetLoading(false);
     setLocationStatus('');
     setStep('question');
@@ -1310,6 +1333,8 @@ function Index() {
         origin,
         answers,
         candidateSet,
+        sessionId: recommendationSessionIdRef.current,
+        anonymousUserKey: anonymousUserKeyRef.current,
       });
       setRecommendation(nextRecommendation);
       setRecommendationStatus('ready');
@@ -2418,6 +2443,10 @@ function shuffle<T>(items: T[]) {
     .map((item) => ({ item, sort: Math.random() }))
     .sort((a, b) => a.sort - b.sort)
     .map(({ item }) => item);
+}
+
+function createWheregoSessionId() {
+  return `wherego-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function delay(ms: number) {

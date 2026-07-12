@@ -207,6 +207,8 @@ export async function fetchWheregoQuestionSet(params: {
 export async function prepareWheregoCandidates(params: {
   origin: WheregoRecommendOrigin;
   answers: WheregoRecommendAnswer[];
+  sessionId?: string;
+  anonymousUserKey?: string | null;
 }): Promise<WheregoCandidateSet> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -225,6 +227,8 @@ export async function prepareWheregoCandidates(params: {
         body: JSON.stringify({
           origin: params.origin,
           answers: params.answers,
+          sessionId: params.sessionId,
+          anonymousUserKey: params.anonymousUserKey || undefined,
         }),
       }),
       timeoutPromise,
@@ -246,6 +250,8 @@ export async function recommendWheregoDestination(params: {
   origin: WheregoRecommendOrigin;
   answers: WheregoRecommendAnswer[];
   candidateSet?: WheregoCandidateSet | null;
+  sessionId?: string;
+  anonymousUserKey?: string | null;
 }): Promise<WheregoRecommendation> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -266,6 +272,8 @@ export async function recommendWheregoDestination(params: {
           answers: params.answers,
           limit: 1,
           candidateSet: params.candidateSet || undefined,
+          sessionId: params.sessionId,
+          anonymousUserKey: params.anonymousUserKey || undefined,
         }),
       }),
       timeoutPromise,

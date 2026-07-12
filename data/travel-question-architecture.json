@@ -4,8 +4,8 @@
   "philosophy": "어디고의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 최종적으로 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.",
   "runtimeFlow": {
     "requiredQuestionCount": 3,
-    "randomGeneralQuestionCount": 5,
-    "totalQuestionsPerRun": 8,
+    "randomGeneralQuestionCount": 4,
+    "totalQuestionsPerRun": 7,
     "rule": "원천질문 3개는 항상 묻고, 일반질문은 crowd 1개와 mobility/accessibility 중 1개, 목적지 유형 질문 1개를 포함한 뒤 서로 다른 tagGroup에서 총 4개를 뽑는다. 상호배타 테마와 선택된 원천질문에 겹치는 테마는 제외한다."
   },
   "requiredSourceAxes": [
@@ -49,7 +49,7 @@
     "minimumQuestionsPerTagGroup": 30,
     "currentQuestionsPerTagGroup": 30,
     "fullQuestionBankFile": "data/general-question-bank.json",
-    "selectionRule": "한 실행에서는 crowd 1개와 mobility/accessibility 중 1개를 먼저 포함한다. 나머지 3개는 아직 선택되지 않은 tagGroup에서 뽑고, 각 tagGroup에서는 질문 1개만 출제한다. mobility/accessibility, activity/healing_energy, landscape/photo, weather/season은 같은 세트에 함께 나오지 않는다.",
+    "selectionRule": "한 실행에서는 crowd 1개, mobility/accessibility 중 1개, 목적지 유형을 직접 가르는 질문 1개를 포함한다. 나머지 1개는 아직 선택되지 않은 tagGroup에서 뽑고, 각 tagGroup에서는 질문 1개만 출제한다. mobility/accessibility, activity/healing_energy, landscape/photo, weather/season은 같은 세트에 함께 나오지 않는다.",
     "scoringRule": "일반질문 답변은 장소 후보를 완전히 배제하기보다 점수 가중치로 반영한다. 단, accessibility/pet/indoor_required 같은 강한 제약은 필터로 승격할 수 있다."
   },
   "generalQuestionTagGroups": [

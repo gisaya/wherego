@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-09",
+  "version": "2026-07-12",
   "appName": "어디고",
   "purpose": "필수 3개 원천질문 축과 각 축별 질문지 후보",
   "principle": "필수 3개는 고정 문항 3개가 아니라, 장소 추천에 반드시 필요한 원천축 3개다. 각 축에서 상황에 맞는 질문지 하나를 선택한다.",
@@ -532,6 +532,28 @@
               "tags": ["experience", "activity", "photo"],
               "constraints": { "activityPreference": "experience_photo" },
               "searchHints": ["체험마을", "전시관", "포토존", "레포츠"]
+            }
+          ]
+        },
+        {
+          "id": "intent_edu_play_binary_01",
+          "type": "select_2",
+          "mode": "education_or_play",
+          "question": "오늘은 배우러 갈까요, 신나게 놀까요?",
+          "options": [
+            {
+              "key": "A",
+              "label": "배우고 관람하기",
+              "tags": ["learning", "museum", "history"],
+              "constraints": { "activityPreference": "education_learning" },
+              "searchHints": ["박물관", "과학관", "전시관", "유적지"]
+            },
+            {
+              "key": "B",
+              "label": "신나게 놀기",
+              "tags": ["theme_park", "amusement", "active_play"],
+              "constraints": { "activityPreference": "amusement_park" },
+              "searchHints": ["테마파크", "놀이공원", "루지", "레포츠"]
             }
           ]
         },

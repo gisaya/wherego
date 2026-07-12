@@ -210,6 +210,21 @@ WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400
 WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false
 ```
 
+Wherego recommendation QC also requires:
+
+```text
+WHEREGO_ANALYTICS_ENABLED=true
+WHEREGO_ANALYTICS_HMAC_SECRET=<long-random-secret>
+```
+
+The anonymous key is rehashed server-side, exact coordinates are not stored, and QC rows are retained for 90 days. Run reports from `C:\Users\ESOL\Documents\jbg`:
+
+```powershell
+$env:PYTHONPATH='apps/server'
+python -m backend.scripts.wherego_qc_report --hours 24
+python -m backend.scripts.wherego_qc_report --hours 168 --json
+```
+
 Quota/runtime behavior:
 
 - Search is capped by `WHEREGO_KTO_SEARCH_MAX_CALLS` per request.

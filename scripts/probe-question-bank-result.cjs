@@ -155,7 +155,6 @@ function buildSelectedAnswers() {
     selectOption(findQuestion(bank, 'gen_crowd_01'), 'A'),
     selectOption(findQuestion(bank, 'gen_mobility_01'), 'A'),
     selectOption(findQuestion(bank, 'gen_weather_02'), 'B'),
-    selectOption(findQuestion(bank, 'gen_accessibility_01'), 'A'),
     selectOption(findQuestion(bank, 'gen_route_style_01'), 'A'),
   ];
 
