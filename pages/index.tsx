@@ -1824,14 +1824,7 @@ function ResultScreen({
       <View style={styles.resultCard}>
         <View style={styles.resultArt}>
           {result.imageUrl ? (
-            <>
-              <Image source={{ uri: result.imageUrl }} style={styles.resultImage} />
-              {result.imageAttribution ? (
-                <View style={styles.imageAttributionBadge}>
-                  <Text style={styles.imageAttributionText}>사진 · {result.imageAttribution}</Text>
-                </View>
-              ) : null}
-            </>
+            <Image source={{ uri: result.imageUrl }} style={styles.resultImage} />
           ) : (
             <>
               <View style={styles.sun} />
@@ -1839,6 +1832,9 @@ function ResultScreen({
             </>
           )}
         </View>
+        {result.imageUrl && result.imageAttribution ? (
+          <Text style={styles.imageAttributionCaption}>사진 출처 · {result.imageAttribution}</Text>
+        ) : null}
         <View style={styles.resultBody}>
           <Text style={styles.persona}>{result.persona}</Text>
           <Text style={styles.place}>{result.place}</Text>
@@ -1929,20 +1925,17 @@ const ResultCardPngSource = React.forwardRef<
           )}
         </G>
         {hasHeroImage && result.imageAttribution ? (
-          <>
-            <Rect fill="#000000" height={34} opacity={0.56} rx={12} width={220} x={716} y={474} />
-            <SvgText
-              fill="#FFFFFF"
-              fontFamily={RESULT_CARD_FONT_FAMILY}
-              fontSize={18}
-              fontWeight="700"
-              textAnchor="end"
-              x={918}
-              y={497}
-            >
-              사진 · {result.imageAttribution}
-            </SvgText>
-          </>
+          <SvgText
+            fill="#8B95A1"
+            fontFamily={RESULT_CARD_FONT_FAMILY}
+            fontSize={18}
+            fontWeight="700"
+            textAnchor="end"
+            x={cardRight - 24}
+            y={554}
+          >
+            사진 출처 · {result.imageAttribution}
+          </SvgText>
         ) : null}
         <SvgText fill={heroTitleColor} fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={34} fontWeight="800" x={contentX} y={150}>
           어디고 추천 카드
@@ -3311,20 +3304,14 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
     width: '100%',
   },
-  imageAttributionBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.56)',
-    borderRadius: 8,
-    bottom: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    position: 'absolute',
-    right: 10,
-  },
-  imageAttributionText: {
-    color: '#FFFFFF',
+  imageAttributionCaption: {
+    color: '#8B95A1',
     fontSize: 10,
     fontWeight: '700',
-    lineHeight: 13,
+    lineHeight: 15,
+    paddingHorizontal: 16,
+    paddingTop: 7,
+    textAlign: 'right',
   },
   sun: {
     alignSelf: 'flex-end',
