@@ -24,6 +24,7 @@ Core flow:
 - Question flow: required 3 questions plus 4 general questions. General questions include `crowd`, one of `mobility`/`accessibility`, one destination-specific question, and one additional non-overlapping tag group.
 - Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, 15 minutes of drive-time buffer, and 10km of distance buffer.
 - Map opening direction: use Naver Map web search links for the MVP, opened through `openURL`. No Naver Maps API key is needed unless embedding maps or calculating route/time data inside the app.
+- Daily recommendation policy: 3 base recommendations per KST day. A completed rewarded ad grants +1, up to 10 ad grants per day. A completed contacts share grants +3 once per day. Candidate preparation reserves a credit, success settles it, failures refund it, and abandoned reservations expire after 30 minutes.
 
 ## Current Apps in Toss App
 
@@ -56,6 +57,8 @@ Full-screen ad:
 
 - production interstitial ad group ID: `ait.v2.live.69c443b05e6a42ea`
 - production banner ad group ID: `ait.v2.live.67b07bf813d74267`
+- production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
+- contacts share-reward module ID: `1e6b212b-9093-4546-9991-99f478262910`
 - `pages/index.tsx` preloads the interstitial ad from the intro screen, before question banners mount, and preserves that loaded ad through origin/question transitions. The ad gate retries only when the earlier preload failed or timed out. The checked-in source uses only the live interstitial/banner IDs. A 15-second load timeout, retry state, synchronous error handling, and `[wherego:interstitial-ad]` lifecycle logs with `attempt`/`elapsedMs` prevent an indefinite loading state and expose real SDK latency. The CTA prepares free public-data candidates, `showFullScreenAd` displays the ad, and Gemini starts once on `show`/`impression`, with `dismissed` as a fallback.
 - Gemini starts behind the full-screen ad on `show`/`impression`, so KTO candidate completion and AI generation overlap the ad display time. After `dismissed`, `pages/index.tsx` shows a dedicated AI loading panel if the result is still pending. The panel shows `광고 확인 완료`, a spinner, and the steps `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택`.
 - `pages/index.tsx` renders the question-screen banner with `InlineAd`.
@@ -276,6 +279,8 @@ Latest save verification (2026-07-12 KST): the client now obtains the Apps in To
 
 Production save smoke (2026-07-12 KST): Render served question-bank version `2026-07-12+2026-07-12` with seven questions. A complete questions -> candidates -> recommend request produced `8 -> 7 -> 5` candidates, selected `노을캠핑장(서울)` with `gemini-3.1-flash-lite`, and reported 3201ms server total. The QC row stored answer counts `7 / 3 / 4`, Gemini curator, image present, and map present; the smoke row was deleted after verification. Vercel production deployment `dpl_AZ1p4nVd9TJif3c4BL5ZUxfn3LTW` is READY and aliased to `https://wherego-lake.vercel.app`.
 
+Latest save verification (2026-07-12 KST): the frontend now reads `/api/wherego/usage`, displays remaining AI recommendations on the intro screen, and opens a quota recovery screen when exhausted. Rewarded-ad `userEarnedReward` grants +1 through `/api/wherego/usage/reward`; contacts sharing uses module `1e6b212b-9093-4546-9991-99f478262910` and grants +3 once per day. Reward credits skip the mandatory result interstitial. The backend stores anonymous daily counters, idempotent grant IDs, and recommendation reservation states in RLS-enabled tables. Backend Wherego tests passed 51 cases, TypeScript passed, and the final AIT build deploymentId is `019f563a-5b8e-7271-a1f4-120e83da8183`.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
@@ -286,9 +291,11 @@ Production save smoke (2026-07-12 KST): Render served question-bank version `202
 
 ## Next Recommended Steps
 
-1. Reconnect the Android device and verify `[wherego:interstitial-ad] load requested -> loaded -> show/impression -> dismissed` in logcat using the Apps in Toss dev server.
-2. Test the complete SDK/device flow: server-generated questions, banner ads, interstitial completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
-3. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
-4. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
-5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
-6. After production recommendations accumulate, review the first daily and Monday QC reports and tune thresholds only after at least 10 successful samples.
+1. After the Render deployment is healthy, verify the intro starts at three recommendations and a failed recommendation restores the reserved credit.
+2. On a Toss app 5.223.0+ device, exhaust base credits and verify rewarded ad +1, contacts share +3 once, and no duplicate interstitial when a reward credit is consumed.
+3. Reconnect the Android device and verify `[wherego:interstitial-ad] load requested -> loaded -> show/impression -> dismissed` in logcat using the Apps in Toss dev server.
+4. Test the complete SDK/device flow: server-generated questions, banner ads, interstitial completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
+5. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
+6. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
+7. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
+8. After production recommendations accumulate, review the first daily and Monday QC reports and tune thresholds only after at least 10 successful samples.

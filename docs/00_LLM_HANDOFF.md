@@ -58,8 +58,10 @@
   - 기존 뭐샀지 Render 서버 `https://jbg.onrender.com`을 재사용한다.
   - `C:\Users\ESOL\Documents\jbg\apps\server`에 `POST /api/wherego/questions`, `POST /api/wherego/candidates`, `POST /api/wherego/recommend` 라우트를 추가했다.
   - 서버는 선택지 메타데이터(tags/searchHints/constraints)로 검색 계획을 만들고, `/api/wherego/candidates`에서 한국관광공사 국문 관광정보 API 후보를 수집한다. 좌표/주소/종료 행사 필터, 동일 장소 군집화, 의도별 상위 6개 제한 뒤 DataLab 방문자수 신호를 붙여 재점수하고 점수 조건에 따라 5~7개로 압축한다. 이 단계는 Gemini를 쓰지 않는다.
-  - Gemini(`GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`)는 전면광고 `show`/`impression` 뒤 `/api/wherego/recommend`에서 압축 후보와 메타데이터를 보고 최종 1개 장소와 이유를 고른다.
+  - Gemini(`GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`)는 기본 추천의 전면광고 `show`/`impression` 뒤, 또는 광고·공유로 획득한 추천 횟수를 사용할 때 `/api/wherego/recommend`에서 압축 후보와 메타데이터를 보고 최종 1개 장소와 이유를 고른다. 보상 횟수를 쓰는 추천에는 전면광고를 중복 노출하지 않는다.
   - `/api/wherego/recommend`는 준비된 `candidateSet`이 있으면 관광공사 검색을 반복하지 않고, 없으면 기존 all-in-one fallback으로 검색부터 수행한다.
+  - `/api/wherego/usage`, `/api/wherego/usage/reward`가 KST 일일 추천 횟수를 관리한다. 기본 3회, 리워드 광고 +1회(하루 최대 10회), 친구 공유 +3회(하루 1회)이며 후보 준비 때 예약하고 성공 때 확정한다. 실패 또는 30분 미완료 예약은 환불하고 세션/지급 ID 재전송은 멱등 처리한다.
+  - 공유 리워드 모듈 ID `1e6b212b-9093-4546-9991-99f478262910`을 `src/config.ts`에 반영했다. 토스 앱 5.223.0 이상에서 하루 1회 +3회 지급 화면을 연다.
   - 답변을 장소 검색 의도 3개로 정규화하고 법정동 시도 코드, 콘텐츠 유형, 관광공사 대/중/소분류를 붙인다. 세 검색을 동시에 실행해 호출당 최대 50행을 모두 평가하며, 필터 통과 후보가 5개 미만일 때만 네 번째 보완 호출을 사용한다. `nationwide` 검색은 지역 코드 없이 호출한다. 최종 장소의 common/intro 상세도 병렬 조회한다.
   - 최종 선택 1개에만 상세 API를 조회하고, 검색/상세/DataLab 응답은 서버 메모리 캐시로 재사용한다.
   - 일부 관광공사 검색 호출이 타임아웃되어도 다른 호출에서 후보가 있으면 계속 진행한다.
@@ -155,10 +157,11 @@
 
 ## 남은 우선순위
 
-1. 실제 Apps in Toss 앱에서 Render 질문/후보/추천 API 연동 흐름 테스트.
-2. 실기기에서 전면광고 로드, `show`/`impression` 이후 Gemini 호출, AI 로딩 화면, 결과 자동 이동이 정상인지 확인한다.
-3. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
-4. PNG 카드 저장이 Toss 실기기에서 정상 저장되고 공유창이 열리지 않는지 확인한다.
-5. `docs/wherego-copy-review.json`을 다른 AI/카피 검토자에게 돌리고, 검색 태그와 추천 목적을 해치지 않는 문구 개선만 반영한다.
-6. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 전면광고, 결과 카드, 네이버지도 열기 검수.
-7. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.
+1. 추천 횟수 변경을 Render에 배포하고 `WHEREGO_USAGE_LIMIT_ENABLED=true`로 기본 3회, 실패 환불, 광고 +1회를 실기기에서 확인한다.
+2. 실기기에서 공유 리워드 모듈이 열리고 하루 1회 +3회가 지급되는지 확인한다.
+3. 실기기에서 기본 추천의 전면광고 로드, 보상 추천의 중복 광고 생략, Gemini 호출, AI 로딩 화면, 결과 자동 이동이 정상인지 확인한다.
+4. Apps in Toss 콘솔/실기기에서 navigation 로고와 콘솔 로고/썸네일이 의도대로 보이는지 확인한다.
+5. PNG 카드 저장이 Toss 실기기에서 정상 저장되고 공유창이 열리지 않는지 확인한다.
+6. `docs/wherego-copy-review.json`을 다른 AI/카피 검토자에게 돌리고, 검색 태그와 추천 목적을 해치지 않는 문구 개선만 반영한다.
+7. 실기기 Toss 앱에서 위치 권한, 지역 fallback, 배너 광고, 전면광고, 결과 카드, 네이버지도 열기 검수.
+8. Vercel GitHub 자동 배포 연결. 단, Vercel은 약관 URL 전용이다.

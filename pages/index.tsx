@@ -1,11 +1,13 @@
 import {
   Accuracy,
+  contactsViral,
   getAnonymousKey,
   InlineAd,
   isMinVersionSupported,
   loadFullScreenAd,
   saveBase64Data,
   showFullScreenAd,
+  Storage,
   useGeolocation,
 } from '@apps-in-toss/framework';
 import { createRoute, openURL } from '@granite-js/react-native';
@@ -28,13 +30,19 @@ import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Path, Rect, Text as 
 
 import {
   fetchWheregoQuestionSet,
+  fetchWheregoUsage,
+  grantWheregoReward,
   prepareWheregoCandidates,
   recommendWheregoDestination,
+  WheregoApiError,
   type WheregoCandidateSet,
+  type WheregoCreditSource,
   type WheregoQuestion,
   type WheregoRecommendation,
   type WheregoRecommendedPlace,
+  type WheregoUsage,
 } from '../src/api/wheregoApi';
+import { WHEREGO_SHARE_REWARD_MODULE_ID } from '../src/config';
 import generalQuestionBank from '../data/general-question-bank.json';
 import sourceQuestionBlueprint from '../data/source-question-blueprint.json';
 
@@ -42,7 +50,7 @@ export const Route = createRoute('/', {
   component: Index,
 });
 
-type Step = 'intro' | 'origin' | 'question' | 'rewardGate' | 'result';
+type Step = 'intro' | 'origin' | 'question' | 'rewardGate' | 'quota' | 'result';
 type QuestionKind = 'source' | 'general';
 type QuestionLayout = 'two' | 'four';
 type RewardAdStatus = 'idle' | 'loading' | 'ready' | 'showing' | 'unsupported' | 'error';
@@ -760,7 +768,9 @@ const demoResultsByRegion: Record<string, DemoResult> = {
 const SOURCE_QUESTION_COUNT = 3;
 const GENERAL_QUESTION_COUNT = 4;
 const FULL_SCREEN_AD_GROUP_ID = 'ait.v2.live.69c443b05e6a42ea';
+const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
+const ANONYMOUS_STORAGE_KEY = 'wherego.anonymous-key.v1';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
 const RESULT_CARD_HERO_HEIGHT = 460;
@@ -790,6 +800,12 @@ function Index() {
   const rewardAdLoadRequestedRef = useRef(false);
   const rewardAdLoadAttemptRef = useRef(0);
   const rewardAdLoadStartedAtRef = useRef<number | null>(null);
+  const quotaAdUnregisterRef = useRef<(() => void) | null>(null);
+  const quotaAdLoadedRef = useRef(false);
+  const quotaRewardGrantedRef = useRef(false);
+  const contactsViralCleanupRef = useRef<(() => void) | null>(null);
+  const sessionCreditSourceRef = useRef<WheregoCreditSource | null>(null);
+  const quotaExceededRef = useRef(false);
   const resultCardSvgRef = useRef<Svg | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionSetRequestIdRef = useRef(0);
@@ -812,12 +828,21 @@ function Index() {
   const [rewardAdMessage, setRewardAdMessage] = useState('');
   const [hasRewardAccess, setHasRewardAccess] = useState(false);
   const [hasClosedFullScreenAd, setHasClosedFullScreenAd] = useState(false);
+  const [usage, setUsage] = useState<WheregoUsage | null>(null);
+  const [isUsageLoading, setIsUsageLoading] = useState(true);
+  const [usageMessage, setUsageMessage] = useState('');
+  const [quotaAdStatus, setQuotaAdStatus] = useState<RewardAdStatus>('idle');
+  const [quotaRewardMessage, setQuotaRewardMessage] = useState('');
+  const [isRewardGranting, setIsRewardGranting] = useState(false);
   const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
   const currentQuestion = questionSet[questionIndex];
   const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
   const result = getResult(origin, recommendation);
+  const supportsShareReward =
+    Boolean(WHEREGO_SHARE_REWARD_MODULE_ID) &&
+    isMinVersionSupported({ android: '5.223.0', ios: '5.223.0' });
   const shouldShowBannerAd =
     step === 'question' ||
     (step === 'origin' && isQuestionSetLoading) ||
@@ -833,13 +858,10 @@ function Index() {
           : 'question-set-loading';
 
   useEffect(() => {
-    void getAnonymousKey()
-      .then((result) => {
-        if (result && result !== 'ERROR' && result.type === 'HASH') {
-          anonymousUserKeyRef.current = result.hash;
-        }
-      })
-      .catch(() => undefined);
+    void resolveAnonymousUserKey().then((key) => {
+      anonymousUserKeyRef.current = key;
+      void refreshUsage(key);
+    });
 
     return () => {
       rewardAdUnregisterRef.current?.();
@@ -847,19 +869,48 @@ function Index() {
       clearRewardAdLoadTimer();
       clearRewardAdShowTimer();
       clearQuestionAdvanceTimer();
+      quotaAdUnregisterRef.current?.();
+      contactsViralCleanupRef.current?.();
     };
   }, []);
 
   useEffect(() => {
     const shouldPreloadRewardAd =
-      !hasRewardAccess && (step === 'intro' || step === 'origin' || step === 'rewardGate');
+      !hasRewardAccess &&
+      usage?.remaining !== 0 &&
+      (step === 'intro' || step === 'origin' || step === 'rewardGate');
 
     if (!shouldPreloadRewardAd || rewardAdLoadRequestedRef.current || isRewardAdLoaded) {
       return;
     }
 
     loadRewardAd();
-  }, [hasRewardAccess, isRewardAdLoaded, step]);
+  }, [hasRewardAccess, isRewardAdLoaded, step, usage?.remaining]);
+
+  useEffect(() => {
+    if (step !== 'quota' || quotaAdLoadedRef.current || quotaAdStatus !== 'idle') {
+      return;
+    }
+    loadQuotaRewardAd();
+  }, [quotaAdStatus, step]);
+
+  useEffect(() => {
+    if (step === 'quota') {
+      clearRewardAdLoadTimer();
+      clearRewardAdShowTimer();
+      rewardAdUnregisterRef.current?.();
+      rewardAdUnregisterRef.current = null;
+      rewardAdLoadRequestedRef.current = false;
+      setIsRewardAdLoaded(false);
+      setRewardAdStatus('idle');
+      return;
+    }
+
+    quotaAdUnregisterRef.current?.();
+    quotaAdUnregisterRef.current = null;
+    quotaAdLoadedRef.current = false;
+    setQuotaAdStatus('idle');
+  }, [step]);
 
   useEffect(() => {
     if (step !== 'rewardGate' || !hasRewardAccess) {
@@ -931,6 +982,171 @@ function Index() {
     rewardAdShowTimeoutRef.current = null;
   }
 
+  async function refreshUsage(key = anonymousUserKeyRef.current) {
+    setIsUsageLoading(true);
+    setUsageMessage('');
+    try {
+      const nextUsage = await fetchWheregoUsage({
+        anonymousUserKey: key,
+        sessionId: recommendationSessionIdRef.current,
+      });
+      setUsage(nextUsage);
+    } catch (error) {
+      setUsageMessage(toErrorMessage(error));
+    } finally {
+      setIsUsageLoading(false);
+    }
+  }
+
+  function startFromIntro() {
+    if (isUsageLoading) {
+      setUsageMessage('추천 횟수를 확인하고 있어요.');
+      return;
+    }
+    if (usage?.limitEnabled && usage.remaining <= 0) {
+      setStep('quota');
+      return;
+    }
+    setStep('origin');
+  }
+
+  function loadQuotaRewardAd() {
+    if (usage != null && usage.adRewardsUsed >= usage.adRewardsLimit) {
+      setQuotaAdStatus('error');
+      setQuotaRewardMessage('오늘 받을 수 있는 광고 보상을 모두 받았어요.');
+      return;
+    }
+    if (!loadFullScreenAd.isSupported() || !showFullScreenAd.isSupported()) {
+      setQuotaAdStatus('unsupported');
+      setQuotaRewardMessage('토스 앱에서 광고 보상을 받을 수 있어요.');
+      return;
+    }
+
+    quotaAdUnregisterRef.current?.();
+    quotaAdUnregisterRef.current = null;
+    quotaAdLoadedRef.current = false;
+    setQuotaAdStatus('loading');
+    setQuotaRewardMessage('보상 광고를 준비하고 있어요.');
+    try {
+      quotaAdUnregisterRef.current = loadFullScreenAd({
+        options: { adGroupId: REWARDED_AD_GROUP_ID },
+        onEvent: (event) => {
+          if (event.type !== 'loaded') {
+            return;
+          }
+          quotaAdLoadedRef.current = true;
+          setQuotaAdStatus('ready');
+          setQuotaRewardMessage('');
+        },
+        onError: (error) => {
+          quotaAdLoadedRef.current = false;
+          setQuotaAdStatus('error');
+          setQuotaRewardMessage(`광고를 불러오지 못했어요. ${toErrorMessage(error)}`);
+        },
+      });
+    } catch (error) {
+      setQuotaAdStatus('error');
+      setQuotaRewardMessage(`광고를 불러오지 못했어요. ${toErrorMessage(error)}`);
+    }
+  }
+
+  function showQuotaRewardAd() {
+    if (quotaAdStatus === 'loading' || quotaAdStatus === 'showing' || isRewardGranting) {
+      return;
+    }
+    if (!quotaAdLoadedRef.current || quotaAdStatus !== 'ready') {
+      loadQuotaRewardAd();
+      return;
+    }
+
+    quotaRewardGrantedRef.current = false;
+    const grantId = `ad-${createWheregoSessionId()}`;
+    quotaAdUnregisterRef.current?.();
+    quotaAdUnregisterRef.current = null;
+    quotaAdLoadedRef.current = false;
+    setQuotaAdStatus('showing');
+    setQuotaRewardMessage('광고 시청을 완료하면 AI 추천 1회를 드려요.');
+
+    try {
+      quotaAdUnregisterRef.current = showFullScreenAd({
+        options: { adGroupId: REWARDED_AD_GROUP_ID },
+        onEvent: (event) => {
+          if (event.type === 'userEarnedReward' && !quotaRewardGrantedRef.current) {
+            quotaRewardGrantedRef.current = true;
+            void applyRewardCredit('ad', grantId);
+            return;
+          }
+          if (event.type === 'dismissed') {
+            quotaAdUnregisterRef.current?.();
+            quotaAdUnregisterRef.current = null;
+            setQuotaAdStatus('idle');
+            if (!quotaRewardGrantedRef.current) {
+              setQuotaRewardMessage('광고를 끝까지 시청하면 추천 횟수가 추가돼요.');
+            }
+          }
+        },
+        onError: (error) => {
+          setQuotaAdStatus('error');
+          setQuotaRewardMessage(`광고를 표시하지 못했어요. ${toErrorMessage(error)}`);
+        },
+      });
+    } catch (error) {
+      setQuotaAdStatus('error');
+      setQuotaRewardMessage(`광고를 표시하지 못했어요. ${toErrorMessage(error)}`);
+    }
+  }
+
+  async function applyRewardCredit(source: 'ad' | 'share', grantId: string) {
+    setIsRewardGranting(true);
+    setQuotaRewardMessage('추천 횟수를 반영하고 있어요.');
+    try {
+      const nextUsage = await grantWheregoReward({
+        anonymousUserKey: anonymousUserKeyRef.current,
+        sessionId: recommendationSessionIdRef.current,
+        source,
+        grantId,
+      });
+      setUsage(nextUsage);
+      setQuotaRewardMessage(source === 'ad' ? 'AI 추천 1회가 추가됐어요.' : 'AI 추천 3회가 추가됐어요.');
+    } catch (error) {
+      if (error instanceof WheregoApiError && error.usage) {
+        setUsage(error.usage);
+      }
+      setQuotaRewardMessage(toErrorMessage(error));
+    } finally {
+      setIsRewardGranting(false);
+    }
+  }
+
+  function openShareReward() {
+    if (!WHEREGO_SHARE_REWARD_MODULE_ID || usage?.shareRewardUsed || isRewardGranting) {
+      return;
+    }
+
+    contactsViralCleanupRef.current?.();
+    const grantId = `share-${createWheregoSessionId()}`;
+    try {
+      contactsViralCleanupRef.current = contactsViral({
+        options: { moduleId: WHEREGO_SHARE_REWARD_MODULE_ID },
+        onEvent: (event) => {
+          if (event.type === 'sendViral') {
+            void applyRewardCredit('share', grantId);
+            return;
+          }
+          if (event.type === 'close') {
+            contactsViralCleanupRef.current?.();
+            contactsViralCleanupRef.current = null;
+          }
+        },
+        onError: (error) => {
+          setQuotaRewardMessage(`공유 화면을 열지 못했어요. ${toErrorMessage(error)}`);
+        },
+      });
+    } catch (error) {
+      setQuotaRewardMessage(`공유 화면을 열지 못했어요. ${toErrorMessage(error)}`);
+    }
+  }
+
   function resetToIntro() {
     questionSetRequestIdRef.current += 1;
     clearQuestionAdvanceTimer();
@@ -947,10 +1163,13 @@ function Index() {
     setLocationStatus('');
     candidateSetPromiseRef.current = null;
     recommendationSessionIdRef.current = createWheregoSessionId();
+    sessionCreditSourceRef.current = null;
+    quotaExceededRef.current = false;
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
+    void refreshUsage();
   }
 
   function resetRewardAdState() {
@@ -1085,17 +1304,44 @@ function Index() {
       answers: selectedAnswersRef.current,
       sessionId: recommendationSessionIdRef.current,
       anonymousUserKey: anonymousUserKeyRef.current,
-    }).catch((error) => {
-      console.error('[wherego:candidates] preparation failed', error);
-      candidateSetPromiseRef.current = null;
-      return null;
-    });
+    })
+      .then((candidateSet) => {
+        if (candidateSet.usage) {
+          setUsage(candidateSet.usage);
+        }
+        if (candidateSet.creditSource) {
+          sessionCreditSourceRef.current = candidateSet.creditSource;
+        }
+        return candidateSet;
+      })
+      .catch((error) => {
+        console.error('[wherego:candidates] preparation failed', error);
+        candidateSetPromiseRef.current = null;
+        if (error instanceof WheregoApiError && error.usage) {
+          setUsage(error.usage);
+        }
+        if (error instanceof WheregoApiError && error.code === 'wherego_daily_limit_reached') {
+          quotaExceededRef.current = true;
+          setUsageMessage(error.message);
+          setStep('quota');
+        }
+        return null;
+      });
 
     return candidateSetPromiseRef.current;
   }
 
   function showRewardAd() {
     if (rewardAdStatus === 'showing') {
+      return;
+    }
+
+    if (sessionCreditSourceRef.current === 'ad' || sessionCreditSourceRef.current === 'share') {
+      startCandidatePreparation();
+      startRecommendationAnalysis();
+      setHasRewardAccess(true);
+      setHasClosedFullScreenAd(true);
+      setRewardAdMessage('보상 추천 횟수를 사용해 AI 분석을 시작했어요.');
       return;
     }
 
@@ -1227,6 +1473,8 @@ function Index() {
     setLocationStatus('질문 세트를 준비하고 있어요.');
     candidateSetPromiseRef.current = null;
     recommendationSessionIdRef.current = createWheregoSessionId();
+    sessionCreditSourceRef.current = nextUsageCreditSource(usage);
+    quotaExceededRef.current = false;
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
@@ -1308,7 +1556,7 @@ function Index() {
       questionAdvanceTimeoutRef.current = null;
       setSelectedOptionLabel(null);
       setIsQuestionAdvancing(false);
-      setStep('rewardGate');
+      setStep(quotaExceededRef.current ? 'quota' : 'rewardGate');
     }, QUESTION_ADVANCE_DELAY_MS);
   }
 
@@ -1337,10 +1585,24 @@ function Index() {
         anonymousUserKey: anonymousUserKeyRef.current,
       });
       setRecommendation(nextRecommendation);
+      if (nextRecommendation.usage) {
+        setUsage(nextRecommendation.usage);
+      }
+      if (nextRecommendation.creditSource) {
+        sessionCreditSourceRef.current = nextRecommendation.creditSource;
+      }
       setRecommendationStatus('ready');
     } catch (error) {
       setRecommendation(null);
       setRecommendationStatus('error');
+      if (error instanceof WheregoApiError && error.usage) {
+        setUsage(error.usage);
+      }
+      if (error instanceof WheregoApiError && error.code === 'wherego_daily_limit_reached') {
+        setUsageMessage(error.message);
+        setStep('quota');
+        return;
+      }
       setRewardAdMessage(`추천을 완료하지 못했어요. ${toErrorMessage(error)}`);
     }
   }
@@ -1376,7 +1638,14 @@ function Index() {
           <View style={styles.phone}>
             {step === 'question' ? <Header counter={`${questionIndex + 1} / ${questionSet.length}`} /> : null}
             {step === 'question' ? <ProgressBar progress={progress} /> : null}
-            {step === 'intro' ? <IntroScreen onStart={() => setStep('origin')} /> : null}
+            {step === 'intro' ? (
+              <IntroScreen
+                loading={isUsageLoading}
+                message={usageMessage}
+                onStart={startFromIntro}
+                usage={usage}
+              />
+            ) : null}
             {step === 'origin' ? (
               <OriginScreen
                 locationStatus={locationStatus}
@@ -1400,9 +1669,23 @@ function Index() {
                 hasRewardAccess={hasRewardAccess}
                 message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
                 recommendationStatus={recommendationStatus}
+                requiresInterstitial={sessionCreditSourceRef.current !== 'ad' && sessionCreditSourceRef.current !== 'share'}
                 status={rewardAdStatus}
                 onRetryRecommendation={retryRecommendation}
                 onWatchAd={showRewardAd}
+              />
+            ) : null}
+            {step === 'quota' ? (
+              <QuotaScreen
+                adStatus={quotaAdStatus}
+                granting={isRewardGranting}
+                message={quotaRewardMessage || usageMessage}
+                onBack={resetToIntro}
+                onShare={openShareReward}
+                onStart={() => setStep('origin')}
+                onWatchAd={showQuotaRewardAd}
+                shareReady={supportsShareReward}
+                usage={usage}
               />
             ) : null}
             {step === 'result' ? (
@@ -1459,16 +1742,112 @@ function Header({ counter }: { counter: string }) {
   );
 }
 
-function IntroScreen({ onStart }: { onStart: () => void }) {
+function IntroScreen({
+  loading,
+  message,
+  onStart,
+  usage,
+}: {
+  loading: boolean;
+  message: string;
+  onStart: () => void;
+  usage: WheregoUsage | null;
+}) {
+  const usageLabel = usage?.limitEnabled
+    ? `오늘 AI 추천 ${usage.remaining}회 남음`
+    : loading
+      ? '추천 횟수 확인 중'
+      : 'AI 맞춤 추천';
   return (
     <View style={styles.introScreen}>
       <View style={styles.introHero}>
         <Pill label="한국관광공사 관광정보 기반" />
         <Text style={styles.introTitle}>AI가 오늘 갈 만한 여행지를 골라드려요.</Text>
         <Text style={styles.introCopy}>관광정보와 방문자수를 바탕으로 추천합니다.</Text>
+        <View style={styles.usageBadge}>
+          {loading ? <ActivityIndicator color="#1E63D6" size="small" /> : null}
+          <Text style={styles.usageBadgeText}>{usageLabel}</Text>
+        </View>
+        {message ? <Text style={styles.usageMessage}>{message}</Text> : null}
       </View>
       <View style={styles.introActions}>
-        <PrimaryButton label="시작하기" onPress={onStart} />
+        <PrimaryButton disabled={loading} label={loading ? '확인 중' : '시작하기'} loading={loading} onPress={onStart} />
+      </View>
+    </View>
+  );
+}
+
+function QuotaScreen({
+  adStatus,
+  granting,
+  message,
+  onBack,
+  onShare,
+  onStart,
+  onWatchAd,
+  shareReady,
+  usage,
+}: {
+  adStatus: RewardAdStatus;
+  granting: boolean;
+  message: string;
+  onBack: () => void;
+  onShare: () => void;
+  onStart: () => void;
+  onWatchAd: () => void;
+  shareReady: boolean;
+  usage: WheregoUsage | null;
+}) {
+  const hasCredit = (usage?.remaining || 0) > 0;
+  const adLimitReached = usage != null && usage.adRewardsUsed >= usage.adRewardsLimit;
+  const shareUnavailable = !shareReady || Boolean(usage?.shareRewardUsed);
+  const adButtonLabel = adLimitReached
+    ? '오늘 광고 보상 완료'
+    : adStatus === 'unsupported'
+      ? '토스 앱에서 광고 보상 받기'
+      : adStatus === 'loading'
+        ? '보상 광고 준비 중'
+        : granting
+          ? '추천 횟수 반영 중'
+          : '광고 보고 AI 추천 1회 받기';
+  const shareButtonLabel = !shareReady
+    ? '공유 리워드 준비 중'
+    : usage?.shareRewardUsed
+      ? '오늘 공유 보상 완료'
+      : '친구에게 공유하고 3회 받기';
+
+  return (
+    <View style={styles.centerScreen}>
+      <View style={styles.panelCentered}>
+        <Pill label="AI 추천 횟수" />
+        <Text style={styles.panelTitle}>
+          {hasCredit ? `추천 ${usage?.remaining || 0}회가 준비됐어요.` : '오늘의 기본 추천을 모두 사용했어요.'}
+        </Text>
+        <Text style={styles.panelCopy}>
+          광고 시청 완료 시 1회씩 하루 최대 10회, 친구 공유 완료 시 하루 한 번 3회를 받을 수 있어요.
+        </Text>
+        <View style={styles.quotaSummary}>
+          <Text style={styles.quotaSummaryText}>광고 보상 {usage?.adRewardsUsed || 0} / {usage?.adRewardsLimit || 10}</Text>
+          <Text style={styles.quotaSummaryText}>공유 보상 {usage?.shareRewardUsed ? '완료' : '미사용'}</Text>
+        </View>
+        {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
+        <View style={styles.quotaActions}>
+          {hasCredit ? <PrimaryButton label="추천 시작하기" onPress={onStart} /> : null}
+          <PrimaryButton
+            disabled={
+              adLimitReached ||
+              adStatus === 'unsupported' ||
+              adStatus === 'loading' ||
+              adStatus === 'showing' ||
+              granting
+            }
+            label={adButtonLabel}
+            loading={adStatus === 'loading' || granting}
+            onPress={onWatchAd}
+          />
+          <SecondaryButton disabled={shareUnavailable || granting} label={shareButtonLabel} onPress={onShare} />
+          <SecondaryButton label="처음으로 돌아가기" onPress={onBack} />
+        </View>
       </View>
     </View>
   );
@@ -1712,6 +2091,7 @@ function RewardGate({
   onRetryRecommendation,
   onWatchAd,
   recommendationStatus,
+  requiresInterstitial,
   status,
 }: {
   hasRewardAccess: boolean;
@@ -1719,6 +2099,7 @@ function RewardGate({
   onRetryRecommendation: () => void;
   onWatchAd: () => void;
   recommendationStatus: RecommendationStatus;
+  requiresInterstitial: boolean;
   status: RewardAdStatus;
 }) {
   const isAdLoading = status === 'loading';
@@ -1736,26 +2117,34 @@ function RewardGate({
     );
   }
 
-  const isButtonDisabled = status === 'loading' || status === 'showing' || (hasRewardAccess && !isRecommendationError);
+  const isButtonDisabled =
+    (requiresInterstitial && (status === 'loading' || status === 'showing')) ||
+    (hasRewardAccess && !isRecommendationError);
   const buttonLabel = isRecommendationError
     ? '추천 다시 시도'
     : hasRewardAccess
       ? '추천 마무리 중'
-      : rewardButtonLabel(status, isRecommendationLoading);
+      : requiresInterstitial
+        ? rewardButtonLabel(status, isRecommendationLoading)
+        : 'AI 추천 시작';
   const pillLabel = isRecommendationError
     ? '추천 재시도 필요'
     : isRecommendationDone
       ? '추천 준비 완료'
       : hasStartedRecommendation
         ? 'AI 추천 준비'
-        : '결과 확인 전';
+        : requiresInterstitial
+          ? '결과 확인 전'
+          : '보상 추천 사용';
   const title = isRecommendationError
     ? '추천을 다시 시도해주세요.'
     : isRecommendationDone
     ? '추천 카드 준비가 끝났어요.'
     : hasStartedRecommendation
       ? 'AI가 맞춤 여행지를 고르고 있어요.'
-      : '광고를 보면 맞춤 여행지를 추천해드려요.';
+      : requiresInterstitial
+        ? '광고를 보면 맞춤 여행지를 추천해드려요.'
+        : '추가된 추천 횟수로 여행지를 골라드려요.';
   const copy = isRecommendationError
     ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
     : isRecommendationDone
@@ -1764,7 +2153,9 @@ function RewardGate({
       ? '광고를 불러오는 동안에도 버튼은 유지됩니다. 준비가 끝나면 바로 시청할 수 있어요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
-      : '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
+      : requiresInterstitial
+        ? '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.'
+        : '이 추천에는 광고가 다시 나오지 않아요. AI 분석을 바로 시작합니다.';
 
   return (
     <View style={styles.centerScreen}>
@@ -1772,11 +2163,11 @@ function RewardGate({
         <Pill label={pillLabel} />
         <Text style={styles.panelTitle}>{title}</Text>
         <Text style={styles.panelCopy}>{copy}</Text>
-        {isAdLoading || isRecommendationLoading ? (
+        {(requiresInterstitial && isAdLoading) || isRecommendationLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color="#2B84FC" size="small" />
             <Text style={styles.loadingText}>
-              {isAdLoading
+              {requiresInterstitial && isAdLoading
                 ? '전면 광고를 준비하고 있어요.'
                 : 'AI가 관광정보와 방문자수 데이터를 비교하고 있어요.'}
             </Text>
@@ -1803,7 +2194,7 @@ function AiRecommendationLoading({ done, message }: { done: boolean; message: st
   return (
     <View style={styles.centerScreen}>
       <View style={styles.aiLoadingPanel}>
-        <Pill label="광고 확인 완료" />
+        <Pill label="AI 추천 분석" />
         <View style={styles.aiLoadingIcon}>
           <ActivityIndicator color="#2B84FC" size="large" />
         </View>
@@ -2078,11 +2469,13 @@ function PrimaryButton({
 }
 
 function SecondaryButton({
+  disabled,
   grow,
   label,
   onPress,
   viewStyle,
 }: {
+  disabled?: boolean;
   grow?: boolean;
   label: string;
   onPress: () => void;
@@ -2090,12 +2483,18 @@ function SecondaryButton({
 }) {
   return (
     <TDSButton
+      disabled={disabled}
       display="block"
       onPress={onPress}
       size="large"
       style="weak"
       type="light"
-      viewStyle={[styles.secondaryButton, grow ? styles.secondaryButtonGrow : null, viewStyle]}
+      viewStyle={[
+        styles.secondaryButton,
+        grow ? styles.secondaryButtonGrow : null,
+        disabled ? styles.disabledButton : null,
+        viewStyle,
+      ]}
     >
       {label}
     </TDSButton>
@@ -2447,6 +2846,45 @@ function shuffle<T>(items: T[]) {
 
 function createWheregoSessionId() {
   return `wherego-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function resolveAnonymousUserKey(): Promise<string> {
+  try {
+    const result = await getAnonymousKey();
+    if (result && result !== 'ERROR' && result.type === 'HASH') {
+      return result.hash;
+    }
+  } catch (_) {
+    // Use an installation key when the anonymous-key bridge is unavailable.
+  }
+
+  try {
+    const stored = await Storage.getItem(ANONYMOUS_STORAGE_KEY);
+    if (stored) {
+      return stored;
+    }
+    const generated = `install-${createWheregoSessionId()}`;
+    await Storage.setItem(ANONYMOUS_STORAGE_KEY, generated);
+    return generated;
+  } catch (_) {
+    return `runtime-${createWheregoSessionId()}`;
+  }
+}
+
+function nextUsageCreditSource(usage: WheregoUsage | null): WheregoCreditSource | null {
+  if (usage == null || !usage.limitEnabled) {
+    return 'base';
+  }
+  if (usage.baseRemaining > 0) {
+    return 'base';
+  }
+  if (usage.adCreditsRemaining > 0) {
+    return 'ad';
+  }
+  if (usage.shareCreditsRemaining > 0) {
+    return 'share';
+  }
+  return null;
 }
 
 function delay(ms: number) {
@@ -2988,6 +3426,30 @@ const styles = StyleSheet.create({
     marginTop: 34,
     paddingTop: 0,
   },
+  usageBadge: {
+    alignItems: 'center',
+    backgroundColor: '#EAF3FF',
+    borderRadius: 12,
+    flexDirection: 'row',
+    minHeight: 42,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  usageBadgeText: {
+    color: '#1E63D6',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+    marginLeft: 6,
+  },
+  usageMessage: {
+    color: '#6B7684',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    marginTop: 10,
+    textAlign: 'center',
+  },
   panelTitle: {
     color: '#191F28',
     fontSize: 26,
@@ -3007,6 +3469,28 @@ const styles = StyleSheet.create({
   },
   actionStack: {
     marginTop: 6,
+  },
+  quotaSummary: {
+    alignSelf: 'stretch',
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E8EB',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  quotaSummaryText: {
+    color: '#4E5968',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  quotaActions: {
+    alignSelf: 'stretch',
+    gap: 10,
+    marginTop: 12,
   },
   originRegionButton: {
     ...cardBase,

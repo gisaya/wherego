@@ -127,11 +127,16 @@ Rewarded ad:
 
 ```text
 production interstitial ad group ID: ait.v2.live.69c443b05e6a42ea
+production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
 production banner ad group ID: ait.v2.live.67b07bf813d74267
+contacts share-reward module ID: 1e6b212b-9093-4546-9991-99f478262910
 ```
 
 `pages/index.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts on the banner-free intro screen and the loaded ad is preserved across origin/question transitions; the ad gate loads again only if the earlier request failed or timed out. `showFullScreenAd` runs on the ad CTA, and `show`/`impression` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
 - The full-screen-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `show`/`impression`; `dismissed` is a fallback if the native display event was omitted.
+- Base recommendations use the interstitial gate. Rewarded-ad and contacts-share credits skip that duplicate gate and start Gemini directly from the result CTA.
+- Daily usage is KST-based: base 3, rewarded ad +1 up to 10/day, contacts share +3 once/day. Candidate preparation reserves a credit; failures refund it; abandoned reservations expire after 30 minutes.
+- Rewarded-ad credits are granted only on `userEarnedReward`. Contacts sharing requires Toss app 5.223.0+.
 - Interstitial loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:interstitial-ad]` prefix and include `attempt` and `elapsedMs`. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
 - Gemini starts on the interstitial `show`/`impression` event while the full-screen ad is visible. After `dismissed`, the app shows a dedicated AI loading panel with spinner and staged text only while Gemini is still pending.
 - The AI loading screen and result screen each render their own bottom `InlineAd`. These banners mount only after the full-screen ad is dismissed and use separate keys so the two screens do not share a stale banner instance.
@@ -176,6 +181,8 @@ Server endpoint:
 POST /api/wherego/questions
 POST /api/wherego/candidates
 POST /api/wherego/recommend
+POST /api/wherego/usage
+POST /api/wherego/usage/reward
 ```
 
 Required Render env:
@@ -189,6 +196,7 @@ GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite
 GEMINI_WHEREGO_TIMEOUT_SECONDS=15
 GEMINI_WHEREGO_MAX_OUTPUT_TOKENS=640
 GEMINI_WHEREGO_HTTP_RETRIES=1
+WHEREGO_USAGE_LIMIT_ENABLED=true
 WHEREGO_KTO_SEARCH_MAX_CALLS=4
 WHEREGO_KTO_SEARCH_ROWS=50
 WHEREGO_KTO_SEARCH_PARALLELISM=3
@@ -427,7 +435,7 @@ git diff --stat
 & 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs build
 git branch --show-current
 git remote -v
-git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/10_선택지_질문풀_검토.md docs/wherego-copy-review.json data/source-question-blueprint.json data/general-question-bank.json data/travel-question-architecture.json scripts/build-general-question-bank.cjs pages/index.tsx src/api/wheregoApi.ts
+git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/03_검증.md docs/06_운영.md pages/index.tsx src/api/wheregoApi.ts src/config.ts
 git commit -m "Save wherego handoff state"
 git push origin <branch>
 ```
