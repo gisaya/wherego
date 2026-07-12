@@ -1863,20 +1863,20 @@ const ResultCardPngSource = React.forwardRef<
   }
 >(function ResultCardPngSource({ result }, ref) {
   const hasHeroImage = Boolean(result.imageUrl);
-  const placeLines = svgTextLines(result.place, 15, 2);
-  const personaLines = svgTextLines(result.persona, 21, 2);
-  const reasonLines = svgTextLines(result.reason, 28, 5);
-  const locationLines = svgTextLines(resultLocationText(result), 36, 2);
-  const factorLines = svgTextLines(resultCardFactorText(result), 37, 5);
+  const placeLines = svgTextLines(result.place, 13, 2);
+  const personaLines = svgTextLines(result.persona, 19, 2);
+  const reasonLines = svgTextLines(result.reason, 25, 5);
+  const locationLines = svgTextLines(resultLocationText(result), 25, 2);
+  const factorLines = svgTextLines(resultCardFactorText(result), 30, 5);
   const heroTitleColor = hasHeroImage ? '#FFFFFF' : '#1E63D6';
   const heroPlaceColor = hasHeroImage ? '#FFFFFF' : '#191F28';
-  const cardX = 96;
+  const cardX = 135;
   const cardY = 64;
-  const cardWidth = 888;
+  const cardWidth = 810;
   const cardHeight = 1222;
   const cardRight = cardX + cardWidth;
-  const contentX = 144;
-  const contentWidth = 792;
+  const contentX = cardX + 48;
+  const contentWidth = cardWidth - 96;
   const locationTextY = locationLines.length > 1 ? 890 : 909;
 
   return (
@@ -1930,8 +1930,7 @@ const ResultCardPngSource = React.forwardRef<
             fontFamily={RESULT_CARD_FONT_FAMILY}
             fontSize={18}
             fontWeight="700"
-            textAnchor="end"
-            x={cardRight - 24}
+            x={contentX}
             y={554}
           >
             사진 출처 · {result.imageAttribution}
@@ -1945,15 +1944,15 @@ const ResultCardPngSource = React.forwardRef<
         <SvgTextBlock color="#4E5968" lineHeight={32} lines={reasonLines} weight="700" x={contentX} y={652} />
         <Rect fill="#E5E8EB" height={2} width={contentWidth} x={contentX} y={828} />
         <Rect fill="#F9FAFB" height={86} rx={24} stroke="#E5E8EB" width={contentWidth} x={contentX} y={858} />
-        <SvgText fill="#8B95A1" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={24} fontWeight="800" x={178} y={909}>
+        <SvgText fill="#8B95A1" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={24} fontWeight="800" x={contentX + 34} y={909}>
           위치
         </SvgText>
-        <SvgTextBlock color="#191F28" lineHeight={29} lines={locationLines} weight="800" x={272} y={locationTextY} />
+        <SvgTextBlock color="#191F28" lineHeight={29} lines={locationLines} weight="800" x={contentX + 128} y={locationTextY} />
         <Rect fill="#F9FAFB" height={226} rx={28} stroke="#E5E8EB" width={contentWidth} x={contentX} y={974} />
-        <SvgText fill="#1E63D6" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={27} fontWeight="800" x={178} y={1024}>
+        <SvgText fill="#1E63D6" fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={27} fontWeight="800" x={contentX + 34} y={1024}>
           AI 선택 근거
         </SvgText>
-        <SvgTextBlock color="#191F28" lineHeight={27} lines={factorLines} weight="700" x={178} y={1070} />
+        <SvgTextBlock color="#191F28" lineHeight={27} lines={factorLines} weight="700" x={contentX + 34} y={1070} />
       </Svg>
     </View>
   );
@@ -2596,7 +2595,7 @@ function resultCardFactorText(result: DemoResult) {
     .slice(0, 3);
 
   if (cleanedFactors.length > 0) {
-    return cleanedFactors.join(' · ');
+    return cleanedFactors.join(', ');
   }
 
   return cleanResultCardSentence(result.overview || result.aiTradeoff || result.comfort || result.reason);
