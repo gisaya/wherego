@@ -6,7 +6,7 @@
     "requiredQuestionCount": 3,
     "randomGeneralQuestionCount": 5,
     "totalQuestionsPerRun": 8,
-    "rule": "원천질문 3개는 항상 묻고, 일반질문은 crowd 1개와 mobility/accessibility 중 1개를 포함한 뒤 서로 다른 tagGroup에서 총 5개를 뽑는다. 상호배타 테마와 선택된 원천질문에 겹치는 테마는 제외한다."
+    "rule": "원천질문 3개는 항상 묻고, 일반질문은 crowd 1개와 mobility/accessibility 중 1개, 목적지 유형 질문 1개를 포함한 뒤 서로 다른 tagGroup에서 총 4개를 뽑는다. 상호배타 테마와 선택된 원천질문에 겹치는 테마는 제외한다."
   },
   "requiredSourceAxes": [
     {

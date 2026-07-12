@@ -4,7 +4,7 @@
   "selectionStrategy": {
     "requiredCount": 3,
     "randomCount": 5,
-    "note": "필수 3개로 추천 범위를 먼저 좁히고, 랜덤 5개는 서로 다른 bucket에서 하나씩 뽑아 장소의 질감을 특정한다.",
+    "note": "필수 3개로 추천 범위를 먼저 좁히고, 일반 4개는 crowd, mobility/accessibility, 목적지 유형, 추가 취향 bucket에서 하나씩 뽑는다.",
     "requiredBuckets": [
       "trip_scope",
       "companion_constraints",

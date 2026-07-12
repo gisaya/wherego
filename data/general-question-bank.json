@@ -3,7 +3,7 @@
   "appName": "어디고",
   "philosophy": "어디고의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.",
   "runtimeSelection": {
-    "randomTagGroupCount": 5,
+    "randomTagGroupCount": 4,
     "questionsPerSelectedTagGroup": 1,
     "requiredTagGroups": [
       "crowd"
@@ -30,6 +30,175 @@
         "season"
       ]
     ],
+    "similarOptionGroups": {
+      "crowd": [
+        [
+          "low_crowd",
+          "weekday",
+          "off_peak"
+        ],
+        [
+          "controlled",
+          "quiet_reservation"
+        ],
+        [
+          "spacious",
+          "popular_spacious"
+        ]
+      ],
+      "mobility": [
+        [
+          "minimal_walk",
+          "drive_view"
+        ],
+        [
+          "barrier_free",
+          "stroller",
+          "low_stairs"
+        ],
+        [
+          "public_transport",
+          "short_transfer"
+        ]
+      ],
+      "weather": [
+        [
+          "shade",
+          "heat_safe",
+          "canopy"
+        ],
+        [
+          "indoor",
+          "fine_dust_safe"
+        ]
+      ],
+      "activity": [
+        [
+          "experience",
+          "kids_experience",
+          "light_play"
+        ],
+        [
+          "walk",
+          "exhibition_walk"
+        ]
+      ],
+      "time_mood": [
+        [
+          "morning",
+          "early_start",
+          "sunrise"
+        ],
+        [
+          "sunset",
+          "evening"
+        ],
+        [
+          "half_day",
+          "last_minute"
+        ]
+      ],
+      "culture_style": [
+        [
+          "vintage",
+          "industrial_heritage"
+        ],
+        [
+          "street",
+          "art_village"
+        ]
+      ],
+      "food_link": [
+        [
+          "cafe",
+          "cafe_street",
+          "bakery"
+        ],
+        [
+          "destination_only",
+          "no_food_focus"
+        ]
+      ],
+      "accessibility": [
+        [
+          "baby",
+          "nursing"
+        ],
+        [
+          "safety",
+          "emergency_safe"
+        ],
+        [
+          "low_stairs",
+          "indoor_rest"
+        ]
+      ],
+      "season": [
+        [
+          "flower",
+          "spring_flower"
+        ],
+        [
+          "autumn",
+          "autumn_grass"
+        ],
+        [
+          "winter",
+          "winter_light"
+        ],
+        [
+          "water_season",
+          "summer_water"
+        ],
+        [
+          "evergreen",
+          "seasonless"
+        ]
+      ],
+      "photo": [
+        [
+          "photo_required",
+          "shareable"
+        ],
+        [
+          "nature_photo",
+          "flower_photo"
+        ],
+        [
+          "private_hidden",
+          "rest_first"
+        ]
+      ],
+      "healing_energy": [
+        [
+          "healing",
+          "comfort",
+          "meditative"
+        ],
+        [
+          "novelty",
+          "light_stimulus"
+        ],
+        [
+          "active_energy",
+          "kids_energy"
+        ]
+      ],
+      "route_style": [
+        [
+          "single",
+          "slow"
+        ],
+        [
+          "multi",
+          "packed"
+        ],
+        [
+          "stopover",
+          "return_stop"
+        ]
+      ]
+    },
     "excludedSourceQuestionIds": [
       "intent_mood_01"
     ],
@@ -61,8 +230,8 @@
         "healing_energy"
       ]
     },
-    "remainingRandomTagGroupCount": 3,
-    "rule": "일반질문 실행 시 crowd 1개와 mobility/accessibility 중 1개를 먼저 포함한다. 나머지 3개는 서로 다른 tagGroup에서 뽑되 상호배타 테마와 선택된 원천질문 주제는 함께 출제하지 않는다."
+    "remainingRandomTagGroupCount": 1,
+    "rule": "일반질문 실행 시 crowd 1개, mobility/accessibility 중 1개, 목적지 유형을 직접 가르는 질문 1개를 포함한다. 나머지 1개는 다른 tagGroup에서 뽑되 상호배타 테마와 선택된 원천질문 주제는 함께 출제하지 않는다."
   },
   "minimums": {
     "tagGroupCount": 10,
@@ -405,44 +574,6 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "weekday",
-              "label": "평일에 여유로운 곳",
-              "tags": [
-                "weekday_low_crowd"
-              ],
-              "searchHints": [
-                "평일 추천",
-                "여유로운 방문"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "off_peak",
-              "label": "시간대 피해서 여유롭게",
-              "tags": [
-                "off_peak",
-                "crowd_flexible"
-              ],
-              "searchHints": [
-                "오전 방문",
-                "평일",
-                "혼잡 시간 회피"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_crowd_10",
-          "type": "select_2",
-          "tagGroup": "crowd",
-          "label": "인파 정도",
-          "question": "인파 정도 기준으로 하나를 고르면?",
-          "tags": [
-            "crowd"
-          ],
-          "options": [
-            {
-              "key": "A",
               "sourceId": "weekend",
               "label": "주말 에너지 있는 곳",
               "tags": [
@@ -470,11 +601,11 @@
           ]
         },
         {
-          "id": "gen_crowd_11",
+          "id": "gen_crowd_10",
           "type": "select_2",
           "tagGroup": "crowd",
           "label": "인파 정도",
-          "question": "도착했을 때 원하는 인파 정도, 어느 쪽이에요?",
+          "question": "인파 정도 기준으로 하나를 고르면?",
           "tags": [
             "crowd"
           ],
@@ -507,11 +638,11 @@
           ]
         },
         {
-          "id": "gen_crowd_12",
+          "id": "gen_crowd_11",
           "type": "select_2",
           "tagGroup": "crowd",
           "label": "인파 정도",
-          "question": "이번 여행의 인파 정도 취향은?",
+          "question": "도착했을 때 원하는 인파 정도, 어느 쪽이에요?",
           "tags": [
             "crowd"
           ],
@@ -544,11 +675,11 @@
           ]
         },
         {
-          "id": "gen_crowd_13",
+          "id": "gen_crowd_12",
           "type": "select_2",
           "tagGroup": "crowd",
           "label": "인파 정도",
-          "question": "내 선택에 가까운 인파 정도, 어느 쪽이에요?",
+          "question": "이번 여행의 인파 정도 취향은?",
           "tags": [
             "crowd"
           ],
@@ -583,11 +714,11 @@
           ]
         },
         {
-          "id": "gen_crowd_14",
+          "id": "gen_crowd_13",
           "type": "select_2",
           "tagGroup": "crowd",
           "label": "인파 정도",
-          "question": "인파 정도에서 놓치기 싫은 건?",
+          "question": "내 선택에 가까운 인파 정도, 어느 쪽이에요?",
           "tags": [
             "crowd"
           ],
@@ -622,11 +753,11 @@
           ]
         },
         {
-          "id": "gen_crowd_15",
+          "id": "gen_crowd_14",
           "type": "select_2",
           "tagGroup": "crowd",
           "label": "인파 정도",
-          "question": "지금 더 끌리는 인파 정도, 어떤 쪽이에요?",
+          "question": "인파 정도에서 놓치기 싫은 건?",
           "tags": [
             "crowd"
           ],
@@ -655,6 +786,46 @@
                 "넓은 공원",
                 "넓은 광장",
                 "개방감"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gen_crowd_15",
+          "type": "select_2",
+          "tagGroup": "crowd",
+          "label": "인파 정도",
+          "question": "지금 더 끌리는 인파 정도, 어떤 쪽이에요?",
+          "tags": [
+            "crowd"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "low_crowd",
+              "label": "한산한 숨은 곳",
+              "tags": [
+                "low_crowd",
+                "hidden"
+              ],
+              "searchHints": [
+                "한적한",
+                "숨은 명소",
+                "방문자수 낮은 지역"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "controlled",
+              "label": "예약/정원 제한 공간",
+              "tags": [
+                "controlled_crowd",
+                "reservation"
+              ],
+              "searchHints": [
+                "예약제",
+                "정원 제한",
+                "관리형 공간"
               ]
             }
           ]
@@ -1803,45 +1974,6 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "stroller",
-              "label": "유모차 밀기 편한 곳",
-              "tags": [
-                "stroller_ok",
-                "flat_walk"
-              ],
-              "searchHints": [
-                "유모차",
-                "평지",
-                "무장애"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "low_stairs",
-              "label": "계단 적은 곳",
-              "tags": [
-                "low_stairs",
-                "easy_path_required"
-              ],
-              "searchHints": [
-                "계단 적음",
-                "완만한 길"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_mobility_06",
-          "type": "select_2",
-          "tagGroup": "mobility",
-          "label": "걷기/이동",
-          "question": "지금 원하는 걷기/이동, 어느 쪽이에요?",
-          "tags": [
-            "mobility"
-          ],
-          "options": [
-            {
-              "key": "A",
               "sourceId": "short_transfer",
               "label": "입구까지 환승 적은 곳",
               "tags": [
@@ -1869,11 +2001,11 @@
           ]
         },
         {
-          "id": "gen_mobility_07",
+          "id": "gen_mobility_06",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "여행지를 고를 때 보는 걷기/이동 기준은?",
+          "question": "지금 원하는 걷기/이동, 어느 쪽이에요?",
           "tags": [
             "mobility"
           ],
@@ -1908,11 +2040,11 @@
           ]
         },
         {
-          "id": "gen_mobility_08",
+          "id": "gen_mobility_07",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "오늘 기분에 맞는 걷기/이동, 어느 쪽이에요?",
+          "question": "여행지를 고를 때 보는 걷기/이동 기준은?",
           "tags": [
             "mobility"
           ],
@@ -1948,11 +2080,11 @@
           ]
         },
         {
-          "id": "gen_mobility_09",
+          "id": "gen_mobility_08",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "걷기/이동에서 피하고 싶은 쪽은?",
+          "question": "오늘 기분에 맞는 걷기/이동, 어느 쪽이에요?",
           "tags": [
             "mobility"
           ],
@@ -1986,11 +2118,11 @@
           ]
         },
         {
-          "id": "gen_mobility_10",
+          "id": "gen_mobility_09",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "걷기/이동 기준으로 하나를 고르면?",
+          "question": "걷기/이동에서 피하고 싶은 쪽은?",
           "tags": [
             "mobility"
           ],
@@ -2023,11 +2155,11 @@
           ]
         },
         {
-          "id": "gen_mobility_11",
+          "id": "gen_mobility_10",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "도착했을 때 원하는 걷기/이동, 어느 쪽이에요?",
+          "question": "걷기/이동 기준으로 하나를 고르면?",
           "tags": [
             "mobility"
           ],
@@ -2062,11 +2194,11 @@
           ]
         },
         {
-          "id": "gen_mobility_12",
+          "id": "gen_mobility_11",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "이번 여행의 걷기/이동 취향은?",
+          "question": "도착했을 때 원하는 걷기/이동, 어느 쪽이에요?",
           "tags": [
             "mobility"
           ],
@@ -2100,49 +2232,11 @@
           ]
         },
         {
-          "id": "gen_mobility_13",
+          "id": "gen_mobility_12",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "내 선택에 가까운 걷기/이동, 어느 쪽이에요?",
-          "tags": [
-            "mobility"
-          ],
-          "options": [
-            {
-              "key": "A",
-              "sourceId": "minimal_walk",
-              "label": "주차 후 5분 컷",
-              "tags": [
-                "minimal_walk",
-                "parking_close"
-              ],
-              "searchHints": [
-                "입구 가까움",
-                "주차장 가까움"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "drive_view",
-              "label": "차에서 보는 풍경",
-              "tags": [
-                "drive_view",
-                "minimal_walk"
-              ],
-              "searchHints": [
-                "드라이브 코스",
-                "전망"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_mobility_14",
-          "type": "select_2",
-          "tagGroup": "mobility",
-          "label": "걷기/이동",
-          "question": "걷기/이동에서 놓치기 싫은 건?",
+          "question": "이번 여행의 걷기/이동 취향은?",
           "tags": [
             "mobility"
           ],
@@ -2177,11 +2271,11 @@
           ]
         },
         {
-          "id": "gen_mobility_15",
+          "id": "gen_mobility_13",
           "type": "select_2",
           "tagGroup": "mobility",
           "label": "걷기/이동",
-          "question": "지금 더 끌리는 걷기/이동, 어떤 쪽이에요?",
+          "question": "내 선택에 가까운 걷기/이동, 어느 쪽이에요?",
           "tags": [
             "mobility"
           ],
@@ -2209,6 +2303,82 @@
               "searchHints": [
                 "계단 적음",
                 "완만한 길"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gen_mobility_14",
+          "type": "select_2",
+          "tagGroup": "mobility",
+          "label": "걷기/이동",
+          "question": "걷기/이동에서 놓치기 싫은 건?",
+          "tags": [
+            "mobility"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "minimal_walk",
+              "label": "주차 후 5분 컷",
+              "tags": [
+                "minimal_walk",
+                "parking_close"
+              ],
+              "searchHints": [
+                "입구 가까움",
+                "주차장 가까움"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "slope_ok",
+              "label": "언덕/계단도 가능",
+              "tags": [
+                "slope_ok",
+                "active"
+              ],
+              "searchHints": [
+                "전망대",
+                "계단",
+                "등산로"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gen_mobility_15",
+          "type": "select_2",
+          "tagGroup": "mobility",
+          "label": "걷기/이동",
+          "question": "지금 더 끌리는 걷기/이동, 어떤 쪽이에요?",
+          "tags": [
+            "mobility"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "minimal_walk",
+              "label": "주차 후 5분 컷",
+              "tags": [
+                "minimal_walk",
+                "parking_close"
+              ],
+              "searchHints": [
+                "입구 가까움",
+                "주차장 가까움"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "public_transport",
+              "label": "대중교통 접근",
+              "tags": [
+                "public_transport_required"
+              ],
+              "searchHints": [
+                "대중교통",
+                "역/터미널 근처"
               ]
             }
           ]
@@ -10434,43 +10604,6 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "early_start",
-              "label": "아침 일찍 출발",
-              "tags": [
-                "early_start"
-              ],
-              "searchHints": [
-                "일출",
-                "오전"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "sunrise",
-              "label": "해 뜨는 시간",
-              "tags": [
-                "sunrise",
-                "early_start"
-              ],
-              "searchHints": [
-                "일출",
-                "새벽"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_time_mood_12",
-          "type": "select_2",
-          "tagGroup": "time_mood",
-          "label": "시간대/분위기",
-          "question": "이번 여행의 시간대/분위기 취향은?",
-          "tags": [
-            "time_mood"
-          ],
-          "options": [
-            {
-              "key": "A",
               "sourceId": "late_start",
               "label": "느지막이 출발",
               "tags": [
@@ -10497,11 +10630,11 @@
           ]
         },
         {
-          "id": "gen_time_mood_13",
+          "id": "gen_time_mood_12",
           "type": "select_2",
           "tagGroup": "time_mood",
           "label": "시간대/분위기",
-          "question": "내 선택에 가까운 시간대/분위기, 어느 쪽이에요?",
+          "question": "이번 여행의 시간대/분위기 취향은?",
           "tags": [
             "time_mood"
           ],
@@ -10534,11 +10667,11 @@
           ]
         },
         {
-          "id": "gen_time_mood_14",
+          "id": "gen_time_mood_13",
           "type": "select_2",
           "tagGroup": "time_mood",
           "label": "시간대/분위기",
-          "question": "시간대/분위기에서 놓치기 싫은 건?",
+          "question": "내 선택에 가까운 시간대/분위기, 어느 쪽이에요?",
           "tags": [
             "time_mood"
           ],
@@ -10571,11 +10704,11 @@
           ]
         },
         {
-          "id": "gen_time_mood_15",
+          "id": "gen_time_mood_14",
           "type": "select_2",
           "tagGroup": "time_mood",
           "label": "시간대/분위기",
-          "question": "지금 더 끌리는 시간대/분위기, 어떤 쪽이에요?",
+          "question": "시간대/분위기에서 놓치기 싫은 건?",
           "tags": [
             "time_mood"
           ],
@@ -10603,6 +10736,42 @@
               "searchHints": [
                 "하루 코스",
                 "체류형"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gen_time_mood_15",
+          "type": "select_2",
+          "tagGroup": "time_mood",
+          "label": "시간대/분위기",
+          "question": "지금 더 끌리는 시간대/분위기, 어떤 쪽이에요?",
+          "tags": [
+            "time_mood"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "morning",
+              "label": "상쾌한 오전",
+              "tags": [
+                "morning"
+              ],
+              "searchHints": [
+                "오전 방문",
+                "아침 산책"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "night",
+              "label": "조명 켜진 밤",
+              "tags": [
+                "night_view"
+              ],
+              "searchHints": [
+                "야경",
+                "빛축제"
               ]
             }
           ]
@@ -14943,43 +15112,6 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "safety",
-              "label": "안전한 동선",
-              "tags": [
-                "safe_route"
-              ],
-              "searchHints": [
-                "안전",
-                "가족"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "emergency_safe",
-              "label": "응급/안전 대응",
-              "tags": [
-                "emergency_safe",
-                "safe_route"
-              ],
-              "searchHints": [
-                "안전요원",
-                "응급실 근처"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_accessibility_13",
-          "type": "select_2",
-          "tagGroup": "accessibility",
-          "label": "편의 조건",
-          "question": "내 선택에 가까운 편의 조건, 어느 쪽이에요?",
-          "tags": [
-            "accessibility"
-          ],
-          "options": [
-            {
-              "key": "A",
               "sourceId": "baby",
               "label": "아이 편의시설",
               "tags": [
@@ -15007,11 +15139,11 @@
           ]
         },
         {
-          "id": "gen_accessibility_14",
+          "id": "gen_accessibility_13",
           "type": "select_2",
           "tagGroup": "accessibility",
           "label": "편의 조건",
-          "question": "편의 조건에서 놓치기 싫은 건?",
+          "question": "내 선택에 가까운 편의 조건, 어느 쪽이에요?",
           "tags": [
             "accessibility"
           ],
@@ -15044,6 +15176,42 @@
           ]
         },
         {
+          "id": "gen_accessibility_14",
+          "type": "select_2",
+          "tagGroup": "accessibility",
+          "label": "편의 조건",
+          "question": "편의 조건에서 놓치기 싫은 건?",
+          "tags": [
+            "accessibility"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "baby",
+              "label": "아이 편의시설",
+              "tags": [
+                "kids_facility_required",
+                "baby_facility"
+              ],
+              "searchHints": [
+                "수유실",
+                "기저귀 교환대"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "no_constraints",
+              "label": "특별히 없음",
+              "tags": [
+                "no_constraints"
+              ],
+              "searchHints": [
+                "제약 없음"
+              ]
+            }
+          ]
+        },
+        {
           "id": "gen_accessibility_15",
           "type": "select_2",
           "tagGroup": "accessibility",
@@ -15055,6 +15223,19 @@
           "options": [
             {
               "key": "A",
+              "sourceId": "baby",
+              "label": "아이 편의시설",
+              "tags": [
+                "kids_facility_required",
+                "baby_facility"
+              ],
+              "searchHints": [
+                "수유실",
+                "기저귀 교환대"
+              ]
+            },
+            {
+              "key": "B",
               "sourceId": "low_stairs",
               "label": "계단 적은 곳",
               "tags": [
@@ -15063,19 +15244,6 @@
               "searchHints": [
                 "계단 적음",
                 "평지"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "indoor_rest",
-              "label": "실내 쉼터",
-              "tags": [
-                "indoor_rest",
-                "weather_safe"
-              ],
-              "searchHints": [
-                "실내 쉼터",
-                "휴게공간"
               ]
             }
           ]
@@ -19258,42 +19426,6 @@
           "options": [
             {
               "key": "A",
-              "sourceId": "healing",
-              "label": "회복과 휴식",
-              "tags": [
-                "healing",
-                "rest"
-              ],
-              "searchHints": [
-                "힐링",
-                "휴식"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "comfort",
-              "label": "편안함",
-              "tags": [
-                "comfort"
-              ],
-              "searchHints": [
-                "편안한 장소"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_healing_energy_08",
-          "type": "select_2",
-          "tagGroup": "healing_energy",
-          "label": "휴식/활동",
-          "question": "오늘 기분에 맞는 휴식/활동, 어느 쪽이에요?",
-          "tags": [
-            "healing_energy"
-          ],
-          "options": [
-            {
-              "key": "A",
               "sourceId": "active_energy",
               "label": "자극과 활동",
               "tags": [
@@ -19320,11 +19452,11 @@
           ]
         },
         {
-          "id": "gen_healing_energy_09",
+          "id": "gen_healing_energy_08",
           "type": "select_2",
           "tagGroup": "healing_energy",
           "label": "휴식/활동",
-          "question": "휴식/활동에서 피하고 싶은 쪽은?",
+          "question": "오늘 기분에 맞는 휴식/활동, 어느 쪽이에요?",
           "tags": [
             "healing_energy"
           ],
@@ -19358,47 +19490,11 @@
           ]
         },
         {
-          "id": "gen_healing_energy_10",
+          "id": "gen_healing_energy_09",
           "type": "select_2",
           "tagGroup": "healing_energy",
           "label": "휴식/활동",
-          "question": "휴식/활동 기준으로 하나를 고르면?",
-          "tags": [
-            "healing_energy"
-          ],
-          "options": [
-            {
-              "key": "A",
-              "sourceId": "novelty",
-              "label": "새로움",
-              "tags": [
-                "novelty"
-              ],
-              "searchHints": [
-                "이색 명소"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "light_stimulus",
-              "label": "가벼운 자극",
-              "tags": [
-                "light_novelty",
-                "novelty"
-              ],
-              "searchHints": [
-                "이색 체험",
-                "신상 명소"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_healing_energy_11",
-          "type": "select_2",
-          "tagGroup": "healing_energy",
-          "label": "휴식/활동",
-          "question": "도착했을 때 원하는 휴식/활동, 어느 쪽이에요?",
+          "question": "휴식/활동에서 피하고 싶은 쪽은?",
           "tags": [
             "healing_energy"
           ],
@@ -19432,11 +19528,11 @@
           ]
         },
         {
-          "id": "gen_healing_energy_12",
+          "id": "gen_healing_energy_10",
           "type": "select_2",
           "tagGroup": "healing_energy",
           "label": "휴식/활동",
-          "question": "이번 여행의 휴식/활동 취향은?",
+          "question": "휴식/활동 기준으로 하나를 고르면?",
           "tags": [
             "healing_energy"
           ],
@@ -19469,11 +19565,11 @@
           ]
         },
         {
-          "id": "gen_healing_energy_13",
+          "id": "gen_healing_energy_11",
           "type": "select_2",
           "tagGroup": "healing_energy",
           "label": "휴식/활동",
-          "question": "내 선택에 가까운 휴식/활동, 어느 쪽이에요?",
+          "question": "도착했을 때 원하는 휴식/활동, 어느 쪽이에요?",
           "tags": [
             "healing_energy"
           ],
@@ -19507,49 +19603,11 @@
           ]
         },
         {
-          "id": "gen_healing_energy_14",
+          "id": "gen_healing_energy_12",
           "type": "select_2",
           "tagGroup": "healing_energy",
           "label": "휴식/활동",
-          "question": "휴식/활동에서 놓치기 싫은 건?",
-          "tags": [
-            "healing_energy"
-          ],
-          "options": [
-            {
-              "key": "A",
-              "sourceId": "active_energy",
-              "label": "자극과 활동",
-              "tags": [
-                "active",
-                "novelty"
-              ],
-              "searchHints": [
-                "액티비티",
-                "새로운 경험"
-              ]
-            },
-            {
-              "key": "B",
-              "sourceId": "kids_energy",
-              "label": "아이 에너지 소진",
-              "tags": [
-                "kids_energy",
-                "family_activity"
-              ],
-              "searchHints": [
-                "놀이터",
-                "체험시설"
-              ]
-            }
-          ]
-        },
-        {
-          "id": "gen_healing_energy_15",
-          "type": "select_2",
-          "tagGroup": "healing_energy",
-          "label": "휴식/활동",
-          "question": "지금 더 끌리는 휴식/활동, 어떤 쪽이에요?",
+          "question": "이번 여행의 휴식/활동 취향은?",
           "tags": [
             "healing_energy"
           ],
@@ -19577,6 +19635,116 @@
               "searchHints": [
                 "이색 체험",
                 "신상 명소"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gen_healing_energy_13",
+          "type": "select_2",
+          "tagGroup": "healing_energy",
+          "label": "휴식/활동",
+          "question": "내 선택에 가까운 휴식/활동, 어느 쪽이에요?",
+          "tags": [
+            "healing_energy"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "healing",
+              "label": "회복과 휴식",
+              "tags": [
+                "healing",
+                "rest"
+              ],
+              "searchHints": [
+                "힐링",
+                "휴식"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "romance",
+              "label": "설렘",
+              "tags": [
+                "romance"
+              ],
+              "searchHints": [
+                "데이트",
+                "노을"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gen_healing_energy_14",
+          "type": "select_2",
+          "tagGroup": "healing_energy",
+          "label": "휴식/활동",
+          "question": "휴식/활동에서 놓치기 싫은 건?",
+          "tags": [
+            "healing_energy"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "healing",
+              "label": "회복과 휴식",
+              "tags": [
+                "healing",
+                "rest"
+              ],
+              "searchHints": [
+                "힐링",
+                "휴식"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "achievement",
+              "label": "성취감",
+              "tags": [
+                "achievement"
+              ],
+              "searchHints": [
+                "전망대",
+                "트레킹"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gen_healing_energy_15",
+          "type": "select_2",
+          "tagGroup": "healing_energy",
+          "label": "휴식/활동",
+          "question": "지금 더 끌리는 휴식/활동, 어떤 쪽이에요?",
+          "tags": [
+            "healing_energy"
+          ],
+          "options": [
+            {
+              "key": "A",
+              "sourceId": "healing",
+              "label": "회복과 휴식",
+              "tags": [
+                "healing",
+                "rest"
+              ],
+              "searchHints": [
+                "힐링",
+                "휴식"
+              ]
+            },
+            {
+              "key": "B",
+              "sourceId": "novelty",
+              "label": "새로움",
+              "tags": [
+                "novelty"
+              ],
+              "searchHints": [
+                "이색 명소"
               ]
             }
           ]

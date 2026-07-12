@@ -124,6 +124,7 @@ type GeneralQuestionRuntimeSelection = {
   requiredTagGroups?: string[];
   oneOfTagGroups?: string[];
   mutuallyExclusiveTagGroups?: string[][];
+  similarOptionGroups?: Record<string, string[][]>;
   excludedSourceQuestionIds?: string[];
   sourceQuestionConflicts?: Record<string, string[]>;
 };
@@ -189,7 +190,7 @@ type DemoResult = {
   isFallback?: boolean;
 };
 
-const LOGO_IMAGE_URL = 'https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png';
+const LOGO_IMAGE = require('../assets/logo.png') as number;
 const sourceQuestionData = sourceQuestionBlueprint as SourceQuestionBlueprint;
 const generalQuestionData = generalQuestionBank as GeneralQuestionBank;
 
@@ -755,7 +756,8 @@ const demoResultsByRegion: Record<string, DemoResult> = {
   },
 };
 
-const GENERAL_QUESTION_COUNT = 5;
+const SOURCE_QUESTION_COUNT = 3;
+const GENERAL_QUESTION_COUNT = 4;
 const FULL_SCREEN_AD_GROUP_ID = 'ait.v2.live.69c443b05e6a42ea';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
@@ -768,10 +770,22 @@ const RESULT_CARD_FONT_FAMILY = Platform.select({
 const QUESTION_ADVANCE_DELAY_MS = 1000;
 const QUESTION_SET_LOADING_MIN_MS = 2000;
 const REWARDED_AD_LOAD_TIMEOUT_MS = 15000;
+const FULL_SCREEN_AD_EVENT_TIMEOUT_MS = 8000;
+const DESTINATION_GENERAL_TAG_GROUPS = new Set([
+  'weather',
+  'landscape',
+  'activity',
+  'outdoor_stay',
+  'culture_style',
+  'season',
+  'photo',
+  'healing_energy',
+]);
 
 function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
   const rewardAdLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rewardAdShowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rewardAdLoadRequestedRef = useRef(false);
   const rewardAdLoadAttemptRef = useRef(0);
   const rewardAdLoadStartedAtRef = useRef<number | null>(null);
@@ -820,19 +834,21 @@ function Index() {
       rewardAdUnregisterRef.current?.();
       rewardAdUnregisterRef.current = null;
       clearRewardAdLoadTimer();
+      clearRewardAdShowTimer();
       clearQuestionAdvanceTimer();
     };
   }, []);
 
   useEffect(() => {
-    const shouldPreloadRewardAd = step === 'intro' || step === 'origin' || step === 'rewardGate';
+    const shouldPreloadRewardAd =
+      !hasRewardAccess && (step === 'intro' || step === 'origin' || step === 'rewardGate');
 
     if (!shouldPreloadRewardAd || rewardAdLoadRequestedRef.current || isRewardAdLoaded) {
       return;
     }
 
     loadRewardAd();
-  }, [isRewardAdLoaded, step]);
+  }, [hasRewardAccess, isRewardAdLoaded, step]);
 
   useEffect(() => {
     if (step !== 'rewardGate' || !hasRewardAccess) {
@@ -895,6 +911,15 @@ function Index() {
     rewardAdLoadTimeoutRef.current = null;
   }
 
+  function clearRewardAdShowTimer() {
+    if (rewardAdShowTimeoutRef.current == null) {
+      return;
+    }
+
+    clearTimeout(rewardAdShowTimeoutRef.current);
+    rewardAdShowTimeoutRef.current = null;
+  }
+
   function resetToIntro() {
     questionSetRequestIdRef.current += 1;
     clearQuestionAdvanceTimer();
@@ -918,6 +943,7 @@ function Index() {
 
   function resetRewardAdState() {
     clearRewardAdLoadTimer();
+    clearRewardAdShowTimer();
     rewardAdUnregisterRef.current?.();
     rewardAdUnregisterRef.current = null;
     rewardAdLoadRequestedRef.current = false;
@@ -1045,7 +1071,8 @@ function Index() {
     candidateSetPromiseRef.current = prepareWheregoCandidates({
       origin,
       answers: selectedAnswersRef.current,
-    }).catch(() => {
+    }).catch((error) => {
+      console.error('[wherego:candidates] preparation failed', error);
       candidateSetPromiseRef.current = null;
       return null;
     });
@@ -1079,6 +1106,7 @@ function Index() {
     }
 
     let didStartAnalysis = false;
+    let didFinishAd = false;
     let unregisterShowAd: (() => void) | null = null;
 
     const startAnalysisAfterAdShown = () => {
@@ -1087,9 +1115,26 @@ function Index() {
       }
 
       didStartAnalysis = true;
+      clearRewardAdShowTimer();
       setHasRewardAccess(true);
       startRecommendationAnalysis();
       setRewardAdMessage('광고 확인 완료. AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
+    };
+
+    const finishAdAndContinue = (message: string) => {
+      if (didFinishAd) {
+        return;
+      }
+
+      didFinishAd = true;
+      clearRewardAdShowTimer();
+      unregisterShowAd?.();
+      rewardAdUnregisterRef.current = null;
+      setIsRewardAdLoaded(false);
+      startAnalysisAfterAdShown();
+      setHasClosedFullScreenAd(true);
+      setRewardAdStatus('idle');
+      setRewardAdMessage(message);
     };
 
     startCandidatePreparation();
@@ -1097,6 +1142,12 @@ function Index() {
     setRewardAdMessage('광고를 여는 중이에요. 관광지 후보를 먼저 준비하고 있어요.');
     rewardAdUnregisterRef.current?.();
     rewardAdUnregisterRef.current = null;
+    clearRewardAdShowTimer();
+    rewardAdShowTimeoutRef.current = setTimeout(() => {
+      rewardAdShowTimeoutRef.current = null;
+      console.warn('[wherego:interstitial-ad] show event timed out');
+      finishAdAndContinue('광고 응답이 지연되어 AI 추천을 바로 진행하고 있어요.');
+    }, FULL_SCREEN_AD_EVENT_TIMEOUT_MS);
 
     try {
       unregisterShowAd = showFullScreenAd({
@@ -1122,34 +1173,27 @@ function Index() {
           }
 
           if (event.type === 'dismissed') {
-            unregisterShowAd?.();
-            setIsRewardAdLoaded(false);
-            startAnalysisAfterAdShown();
-            setHasClosedFullScreenAd(true);
-            setRewardAdStatus('idle');
+            finishAdAndContinue('광고 확인 완료. AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
             return;
           }
 
           if (event.type === 'failedToShow') {
-            unregisterShowAd?.();
-            setIsRewardAdLoaded(false);
-            setRewardAdStatus('error');
-            setRewardAdMessage('광고를 표시하지 못했어요. 다시 불러와 주세요.');
+            finishAdAndContinue('광고를 표시하지 못해 AI 추천을 바로 진행하고 있어요.');
           }
         },
         onError: (error) => {
           console.error('[wherego:interstitial-ad] show failed', error);
-          unregisterShowAd?.();
-          setIsRewardAdLoaded(false);
-          setRewardAdStatus('error');
-          setRewardAdMessage(`광고 표시 중 문제가 생겼어요. ${toErrorMessage(error)}`);
+          finishAdAndContinue(`광고 표시 중 문제가 생겨 AI 추천을 바로 진행하고 있어요. ${toErrorMessage(error)}`);
         },
       });
+      if (didFinishAd) {
+        unregisterShowAd?.();
+      } else {
+        rewardAdUnregisterRef.current = unregisterShowAd;
+      }
     } catch (error) {
       console.error('[wherego:interstitial-ad] show threw', error);
-      setIsRewardAdLoaded(false);
-      setRewardAdStatus('error');
-      setRewardAdMessage(`광고 표시 중 문제가 생겼어요. ${toErrorMessage(error)}`);
+      finishAdAndContinue(`광고 표시 중 문제가 생겨 AI 추천을 바로 진행하고 있어요. ${toErrorMessage(error)}`);
     }
   }
 
@@ -1382,7 +1426,7 @@ function Header({ counter }: { counter: string }) {
   return (
     <View style={styles.header}>
       <View style={styles.brand}>
-        <Image source={{ uri: LOGO_IMAGE_URL }} style={styles.logo} />
+        <Image source={LOGO_IMAGE} style={styles.logo} />
         <Text style={styles.brandName}>어디고</Text>
       </View>
       <Text style={styles.counter}>{counter}</Text>
@@ -2091,7 +2135,11 @@ function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
 
   const sourceCount = normalized.filter((question) => question.type === 'source').length;
   const generalCount = normalized.filter((question) => question.type === 'general').length;
-  return normalized.length === 8 && sourceCount === 3 && generalCount === GENERAL_QUESTION_COUNT ? normalized : [];
+  return normalized.length === SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT &&
+    sourceCount === SOURCE_QUESTION_COUNT &&
+    generalCount === GENERAL_QUESTION_COUNT
+    ? normalized
+    : [];
 }
 
 function buildSourceQuestions() {
@@ -2104,7 +2152,7 @@ function buildSourceQuestions() {
     })
     .filter((question): question is Question => question != null);
 
-  return questions.length === 3 ? questions : sourceQuestionPool;
+  return questions.length === SOURCE_QUESTION_COUNT ? questions : sourceQuestionPool;
 }
 
 function buildGeneralQuestions(sourceQuestions: Question[]) {
@@ -2145,6 +2193,23 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
     mutuallyExclusiveTagGroups,
   );
 
+  addGeneralQuestionGroup(
+    randomItem(
+      shuffle(
+        groups.filter(
+          (group) =>
+            DESTINATION_GENERAL_TAG_GROUPS.has(group.tagGroup) &&
+            !selectedTagGroups.has(group.tagGroup) &&
+            !blockedTagGroups.has(group.tagGroup),
+        ),
+      ),
+    ),
+    selectedGroups,
+    selectedTagGroups,
+    blockedTagGroups,
+    mutuallyExclusiveTagGroups,
+  );
+
   const remainingGroups = shuffle(
     groups.filter((group) => !selectedTagGroups.has(group.tagGroup) && !blockedTagGroups.has(group.tagGroup)),
   );
@@ -2164,7 +2229,11 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
   const questions = selectedGroups
     .slice(0, GENERAL_QUESTION_COUNT)
     .map((group) => {
-      const question = randomItem(group.questions);
+      const question = randomItem(
+        group.questions.filter((item) =>
+          hasDistinctBinaryOptions(item, runtimeSelection?.similarOptionGroups?.[group.tagGroup] || []),
+        ),
+      );
       return question == null ? null : toGeneralQuestion(group, question);
     })
     .filter((question): question is Question => question != null);
@@ -2172,6 +2241,14 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
   return questions.length === GENERAL_QUESTION_COUNT
     ? questions
     : buildFallbackGeneralQuestions(blockedTagGroups, mutuallyExclusiveTagGroups);
+}
+
+function hasDistinctBinaryOptions(question: GeneralQuestionItem, similarGroups: string[][]) {
+  if (question.options.length !== 2) {
+    return true;
+  }
+  const optionIds = question.options.map((option) => option.sourceId || '');
+  return !similarGroups.some((group) => optionIds.every((optionId) => group.includes(optionId)));
 }
 
 function buildFallbackGeneralQuestions(blockedTagGroups: Set<string>, mutuallyExclusiveTagGroups: string[][]) {

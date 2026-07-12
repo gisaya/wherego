@@ -200,7 +200,8 @@ WHEREGO_KTO_DATALAB_LOOKBACK_DAYS=14
 WHEREGO_KTO_DATALAB_ROWS=12000
 WHEREGO_KTO_DATALAB_FAILURE_CACHE_SECONDS=300
 WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=8
-WHEREGO_GEMINI_CANDIDATE_LIMIT=5
+WHEREGO_GEMINI_CANDIDATE_LIMIT=7
+WHEREGO_GEMINI_SCORE_WINDOW=24
 WHEREGO_KTO_CACHE_ENABLED=true
 WHEREGO_KTO_CACHE_MAX_ENTRIES=1024
 WHEREGO_KTO_SEARCH_CACHE_SECONDS=86400
@@ -218,9 +219,9 @@ Quota/runtime behavior:
 - Gemini final selection uses `thinkingLevel=minimal`, a compact JSON schema, 640 output tokens, and at most one retry. Check `source.model` and `source.timingsMs` before attributing total latency to Gemini.
 - The server builds the search plan from selected-answer metadata, not from a first Gemini planning call.
 - For `nationwide` scope, search calls omit `areaCode` so the call budget is spent across keywords.
-- `POST /api/wherego/candidates` evaluates all fetched KTO rows, filters invalid/expired results, clusters sub-facilities, caps the pool at 6 per intent, attaches DataLab crowd signals, then compresses to at most five and returns `aiUsed=false`.
+- `POST /api/wherego/candidates` evaluates all fetched KTO rows, filters invalid/expired results, clusters sub-facilities, caps the pool at 6 per intent, attaches DataLab crowd signals, then compresses to five through seven score-qualified, intent-diverse candidates and returns `aiUsed=false`.
 - `POST /api/wherego/recommend` accepts the prepared candidate set and reuses it so KTO search is not repeated. If no candidate set is supplied, it keeps the older all-in-one fallback path.
-- Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place only after reward completion.
+- Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place only after the full-screen ad starts showing; failed or omitted ad events use the bounded fallback path.
 - Only the final selected place gets KTO detail calls.
 - A single KTO search timeout is skipped if other search calls return candidates.
 - `detailImage2` is disabled by default; use search/detail common image fields first.
@@ -310,13 +311,13 @@ The mockup uses:
 
 - current-location or selected-region origin choice
 - custom direct-region button and taller region cards to avoid Korean text clipping
-- required 3 source questions plus random 5 general questions
+- required 3 source questions plus 4 general questions (`crowd`, mobility/accessibility, destination-specific, one additional group)
 - random general questions always include `crowd` and one of `mobility`/`accessibility`
 - two large cards for `select_2`, a 2x2 card grid for `select_4`
-- selected cards show a 1s loading state before the next question or reward gate
+- selected cards show a 1s loading state before the next question or full-screen-ad gate
 - fixed bottom banner ad during questions
-- rewarded-ad gate before the result card
-- recommendation loading appears after the rewarded-ad CTA, while the mock rewarded-ad flow is running
+- full-screen-ad gate before the result card
+- recommendation loading appears after the full-screen-ad CTA while candidate preparation and final AI selection run
 - result card with tourism info, PNG card-download button, Naver Map open button, and home reset. The mock save flow downloads PNG only and does not open share.
 - result screen hides the top `어디고 / 추천 완료` header
 - live app requests the question set from `POST /api/wherego/questions` after origin selection; bundled question-bank fallback is used if the server is unavailable

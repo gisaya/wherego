@@ -77,6 +77,67 @@ const FOUR_SET_PATTERNS = [
   [1, 5, 9, 11]
 ];
 
+const SIMILAR_OPTION_GROUPS = {
+  crowd: [
+    ['low_crowd', 'weekday', 'off_peak'],
+    ['controlled', 'quiet_reservation'],
+    ['spacious', 'popular_spacious']
+  ],
+  mobility: [
+    ['minimal_walk', 'drive_view'],
+    ['barrier_free', 'stroller', 'low_stairs'],
+    ['public_transport', 'short_transfer']
+  ],
+  weather: [
+    ['shade', 'heat_safe', 'canopy'],
+    ['indoor', 'fine_dust_safe']
+  ],
+  activity: [
+    ['experience', 'kids_experience', 'light_play'],
+    ['walk', 'exhibition_walk']
+  ],
+  time_mood: [
+    ['morning', 'early_start', 'sunrise'],
+    ['sunset', 'evening'],
+    ['half_day', 'last_minute']
+  ],
+  culture_style: [
+    ['vintage', 'industrial_heritage'],
+    ['street', 'art_village']
+  ],
+  food_link: [
+    ['cafe', 'cafe_street', 'bakery'],
+    ['destination_only', 'no_food_focus']
+  ],
+  accessibility: [
+    ['baby', 'nursing'],
+    ['safety', 'emergency_safe'],
+    ['low_stairs', 'indoor_rest']
+  ],
+  season: [
+    ['flower', 'spring_flower'],
+    ['autumn', 'autumn_grass'],
+    ['winter', 'winter_light'],
+    ['water_season', 'summer_water'],
+    ['evergreen', 'seasonless']
+  ],
+  photo: [
+    ['photo_required', 'shareable'],
+    ['nature_photo', 'flower_photo'],
+    ['private_hidden', 'rest_first']
+  ],
+  healing_energy: [
+    ['healing', 'comfort', 'meditative'],
+    ['novelty', 'light_stimulus'],
+    ['active_energy', 'kids_energy']
+  ],
+  route_style: [
+    ['single', 'slow'],
+    ['multi', 'packed'],
+    ['stopover', 'return_stop']
+  ]
+};
+
 const GROUPS = [
   {
     tagGroup: 'crowd',
@@ -384,14 +445,37 @@ function makeQuestion(group, type, index, optionIndexes, questionOverride = '') 
   };
 }
 
+function pairPatternsForGroup(group) {
+  const allPairs = [...TWO_PAIR_PATTERNS];
+  for (let left = 0; left < group.options.length; left += 1) {
+    for (let right = left + 1; right < group.options.length; right += 1) {
+      allPairs.push([left, right]);
+    }
+  }
+
+  const similarGroups = SIMILAR_OPTION_GROUPS[group.tagGroup] || [];
+  const seen = new Set();
+  return allPairs
+    .filter(([left, right]) => {
+      const key = `${Math.min(left, right)}:${Math.max(left, right)}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      const leftId = group.options[left].id;
+      const rightId = group.options[right].id;
+      return !similarGroups.some((ids) => ids.includes(leftId) && ids.includes(rightId));
+    })
+    .slice(0, TWO_PROMPTS.length);
+}
+
 function buildGroup(group) {
   if (group.tagGroup === 'outdoor_stay') {
     return buildOutdoorStayGroup(group);
   }
 
-  const twoQuestions = TWO_PROMPTS.map((_, index) =>
-    makeQuestion(group, 'select_2', index, TWO_PAIR_PATTERNS[index])
-  );
+  const pairPatterns = pairPatternsForGroup(group);
+  const twoQuestions = TWO_PROMPTS.map((_, index) => makeQuestion(group, 'select_2', index, pairPatterns[index]));
   const fourQuestions = FOUR_PROMPTS.map((_, index) =>
     makeQuestion(group, 'select_4', index, FOUR_SET_PATTERNS[index])
   );
@@ -469,7 +553,7 @@ const output = {
   philosophy:
     '어디고의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.',
   runtimeSelection: {
-    randomTagGroupCount: 5,
+    randomTagGroupCount: 4,
     questionsPerSelectedTagGroup: 1,
     requiredTagGroups: ['crowd'],
     oneOfTagGroups: ['mobility', 'accessibility'],
@@ -479,6 +563,7 @@ const output = {
       ['landscape', 'photo'],
       ['weather', 'season']
     ],
+    similarOptionGroups: SIMILAR_OPTION_GROUPS,
     excludedSourceQuestionIds: ['intent_mood_01'],
     sourceQuestionConflicts: {
       party_mobility_binary_01: ['mobility'],
@@ -489,8 +574,8 @@ const output = {
       intent_rest_active_binary_01: ['activity', 'healing_energy'],
       intent_activity_01: ['activity', 'healing_energy']
     },
-    remainingRandomTagGroupCount: 3,
-    rule: '일반질문 실행 시 crowd 1개와 mobility/accessibility 중 1개를 먼저 포함한다. 나머지 3개는 서로 다른 tagGroup에서 뽑되 상호배타 테마와 선택된 원천질문 주제는 함께 출제하지 않는다.'
+    remainingRandomTagGroupCount: 1,
+    rule: '일반질문 실행 시 crowd 1개, mobility/accessibility 중 1개, 목적지 유형을 직접 가르는 질문 1개를 포함한다. 나머지 1개는 다른 tagGroup에서 뽑되 상호배타 테마와 선택된 원천질문 주제는 함께 출제하지 않는다.'
   },
   minimums: {
     tagGroupCount: 10,
