@@ -19,7 +19,7 @@ Core flow:
 - Regional crowd signal direction: 한국관광공사 빅데이터 지역별 방문자수_GW API.
 - Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
 - TMAP congestion API is not part of the MVP because of cost.
-- AI direction: Gemini Flash-Lite runs on the Render backend as the final curator. The server builds the search plan from selected-answer metadata first, prepares KTO/DataLab candidates separately, compresses them to five or fewer, then asks Gemini to choose one place and write persona/result-card copy only after rewarded-ad completion. Do not put AI API keys in the client.
+- AI direction: Gemini Flash-Lite runs on the Render backend as the final curator. The server builds the search plan from selected-answer metadata first, prepares KTO/DataLab candidates separately, compresses them to five or fewer, then asks Gemini to choose one place and write persona/result-card copy only after the full-screen ad is shown. Do not put AI API keys in the client.
 - Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. The main app is wrapped in TDS and uses TDS `Text`/`Button`; selection and region cards use React Native `Pressable` with stable card sizing. Real-device visual QA is still required before submission.
 - Question flow: required 3 questions plus random 5 questions. Random questions must include `crowd` and one of `mobility`/`accessibility`, then fill the remaining three from different tag groups.
 - Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, 15 minutes of drive-time buffer, and 10km of distance buffer.
@@ -48,16 +48,16 @@ Current app flow in `pages/index.tsx`:
 - question flow: 3 required source questions plus 5 random general questions
 - question-card taps now show the selected card and a short 1s loading state before advancing
 - Apps in Toss inline banner ad during questions
-- rewarded ad gate before result using Apps in Toss integrated ads; public-data candidate preparation starts from the rewarded-ad CTA, while Gemini recommendation analysis starts only after `userEarnedReward`, not on the final question tap
+- full-screen interstitial gate before result using Apps in Toss integrated ads; free public-data candidate preparation starts immediately after the final answer, while Gemini recommendation analysis starts only after `show`/`impression` (with `dismissed` fallback)
 - result card with tourism info, Apps in Toss card-save action, Naver Map open button, and home reset
 - result screen intentionally hides the top `어디고 / 추천 완료` header so the card is easier to save/share
 
-Rewarded ad:
+Full-screen ad:
 
-- production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
+- production interstitial ad group ID: `ait.v2.live.69c443b05e6a42ea`
 - production banner ad group ID: `ait.v2.live.67b07bf813d74267`
-- `pages/index.tsx` loads the rewarded ad only after entering the reward gate, when question-screen banner ads have unmounted. The checked-in source uses only the live rewarded/banner IDs. A 15-second load timeout, retry state, synchronous error handling, and `[wherego:reward-ad]` lifecycle logs prevent an indefinite loading state. The CTA prepares free public-data candidates, `showFullScreenAd` displays the ad, and Gemini starts only on `userEarnedReward`.
-- After reward completion, `pages/index.tsx` shows a dedicated AI loading panel instead of leaving the user on an ad-looking gate. The panel shows `광고 시청 완료`, a spinner, and the steps `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택`.
+- `pages/index.tsx` preloads the interstitial ad from the intro screen, before question banners mount, and preserves that loaded ad through origin/question transitions. The ad gate retries only when the earlier preload failed or timed out. The checked-in source uses only the live interstitial/banner IDs. A 15-second load timeout, retry state, synchronous error handling, and `[wherego:interstitial-ad]` lifecycle logs with `attempt`/`elapsedMs` prevent an indefinite loading state and expose real SDK latency. The CTA prepares free public-data candidates, `showFullScreenAd` displays the ad, and Gemini starts once on `show`/`impression`, with `dismissed` as a fallback.
+- Gemini starts behind the full-screen ad on `show`/`impression`, so KTO candidate completion and AI generation overlap the ad display time. After `dismissed`, `pages/index.tsx` shows a dedicated AI loading panel if the result is still pending. The panel shows `광고 확인 완료`, a spinner, and the steps `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택`.
 - `pages/index.tsx` renders the question-screen banner with `InlineAd`.
 - Non-Toss/local unsupported environments fall back to a development preview result path.
 
@@ -178,7 +178,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 - `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
 - `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+5 question generation, banner-ad position, rewarded-ad gate, Naver Map link, and result card with tourism info.
 - Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, direct-region text no longer clips, origin selection shows a question-set loading screen, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, option numbers are fixed circular badges, long option text is constrained to two lines, option captions are one-line first-segment labels without middle-dot separators, the question subcopy line is hidden, selected cards show a 1s loading state before advancing, the reward gate hides top header/progress, recommendation analysis starts only after the rewarded-ad CTA, recommendation failure stays on the retry gate instead of opening a demo result, and the final result hides the top header.
-- Banner ad behavior: the banner is visible from the question-set loading screen. The loading screen stays visible for at least 2 seconds. `InlineAd` is keyed by `question-set-loading` or `question-${questionIndex}` so it remounts once for loading and once per question screen, not on option press. Rewarded-ad loading starts only after the banner has unmounted at the reward gate; Gemini remains delayed until rewarded completion.
+- Banner ad behavior: the banner is visible from the question-set loading screen. The loading screen stays visible for at least 2 seconds. `InlineAd` is keyed by `question-set-loading`, `question-${questionIndex}`, `ai-recommendation-loading`, or `result`. It remounts per meaningful screen, not on option press. Analysis/result banners mount only after the full-screen ad fires `dismissed`, so a hidden banner is not loaded behind the interstitial. Interstitial preloading starts on the banner-free intro screen and is not reset when the question flow starts.
 
 Latest known Render smoke result with the Seoul City Hall test origin:
 
@@ -214,21 +214,22 @@ Wherego now reuses the existing `뭐샀지`/`jbg` Render FastAPI service instead
 - server route file: `apps/server/backend/app/interfaces/http/routes/wherego.py`
 - client API wrapper: `src/api/wheregoApi.ts`
 
-`/api/wherego/questions` generates the runtime 8-question set from server-side resources: 3 source-axis questions and 5 general questions, with `crowd` required and one of `mobility`/`accessibility` included. `/api/wherego/candidates` accepts origin plus selected answers, builds a metadata-based search plan from option tags/search hints/constraints, calls KTO KorService2 for tourist places, compresses candidates to at most five, attaches DataLab regional visitor counts, and returns `aiUsed=false`. `/api/wherego/recommend` accepts the prepared candidate set and asks Gemini to choose the final single place from those candidates; if no candidate set is supplied, it keeps the older all-in-one fallback path. If the recommendation server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
+`/api/wherego/questions` generates the runtime 8-question set from server-side resources: 3 source-axis questions and 5 general questions, with `crowd` required, one of `mobility`/`accessibility`, and at least one destination-specific general question. `/api/wherego/candidates` converts option metadata into three KTO search intents with content/classification filters, evaluates up to 50 rows per intent, removes invalid/expired rows, clusters sub-facilities of the same destination, and keeps up to 6 per intent (18 total). It attaches DataLab regional visitor signals before scoring for low-crowd/hot-place preference, then compresses to at most five and returns `aiUsed=false`. `/api/wherego/recommend` accepts the prepared candidate set and asks Gemini to choose the final single place from those candidates; if no candidate set is supplied, it keeps the older all-in-one fallback path. If the recommendation server call fails in the client, `pages/index.tsx` keeps the user on the reward gate and shows `추천 다시 시도`.
 
 Gemini result-card copy is constrained server-side: persona title, persona summary, one-line recommendation, AI reason, and `whyThisPlace` factors must be short natural Korean suitable for the saved 1080x1350 result card. The server also clamps these fields during normalization.
 
 Quota/runtime guardrails:
 
-- `WHEREGO_KTO_SEARCH_MAX_CALLS=6` caps KorService2 search calls per recommendation request.
+- `WHEREGO_KTO_SEARCH_MAX_CALLS=4` hard-caps KorService2 search calls per recommendation request. Search uses destination-intent hints first, requests 8 rows per call, runs two calls concurrently, and stops once 8 valid candidates are collected. Final common/intro detail calls also run concurrently.
 - `WHEREGO_GEMINI_CANDIDATE_LIMIT=5` caps the candidate list sent to Gemini; the server hard-caps it at five even if the env is higher.
+- `WHEREGO_KTO_PER_INTENT_CANDIDATES=6` caps the post-search, post-clustering pool per intent while still evaluating all fetched rows before that cap.
 - `/api/wherego/candidates` does not call Gemini and does not fetch final detail/intro data.
 - `/api/wherego/recommend` reuses a supplied candidate set instead of repeating KTO search.
 - Only the final selected place gets KTO detail calls.
 - For `nationwide` scope, KorService2 search omits `areaCode` so the limited call budget is spent across keywords instead of being exhausted by area-code loops.
 - Single KTO search timeouts/errors are skipped when other calls return candidates; the request only fails if every search call fails or no fallback candidate can be built.
 - `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false` skips the extra `detailImage2` call unless explicitly enabled.
-- The server keeps an in-memory KTO response cache: search 6h, detail 7d, DataLab 24h by default.
+- The server keeps an in-memory KTO response cache: search 24h, detail 7d, DataLab 24h by default.
 - `src/api/wheregoApi.ts` times out recommendation requests after 45s. This keeps the wait bounded; timeout errors now lead to reward-gate retry instead of local fallback result display.
 
 Required Render env additions:
@@ -238,11 +239,25 @@ Required Render env additions:
 - `KTO_DATALAB_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/DataLabService`
 - `GEMINI_API_KEY` already used by jbg
 - `GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`
-- `WHEREGO_KTO_SEARCH_MAX_CALLS=6`
+- `GEMINI_WHEREGO_TIMEOUT_SECONDS=15`
+- `GEMINI_WHEREGO_MAX_OUTPUT_TOKENS=640`
+- `GEMINI_WHEREGO_HTTP_RETRIES=1`
+- `WHEREGO_KTO_SEARCH_MAX_CALLS=4`
+- `WHEREGO_KTO_SEARCH_ROWS=50`
+- `WHEREGO_KTO_SEARCH_PARALLELISM=3`
+- `WHEREGO_KTO_PER_INTENT_CANDIDATES=6`
+- `WHEREGO_KTO_SEARCH_TIMEOUT_SECONDS=7`
+- `WHEREGO_KTO_DATALAB_TIMEOUT_SECONDS=7`
+- `WHEREGO_KTO_DATALAB_WINDOWS=2`
+- `WHEREGO_KTO_DATALAB_LAG_DAYS=30`
+- `WHEREGO_KTO_DATALAB_LOOKBACK_DAYS=14`
+- `WHEREGO_KTO_DATALAB_ROWS=12000`
+- `WHEREGO_KTO_DATALAB_FAILURE_CACHE_SECONDS=300`
+- `WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=8`
 - `WHEREGO_GEMINI_CANDIDATE_LIMIT=5`
 - `WHEREGO_KTO_CACHE_ENABLED=true`
-- `WHEREGO_KTO_CACHE_MAX_ENTRIES=512`
-- `WHEREGO_KTO_SEARCH_CACHE_SECONDS=21600`
+- `WHEREGO_KTO_CACHE_MAX_ENTRIES=1024`
+- `WHEREGO_KTO_SEARCH_CACHE_SECONDS=86400`
 - `WHEREGO_KTO_DETAIL_CACHE_SECONDS=604800`
 - `WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400`
 - `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false`
@@ -257,8 +272,8 @@ Required Render env additions:
 
 ## Next Recommended Steps
 
-1. Reconnect the Android device and verify `[wherego:reward-ad] load requested -> loaded -> show event` in logcat using the Apps in Toss dev server.
-2. Test the complete SDK/device flow: server-generated questions, banner ads, reward completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
+1. Reconnect the Android device and verify `[wherego:interstitial-ad] load requested -> loaded -> show/impression -> dismissed` in logcat using the Apps in Toss dev server.
+2. Test the complete SDK/device flow: server-generated questions, banner ads, interstitial completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
 3. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
 4. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
 5. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.

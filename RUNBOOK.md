@@ -116,7 +116,7 @@ Submission-sensitive config:
 - Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
 - The direct-region button is a custom `Pressable` rather than a TDS button so Korean text does not clip in the Toss surface.
 - Question-card selection shows the selected card and a 1s loading state before advancing.
-- Public-data candidate preparation starts when the user taps the rewarded-ad CTA. Gemini recommendation analysis starts only after the rewarded ad fires `userEarnedReward`. The final question tap should not call either recommendation endpoint.
+- Free public-data candidate preparation starts immediately after the final answer so it overlaps the transition/ad gate. Gemini recommendation analysis starts only after the interstitial fires `show` or `impression`, with `dismissed` as a one-time fallback.
 - Recommendation errors stay on the reward gate and show `추천 다시 시도`; do not open local demo results after API failure.
 - The final result screen hides the top app header. This is intentional so the result card and actions are the focus.
 - `카드 저장하기` uses `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data` to save a generated PNG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions show a save-not-supported message.
@@ -126,14 +126,15 @@ Submission-sensitive config:
 Rewarded ad:
 
 ```text
-production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
+production interstitial ad group ID: ait.v2.live.69c443b05e6a42ea
 production banner ad group ID: ait.v2.live.67b07bf813d74267
 ```
 
-`pages/index.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts after entering the reward gate, once the question banner has unmounted; `showFullScreenAd` runs on the reward CTA, and `userEarnedReward` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
-- The rewarded-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `userEarnedReward`.
-- Reward loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:reward-ad]` prefix. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
-- After reward completion, the app shows a dedicated AI loading panel with spinner and staged text until Gemini returns. It should not look like the user is still waiting on the ad screen.
+`pages/index.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts on the banner-free intro screen and the loaded ad is preserved across origin/question transitions; the ad gate loads again only if the earlier request failed or timed out. `showFullScreenAd` runs on the ad CTA, and `show`/`impression` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
+- The full-screen-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `show`/`impression`; `dismissed` is a fallback if the native display event was omitted.
+- Interstitial loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:interstitial-ad]` prefix and include `attempt` and `elapsedMs`. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
+- Gemini starts on the interstitial `show`/`impression` event while the full-screen ad is visible. After `dismissed`, the app shows a dedicated AI loading panel with spinner and staged text only while Gemini is still pending.
+- The AI loading screen and result screen each render their own bottom `InlineAd`. These banners mount only after the full-screen ad is dismissed and use separate keys so the two screens do not share a stale banner instance.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
 
@@ -185,11 +186,24 @@ KTO_KOR_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/KorService2
 KTO_DATALAB_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/DataLabService
 GEMINI_API_KEY=<existing-jbg-gemini-key>
 GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite
-WHEREGO_KTO_SEARCH_MAX_CALLS=6
+GEMINI_WHEREGO_TIMEOUT_SECONDS=15
+GEMINI_WHEREGO_MAX_OUTPUT_TOKENS=640
+GEMINI_WHEREGO_HTTP_RETRIES=1
+WHEREGO_KTO_SEARCH_MAX_CALLS=4
+WHEREGO_KTO_SEARCH_ROWS=50
+WHEREGO_KTO_SEARCH_PARALLELISM=3
+WHEREGO_KTO_SEARCH_TIMEOUT_SECONDS=7
+WHEREGO_KTO_DATALAB_TIMEOUT_SECONDS=7
+WHEREGO_KTO_DATALAB_WINDOWS=2
+WHEREGO_KTO_DATALAB_LAG_DAYS=30
+WHEREGO_KTO_DATALAB_LOOKBACK_DAYS=14
+WHEREGO_KTO_DATALAB_ROWS=12000
+WHEREGO_KTO_DATALAB_FAILURE_CACHE_SECONDS=300
+WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=8
 WHEREGO_GEMINI_CANDIDATE_LIMIT=5
 WHEREGO_KTO_CACHE_ENABLED=true
-WHEREGO_KTO_CACHE_MAX_ENTRIES=512
-WHEREGO_KTO_SEARCH_CACHE_SECONDS=21600
+WHEREGO_KTO_CACHE_MAX_ENTRIES=1024
+WHEREGO_KTO_SEARCH_CACHE_SECONDS=86400
 WHEREGO_KTO_DETAIL_CACHE_SECONDS=604800
 WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400
 WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false
@@ -198,15 +212,19 @@ WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false
 Quota/runtime behavior:
 
 - Search is capped by `WHEREGO_KTO_SEARCH_MAX_CALLS` per request.
+- The backend maps answers to three canonical destination intents, legal-district region codes, and intent-specific KTO content types. All three searches run concurrently with up to 50 rows each; a fourth call is used only when fewer than five candidates survive filtering. Final common/intro detail calls also run concurrently.
+- KTO images are composited into saved cards only when `cpyrhtDivCd` allows modification (`Type1`), and the card displays the Korea Tourism Organization attribution.
+- DataLab checks one 14-day window about 30 days behind today and checks one earlier window only when the first is empty. Empty/error results are cached briefly so a DataLab outage does not repeat the same scan for every candidate.
+- Gemini final selection uses `thinkingLevel=minimal`, a compact JSON schema, 640 output tokens, and at most one retry. Check `source.model` and `source.timingsMs` before attributing total latency to Gemini.
 - The server builds the search plan from selected-answer metadata, not from a first Gemini planning call.
 - For `nationwide` scope, search calls omit `areaCode` so the call budget is spent across keywords.
-- `POST /api/wherego/candidates` searches KTO, compresses candidates to at most five, attaches DataLab crowd signals, and returns `aiUsed=false`.
+- `POST /api/wherego/candidates` evaluates all fetched KTO rows, filters invalid/expired results, clusters sub-facilities, caps the pool at 6 per intent, attaches DataLab crowd signals, then compresses to at most five and returns `aiUsed=false`.
 - `POST /api/wherego/recommend` accepts the prepared candidate set and reuses it so KTO search is not repeated. If no candidate set is supplied, it keeps the older all-in-one fallback path.
 - Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place only after reward completion.
 - Only the final selected place gets KTO detail calls.
 - A single KTO search timeout is skipped if other search calls return candidates.
 - `detailImage2` is disabled by default; use search/detail common image fields first.
-- KTO search responses are cached in server memory for 6 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.
+- KTO search responses are cached in server memory for 24 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.
 - The Apps in Toss client waits up to 45 seconds for the recommendation API. Timeout or API errors keep the user on the reward gate with `추천 다시 시도`; local demo data should not appear as the normal result after failure.
 
 Server route smoke checks:

@@ -184,6 +184,7 @@ type DemoResult = {
   whyThisPlace?: string[];
   overview?: string;
   imageUrl?: string;
+  imageAttribution?: string;
   mapLink?: string;
   isFallback?: boolean;
 };
@@ -755,7 +756,7 @@ const demoResultsByRegion: Record<string, DemoResult> = {
 };
 
 const GENERAL_QUESTION_COUNT = 5;
-const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
+const FULL_SCREEN_AD_GROUP_ID = 'ait.v2.live.69c443b05e6a42ea';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
@@ -771,7 +772,9 @@ const REWARDED_AD_LOAD_TIMEOUT_MS = 15000;
 function Index() {
   const rewardAdUnregisterRef = useRef<(() => void) | null>(null);
   const rewardAdLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rewardGateLoadRequestedRef = useRef(false);
+  const rewardAdLoadRequestedRef = useRef(false);
+  const rewardAdLoadAttemptRef = useRef(0);
+  const rewardAdLoadStartedAtRef = useRef<number | null>(null);
   const resultCardSvgRef = useRef<Svg | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionSetRequestIdRef = useRef(0);
@@ -791,14 +794,26 @@ function Index() {
   const [rewardAdStatus, setRewardAdStatus] = useState<RewardAdStatus>('idle');
   const [rewardAdMessage, setRewardAdMessage] = useState('');
   const [hasRewardAccess, setHasRewardAccess] = useState(false);
+  const [hasClosedFullScreenAd, setHasClosedFullScreenAd] = useState(false);
   const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
   const currentQuestion = questionSet[questionIndex];
   const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
   const result = getResult(origin, recommendation);
-  const shouldShowBannerAd = step === 'question' || (step === 'origin' && isQuestionSetLoading);
-  const bannerAdKey = step === 'question' ? `question-${questionIndex}` : 'question-set-loading';
+  const shouldShowBannerAd =
+    step === 'question' ||
+    (step === 'origin' && isQuestionSetLoading) ||
+    (step === 'rewardGate' && hasRewardAccess && hasClosedFullScreenAd) ||
+    (step === 'result' && hasClosedFullScreenAd);
+  const bannerAdKey =
+    step === 'question'
+      ? `question-${questionIndex}`
+      : step === 'rewardGate'
+        ? 'ai-recommendation-loading'
+        : step === 'result'
+          ? 'result'
+          : 'question-set-loading';
 
   useEffect(() => {
     return () => {
@@ -810,13 +825,14 @@ function Index() {
   }, []);
 
   useEffect(() => {
-    if (step !== 'rewardGate' || rewardGateLoadRequestedRef.current) {
+    const shouldPreloadRewardAd = step === 'intro' || step === 'origin' || step === 'rewardGate';
+
+    if (!shouldPreloadRewardAd || rewardAdLoadRequestedRef.current || isRewardAdLoaded) {
       return;
     }
 
-    rewardGateLoadRequestedRef.current = true;
     loadRewardAd();
-  }, [step]);
+  }, [isRewardAdLoaded, step]);
 
   useEffect(() => {
     if (step !== 'rewardGate' || !hasRewardAccess) {
@@ -904,37 +920,55 @@ function Index() {
     clearRewardAdLoadTimer();
     rewardAdUnregisterRef.current?.();
     rewardAdUnregisterRef.current = null;
-    rewardGateLoadRequestedRef.current = false;
+    rewardAdLoadRequestedRef.current = false;
+    rewardAdLoadAttemptRef.current = 0;
+    rewardAdLoadStartedAtRef.current = null;
     setIsRewardAdLoaded(false);
     setRewardAdStatus('idle');
     setRewardAdMessage('');
     setHasRewardAccess(false);
+    setHasClosedFullScreenAd(false);
   }
 
   function loadRewardAd() {
     const supportsRewardAd = loadFullScreenAd.isSupported() && showFullScreenAd.isSupported();
+    const loadAttempt = rewardAdLoadAttemptRef.current + 1;
 
     clearRewardAdLoadTimer();
     rewardAdUnregisterRef.current?.();
     rewardAdUnregisterRef.current = null;
+    rewardAdLoadRequestedRef.current = true;
+    rewardAdLoadAttemptRef.current = loadAttempt;
+    rewardAdLoadStartedAtRef.current = Date.now();
     setIsRewardAdLoaded(false);
 
     if (!supportsRewardAd) {
-      console.warn('[wherego:reward-ad] unsupported');
+      console.warn('[wherego:interstitial-ad] unsupported');
+      rewardAdLoadRequestedRef.current = false;
+      rewardAdLoadStartedAtRef.current = null;
       setRewardAdStatus('unsupported');
-      setRewardAdMessage('브라우저나 샌드박스는 리워드 광고를 지원하지 않아요. 콘솔 QR의 토스 앱 테스트에서 광고를 확인해주세요.');
+      setRewardAdMessage('브라우저나 샌드박스는 전면 광고를 지원하지 않아요. 콘솔 QR의 토스 앱 테스트에서 광고를 확인해주세요.');
       return;
     }
 
     setRewardAdStatus('loading');
-    setRewardAdMessage('리워드 광고를 준비하고 있어요.');
-    console.info('[wherego:reward-ad] load requested');
+    setRewardAdMessage('전면 광고를 준비하고 있어요.');
+    console.info('[wherego:interstitial-ad] load requested', { attempt: loadAttempt, step });
 
     rewardAdLoadTimeoutRef.current = setTimeout(() => {
-      console.warn('[wherego:reward-ad] load timed out');
+      if (rewardAdLoadAttemptRef.current !== loadAttempt) {
+        return;
+      }
+
+      console.warn('[wherego:interstitial-ad] load timed out', {
+        attempt: loadAttempt,
+        elapsedMs: rewardAdLoadElapsedMs(rewardAdLoadStartedAtRef.current),
+      });
       rewardAdLoadTimeoutRef.current = null;
       rewardAdUnregisterRef.current?.();
       rewardAdUnregisterRef.current = null;
+      rewardAdLoadRequestedRef.current = false;
+      rewardAdLoadStartedAtRef.current = null;
       setIsRewardAdLoaded(false);
       setRewardAdStatus('error');
       setRewardAdMessage('광고 준비 시간이 길어지고 있어요. 다시 불러와 주세요.');
@@ -943,28 +977,48 @@ function Index() {
     try {
       rewardAdUnregisterRef.current = loadFullScreenAd({
         options: {
-          adGroupId: REWARDED_AD_GROUP_ID,
+          adGroupId: FULL_SCREEN_AD_GROUP_ID,
         },
         onEvent: (event) => {
-          if (event.type === 'loaded') {
-            console.info('[wherego:reward-ad] loaded');
+          if (event.type === 'loaded' && rewardAdLoadAttemptRef.current === loadAttempt) {
+            console.info('[wherego:interstitial-ad] loaded', {
+              attempt: loadAttempt,
+              elapsedMs: rewardAdLoadElapsedMs(rewardAdLoadStartedAtRef.current),
+            });
             clearRewardAdLoadTimer();
+            rewardAdLoadStartedAtRef.current = null;
             setIsRewardAdLoaded(true);
             setRewardAdStatus('ready');
             setRewardAdMessage('');
           }
         },
         onError: (error) => {
-          console.error('[wherego:reward-ad] load failed', error);
+          if (rewardAdLoadAttemptRef.current !== loadAttempt) {
+            return;
+          }
+
+          console.error('[wherego:interstitial-ad] load failed', {
+            attempt: loadAttempt,
+            elapsedMs: rewardAdLoadElapsedMs(rewardAdLoadStartedAtRef.current),
+            error,
+          });
           clearRewardAdLoadTimer();
+          rewardAdLoadRequestedRef.current = false;
+          rewardAdLoadStartedAtRef.current = null;
           setIsRewardAdLoaded(false);
           setRewardAdStatus('error');
           setRewardAdMessage(`광고를 불러오지 못했어요. ${toErrorMessage(error)}`);
         },
       });
     } catch (error) {
-      console.error('[wherego:reward-ad] load threw', error);
+      console.error('[wherego:interstitial-ad] load threw', {
+        attempt: loadAttempt,
+        elapsedMs: rewardAdLoadElapsedMs(rewardAdLoadStartedAtRef.current),
+        error,
+      });
       clearRewardAdLoadTimer();
+      rewardAdLoadRequestedRef.current = false;
+      rewardAdLoadStartedAtRef.current = null;
       setIsRewardAdLoaded(false);
       setRewardAdStatus('error');
       setRewardAdMessage(`광고를 불러오지 못했어요. ${toErrorMessage(error)}`);
@@ -1013,6 +1067,7 @@ function Index() {
       startCandidatePreparation();
       startRecommendationAnalysis();
       setHasRewardAccess(true);
+      setHasClosedFullScreenAd(true);
       setRewardAdMessage('AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
       return;
     }
@@ -1023,8 +1078,19 @@ function Index() {
       return;
     }
 
-    let didEarnReward = false;
+    let didStartAnalysis = false;
     let unregisterShowAd: (() => void) | null = null;
+
+    const startAnalysisAfterAdShown = () => {
+      if (didStartAnalysis) {
+        return;
+      }
+
+      didStartAnalysis = true;
+      setHasRewardAccess(true);
+      startRecommendationAnalysis();
+      setRewardAdMessage('광고 확인 완료. AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
+    };
 
     startCandidatePreparation();
     setRewardAdStatus('showing');
@@ -1035,10 +1101,10 @@ function Index() {
     try {
       unregisterShowAd = showFullScreenAd({
         options: {
-          adGroupId: REWARDED_AD_GROUP_ID,
+          adGroupId: FULL_SCREEN_AD_GROUP_ID,
         },
         onEvent: (event) => {
-          console.info('[wherego:reward-ad] show event', { type: event.type });
+          console.info('[wherego:interstitial-ad] show event', { type: event.type });
 
           if (event.type === 'requested') {
             setRewardAdMessage('광고 요청이 완료됐어요.');
@@ -1046,28 +1112,21 @@ function Index() {
           }
 
           if (event.type === 'show') {
-            setRewardAdMessage('광고 시청이 끝나면 AI가 최종 장소를 고를게요.');
+            startAnalysisAfterAdShown();
             return;
           }
 
-          if (event.type === 'userEarnedReward') {
-            didEarnReward = true;
-            setHasRewardAccess(true);
-            startRecommendationAnalysis();
-            setRewardAdMessage('광고 시청 완료. AI가 관광정보와 방문자수 데이터를 비교하고 있어요.');
+          if (event.type === 'impression') {
+            startAnalysisAfterAdShown();
             return;
           }
 
           if (event.type === 'dismissed') {
             unregisterShowAd?.();
             setIsRewardAdLoaded(false);
-
-            if (!didEarnReward) {
-              loadRewardAd();
-              setRewardAdMessage('광고 시청을 완료하면 결과를 볼 수 있어요.');
-            } else {
-              setRewardAdStatus('idle');
-            }
+            startAnalysisAfterAdShown();
+            setHasClosedFullScreenAd(true);
+            setRewardAdStatus('idle');
             return;
           }
 
@@ -1079,7 +1138,7 @@ function Index() {
           }
         },
         onError: (error) => {
-          console.error('[wherego:reward-ad] show failed', error);
+          console.error('[wherego:interstitial-ad] show failed', error);
           unregisterShowAd?.();
           setIsRewardAdLoaded(false);
           setRewardAdStatus('error');
@@ -1087,7 +1146,7 @@ function Index() {
         },
       });
     } catch (error) {
-      console.error('[wherego:reward-ad] show threw', error);
+      console.error('[wherego:interstitial-ad] show threw', error);
       setIsRewardAdLoaded(false);
       setRewardAdStatus('error');
       setRewardAdMessage(`광고 표시 중 문제가 생겼어요. ${toErrorMessage(error)}`);
@@ -1109,7 +1168,6 @@ function Index() {
     setWaitingForLocation(false);
     setLocationStatus('질문 세트를 준비하고 있어요.');
     candidateSetPromiseRef.current = null;
-    resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
@@ -1178,6 +1236,7 @@ function Index() {
       return;
     }
 
+    startCandidatePreparation();
     questionAdvanceTimeoutRef.current = setTimeout(() => {
       questionAdvanceTimeoutRef.current = null;
       setSelectedOptionLabel(null);
@@ -1280,7 +1339,6 @@ function Index() {
             {step === 'result' ? (
               <>
                 <ResultScreen
-                  answerCount={selectedAnswers.length}
                   message={resultMessage}
                   result={result}
                   onHome={resetToIntro}
@@ -1289,7 +1347,6 @@ function Index() {
                 />
                 <ResultCardPngSource
                   ref={resultCardSvgRef}
-                  answerCount={selectedAnswers.length}
                   result={result}
                 />
               </>
@@ -1633,12 +1690,12 @@ function RewardGate({
   const copy = isRecommendationError
     ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
     : isRecommendationDone
-    ? '광고 시청을 완료하면 추천 카드와 지도 연결을 바로 열어드릴게요.'
+    ? '광고가 끝나면 추천 카드와 지도 연결을 바로 열어드릴게요.'
     : isAdLoading
       ? '광고를 불러오는 동안에도 버튼은 유지됩니다. 준비가 끝나면 바로 시청할 수 있어요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
-      : '광고 시청을 완료하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
+      : '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
 
   return (
     <View style={styles.centerScreen}>
@@ -1651,7 +1708,7 @@ function RewardGate({
             <ActivityIndicator color="#2B84FC" size="small" />
             <Text style={styles.loadingText}>
               {isAdLoading
-                ? '리워드 광고를 준비하고 있어요.'
+                ? '전면 광고를 준비하고 있어요.'
                 : 'AI가 관광정보와 방문자수 데이터를 비교하고 있어요.'}
             </Text>
           </View>
@@ -1677,7 +1734,7 @@ function AiRecommendationLoading({ done, message }: { done: boolean; message: st
   return (
     <View style={styles.centerScreen}>
       <View style={styles.aiLoadingPanel}>
-        <Pill label="광고 시청 완료" />
+        <Pill label="광고 확인 완료" />
         <View style={styles.aiLoadingIcon}>
           <ActivityIndicator color="#2B84FC" size="large" />
         </View>
@@ -1704,14 +1761,12 @@ function AiRecommendationLoading({ done, message }: { done: boolean; message: st
 }
 
 function ResultScreen({
-  answerCount,
   message,
   onHome,
   onMap,
   onSave,
   result,
 }: {
-  answerCount: number;
   message: string;
   onHome: () => void;
   onMap: () => void;
@@ -1725,7 +1780,14 @@ function ResultScreen({
       <View style={styles.resultCard}>
         <View style={styles.resultArt}>
           {result.imageUrl ? (
-            <Image source={{ uri: result.imageUrl }} style={styles.resultImage} />
+            <>
+              <Image source={{ uri: result.imageUrl }} style={styles.resultImage} />
+              {result.imageAttribution ? (
+                <View style={styles.imageAttributionBadge}>
+                  <Text style={styles.imageAttributionText}>사진 · {result.imageAttribution}</Text>
+                </View>
+              ) : null}
+            </>
           ) : (
             <>
               <View style={styles.sun} />
@@ -1742,7 +1804,6 @@ function ResultScreen({
             <Text style={styles.locationSummaryLabel}>위치</Text>
             <Text style={styles.locationSummaryText}>{locationText}</Text>
           </View>
-          <Text style={styles.sourceNote}>{resultSourceNote(result, answerCount)}</Text>
           <View style={styles.resultActions}>
             <SecondaryButton grow label="카드 저장하기" onPress={onSave} />
             <SecondaryButton grow label="지도 열기" onPress={onMap} />
@@ -1758,7 +1819,6 @@ function ResultScreen({
 const ResultCardPngSource = React.forwardRef<
   Svg,
   {
-    answerCount: number;
     result: DemoResult;
   }
 >(function ResultCardPngSource({ result }, ref) {
@@ -1824,6 +1884,22 @@ const ResultCardPngSource = React.forwardRef<
             </>
           )}
         </G>
+        {hasHeroImage && result.imageAttribution ? (
+          <>
+            <Rect fill="#000000" height={34} opacity={0.56} rx={12} width={220} x={716} y={474} />
+            <SvgText
+              fill="#FFFFFF"
+              fontFamily={RESULT_CARD_FONT_FAMILY}
+              fontSize={18}
+              fontWeight="700"
+              textAnchor="end"
+              x={918}
+              y={497}
+            >
+              사진 · {result.imageAttribution}
+            </SvgText>
+          </>
+        ) : null}
         <SvgText fill={heroTitleColor} fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={34} fontWeight="800" x={contentX} y={150}>
           어디고 추천 카드
         </SvgText>
@@ -1882,7 +1958,7 @@ function SvgTextBlock({
 
 function AiDecision({ result }: { result: DemoResult }) {
   const highlights = result.whyThisPlace?.length ? result.whyThisPlace : result.aiFactors;
-  if (!result.personaSummary && !highlights?.length && !result.aiTradeoff && !result.aiCrowdNote) {
+  if (!result.personaSummary && !highlights?.length) {
     return null;
   }
 
@@ -1897,8 +1973,6 @@ function AiDecision({ result }: { result: DemoResult }) {
           ))}
         </View>
       ) : null}
-      {result.aiTradeoff ? <Text style={styles.aiDecisionSubText}>{result.aiTradeoff}</Text> : null}
-      {result.aiCrowdNote ? <Text style={styles.aiDecisionSubText}>{result.aiCrowdNote}</Text> : null}
     </View>
   );
 }
@@ -2378,6 +2452,7 @@ function resultFromRecommendation(
     whyThisPlace: place.whyThisPlace,
     overview: place.overview,
     imageUrl: place.imageUrl,
+    imageAttribution: place.imageAttribution,
     isFallback: false,
     mapLink: place.mapLink,
   };
@@ -2429,14 +2504,6 @@ function rewardGateMessage(adMessage: string, status: RecommendationStatus) {
           : '';
 
   return [recommendationMessage, adMessage].filter(Boolean).join('\n');
-}
-
-function resultSourceNote(result: DemoResult, answerCount: number) {
-  if (result.isFallback) {
-    return '서버 추천이 지연되어 임시 추천을 보여주고 있어요. 다시 시도하면 AI가 관광정보와 방문자수 데이터를 비교해 추천합니다.';
-  }
-
-  return `AI가 한국관광공사 관광정보 후보와 지역별 방문자수 데이터를 함께 비교했어요. ${answerCount}개 답변 기준 추천입니다.`;
 }
 
 function resultLocationText(result: DemoResult) {
@@ -2602,6 +2669,10 @@ function rewardButtonLabel(status: RewardAdStatus, isRecommendationLoading = fal
   if (status === 'unsupported') return isRecommendationLoading ? '추천 마무리 중' : '미리보기로 결과 보기';
   if (status === 'error') return '광고 다시 불러오기';
   return isRecommendationLoading ? '광고 보기' : '광고 보고 결과 보기';
+}
+
+function rewardAdLoadElapsedMs(startedAt: number | null) {
+  return startedAt == null ? null : Date.now() - startedAt;
 }
 
 function toErrorMessage(error: unknown) {
@@ -3163,6 +3234,21 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
     width: '100%',
   },
+  imageAttributionBadge: {
+    backgroundColor: 'rgba(0, 0, 0, 0.56)',
+    borderRadius: 8,
+    bottom: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    position: 'absolute',
+    right: 10,
+  },
+  imageAttributionText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 13,
+  },
   sun: {
     alignSelf: 'flex-end',
     backgroundColor: '#FFD25C',
@@ -3232,13 +3318,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 18,
   },
-  aiDecisionSubText: {
-    color: '#6B7684',
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 17,
-    marginTop: 6,
-  },
   locationSummaryBox: {
     backgroundColor: '#F9FAFB',
     borderColor: '#E5E8EB',
@@ -3258,13 +3337,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 18,
     marginTop: 4,
-  },
-  sourceNote: {
-    color: '#7C86A0',
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 17,
-    marginTop: 10,
   },
   resultActions: {
     flexDirection: 'row',

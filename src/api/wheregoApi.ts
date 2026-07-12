@@ -11,6 +11,7 @@ export type WheregoRecommendOrigin = {
   lat: number;
   lng: number;
   areaCodes: string[];
+  lDongRegnCodes?: string[];
   accuracy?: number;
 };
 
@@ -65,6 +66,8 @@ export type WheregoRecommendedPlace = {
   region?: string;
   overview?: string;
   imageUrl?: string;
+  imageCopyrightType?: string;
+  imageAttribution?: string;
   matchedKeyword?: string;
   aiReason?: string;
   whyThisPlace?: string[];
@@ -108,13 +111,27 @@ export type WheregoRecommendation = {
   source?: {
     planner?: string;
     curator?: string;
+    model?: string;
     kto?: string;
     crowd?: string;
+    timingsMs?: {
+      selection?: number;
+      detail?: number;
+      total?: number;
+    };
   };
   searchPlan?: {
     keywords?: string[];
     areaCodes?: string[];
+    regionCodeType?: 'ldong';
     areaScope?: string;
+    contentTypeIds?: string[];
+    intents?: Array<{
+      keyword: string;
+      contentTypeId: string;
+      operation: string;
+      weight: number;
+    }>;
     rankingNotes?: string[];
   };
 };
@@ -125,6 +142,7 @@ export type WheregoCandidateSet = {
   plan?: Record<string, unknown>;
   candidates: Record<string, unknown>[];
   candidateCount?: number;
+  narrowedCandidateCount?: number;
   compressedCandidateCount?: number;
   source?: {
     planner?: string;
@@ -132,6 +150,11 @@ export type WheregoCandidateSet = {
     crowd?: string;
     answerCount?: number;
     aiUsed?: boolean;
+    timingsMs?: {
+      search?: number;
+      enrich?: number;
+      total?: number;
+    };
   };
 };
 
