@@ -131,6 +131,9 @@ type DemoResult = {
 };
 
 const LOGO_IMAGE = require('../assets/logo.png') as number;
+const INTRO_COAST_IMAGE = require('../assets/intro-coast.jpg') as number;
+const INTRO_FOREST_IMAGE = require('../assets/intro-forest.jpg') as number;
+const INTRO_CULTURE_IMAGE = require('../assets/intro-culture.jpg') as number;
 const regionOptions: Origin[] = [
   {
     type: 'selected_region',
@@ -1417,16 +1420,33 @@ function IntroScreen({
   usage: WheregoUsage | null;
 }) {
   const usageLabel = usage?.limitEnabled
-    ? `오늘 AI 추천 ${usage.remaining}회 남음`
+    ? `오늘 ${usage.remaining}번 더 찾을 수 있어요`
     : loading
-      ? '추천 횟수 확인 중'
-      : 'AI 맞춤 추천';
+      ? 'AI 추천 준비 중'
+      : 'AI 추천 바로 시작';
   return (
     <View style={styles.introScreen}>
       <View style={styles.introHero}>
-        <Pill label="한국관광공사 관광정보 기반" />
-        <Text style={styles.introTitle}>AI가 오늘 갈 만한 여행지를 골라드려요.</Text>
-        <Text style={styles.introCopy}>관광정보와 방문자수를 바탕으로 추천합니다.</Text>
+        <Pill label="한국관광공사 데이터 기반" />
+        <View
+          accessibilityLabel="바다, 숲길, 한옥 문화공간 여행 사진"
+          accessible
+          style={styles.introGallery}
+        >
+          <View style={[styles.introPhotoFrame, styles.introPhotoSide]}>
+            <Image source={INTRO_COAST_IMAGE} style={styles.introPhoto} />
+          </View>
+          <View style={[styles.introPhotoFrame, styles.introPhotoMain]}>
+            <Image source={INTRO_FOREST_IMAGE} style={styles.introPhoto} />
+          </View>
+          <View style={[styles.introPhotoFrame, styles.introPhotoSide]}>
+            <Image source={INTRO_CULTURE_IMAGE} style={styles.introPhoto} />
+          </View>
+        </View>
+        <Text style={styles.introTitle}>오늘 갈 여행지,{`\n`}AI가 딱 골라드려요.</Text>
+        <Text style={styles.introCopy}>
+          관광정보와 방문자수를 함께 살펴보고{`\n`}지금 취향에 맞는 한 곳을 찾아요.
+        </Text>
         <View style={styles.usageBadge}>
           {loading ? <ActivityIndicator color="#1E63D6" size="small" /> : null}
           <Text style={styles.usageBadgeText}>{usageLabel}</Text>
@@ -1434,7 +1454,12 @@ function IntroScreen({
         {message ? <Text style={styles.usageMessage}>{message}</Text> : null}
       </View>
       <View style={styles.introActions}>
-        <PrimaryButton disabled={loading} label={loading ? '확인 중' : '시작하기'} loading={loading} onPress={onStart} />
+        <PrimaryButton
+          disabled={loading}
+          label={loading ? 'AI 추천 준비 중' : 'AI 추천 시작하기'}
+          loading={loading}
+          onPress={onStart}
+        />
       </View>
     </View>
   );
@@ -2687,15 +2712,50 @@ const styles = StyleSheet.create({
   introScreen: {
     flex: 1,
     justifyContent: 'center',
-    minHeight: 580,
-    paddingBottom: 58,
-    paddingTop: 18,
+    minHeight: 620,
+    paddingBottom: 24,
+    paddingTop: 20,
   },
   introHero: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
     paddingTop: 0,
+  },
+  introGallery: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 8,
+    height: 158,
+    justifyContent: 'center',
+    marginTop: 18,
+    width: '100%',
+  },
+  introPhotoFrame: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 3,
+    elevation: 3,
+    overflow: 'hidden',
+    shadowColor: '#191F28',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+  introPhotoSide: {
+    height: 118,
+    marginTop: 20,
+    width: 82,
+  },
+  introPhotoMain: {
+    height: 154,
+    width: 132,
+  },
+  introPhoto: {
+    height: '100%',
+    resizeMode: 'cover',
+    width: '100%',
   },
   panel: {
     ...cardBase,
@@ -2792,23 +2852,23 @@ const styles = StyleSheet.create({
   },
   introTitle: {
     color: '#191F28',
-    fontSize: 27,
+    fontSize: 29,
     fontWeight: '800',
-    lineHeight: 33,
-    marginTop: 16,
+    lineHeight: 37,
+    marginTop: 18,
     textAlign: 'center',
   },
   introCopy: {
     color: '#4E5968',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    lineHeight: 24,
-    marginBottom: 22,
-    marginTop: 12,
+    lineHeight: 22,
+    marginBottom: 18,
+    marginTop: 10,
     textAlign: 'center',
   },
   introActions: {
-    marginTop: 34,
+    marginTop: 24,
     paddingTop: 0,
   },
   usageBadge: {
@@ -2816,6 +2876,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EAF3FF',
     borderRadius: 12,
     flexDirection: 'row',
+    gap: 6,
     minHeight: 42,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -2825,7 +2886,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     lineHeight: 20,
-    marginLeft: 6,
   },
   usageMessage: {
     color: '#6B7684',
