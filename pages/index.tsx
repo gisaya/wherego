@@ -143,6 +143,11 @@ type GeneralQuestionBank = {
   tagGroups: GeneralQuestionGroup[];
 };
 
+type QuestionHistory = {
+  questionIds: string[];
+  generalTagGroups: string[];
+};
+
 type SelectedAnswer = {
   questionId: string;
   questionType: QuestionKind;
@@ -771,6 +776,7 @@ const FULL_SCREEN_AD_GROUP_ID = 'ait.v2.live.69c443b05e6a42ea';
 const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const ANONYMOUS_STORAGE_KEY = 'wherego.anonymous-key.v1';
+const QUESTION_HISTORY_STORAGE_KEY = 'wherego.question-history.v1';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
 const RESULT_CARD_HERO_HEIGHT = 460;
@@ -1536,9 +1542,17 @@ function Index() {
     setRecommendationStatus('idle');
     setResultMessage('');
 
-    const fallbackQuestionSet = buildQuestionSet();
+    const questionHistory = await readQuestionHistory();
+    if (questionSetRequestIdRef.current !== requestId) {
+      return;
+    }
+    const fallbackQuestionSet = buildQuestionSet(questionHistory);
     const fallbackSessionId = recommendationSessionIdRef.current;
-    const questionSetPromise = fetchWheregoQuestionSet({ origin: nextOrigin })
+    const questionSetPromise = fetchWheregoQuestionSet({
+      origin: nextOrigin,
+      excludeQuestionIds: questionHistory.questionIds,
+      excludeGeneralTagGroups: questionHistory.generalTagGroups,
+    })
       .then((response) => {
         const remoteQuestions = normalizeRemoteQuestions(response.questions);
         return {
@@ -1560,6 +1574,7 @@ function Index() {
     }
 
     recommendationSessionIdRef.current = nextQuestionSet.sessionId;
+    void saveQuestionHistory(nextQuestionSet.questions);
     setQuestionSet(nextQuestionSet.questions);
     setIsQuestionSetLoading(false);
     setLocationStatus('');
@@ -2550,9 +2565,15 @@ function Pill({ label }: { label: string }) {
   );
 }
 
-function buildQuestionSet() {
-  const sourceQuestions = buildSourceQuestions();
-  const generalQuestions = buildGeneralQuestions(sourceQuestions);
+function buildQuestionSet(history: QuestionHistory = emptyQuestionHistory()) {
+  const excludedQuestionIds = new Set(history.questionIds);
+  const excludedGeneralTagGroups = new Set(history.generalTagGroups);
+  const sourceQuestions = buildSourceQuestions(excludedQuestionIds);
+  const generalQuestions = buildGeneralQuestions(
+    sourceQuestions,
+    excludedQuestionIds,
+    excludedGeneralTagGroups,
+  );
   return shuffle([...sourceQuestions, ...generalQuestions]);
 }
 
@@ -2599,12 +2620,21 @@ function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
     : [];
 }
 
-function buildSourceQuestions() {
-  const excludedQuestionIds = new Set(generalQuestionData.runtimeSelection?.excludedSourceQuestionIds || []);
+function buildSourceQuestions(recentQuestionIds: Set<string> = new Set()) {
+  const globallyExcludedQuestionIds = new Set(
+    generalQuestionData.runtimeSelection?.excludedSourceQuestionIds || [],
+  );
   const questions = sourceQuestionData.requiredAxes
     .map((axis) => {
-      const eligibleVariants = axis.variants.filter((variant) => !excludedQuestionIds.has(variant.id));
-      const variant = randomItem(eligibleVariants.length > 0 ? eligibleVariants : axis.variants);
+      const globallyAllowedVariants = axis.variants.filter(
+        (variant) => !globallyExcludedQuestionIds.has(variant.id),
+      );
+      const freshVariants = globallyAllowedVariants.filter(
+        (variant) => !recentQuestionIds.has(variant.id),
+      );
+      const variant = randomItem(
+        freshVariants.length > 0 ? freshVariants : globallyAllowedVariants.length > 0 ? globallyAllowedVariants : axis.variants,
+      );
       return variant == null ? null : toSourceQuestion(axis, variant);
     })
     .filter((question): question is Question => question != null);
@@ -2612,7 +2642,11 @@ function buildSourceQuestions() {
   return questions.length === SOURCE_QUESTION_COUNT ? questions : sourceQuestionPool;
 }
 
-function buildGeneralQuestions(sourceQuestions: Question[]) {
+function buildGeneralQuestions(
+  sourceQuestions: Question[],
+  recentQuestionIds: Set<string> = new Set(),
+  recentGeneralTagGroups: Set<string> = new Set(),
+) {
   const groups = generalQuestionData.tagGroups;
   const selectedGroups: GeneralQuestionGroup[] = [];
   const selectedTagGroups = new Set<string>();
@@ -2628,6 +2662,9 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
   }, new Set<string>());
 
   for (const tagGroup of requiredTagGroups) {
+    if (recentGeneralTagGroups.has(tagGroup)) {
+      continue;
+    }
     addGeneralQuestionGroup(
       groups.find((group) => group.tagGroup === tagGroup),
       selectedGroups,
@@ -2641,6 +2678,7 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
     randomItem(
       shuffle(oneOfTagGroups)
         .filter((tagGroup) => !blockedTagGroups.has(tagGroup))
+        .filter((tagGroup) => !recentGeneralTagGroups.has(tagGroup))
         .map((tagGroup) => groups.find((group) => group.tagGroup === tagGroup))
         .filter(isDefined),
     ),
@@ -2657,7 +2695,8 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
           (group) =>
             DESTINATION_GENERAL_TAG_GROUPS.has(group.tagGroup) &&
             !selectedTagGroups.has(group.tagGroup) &&
-            !blockedTagGroups.has(group.tagGroup),
+            !blockedTagGroups.has(group.tagGroup) &&
+            !recentGeneralTagGroups.has(group.tagGroup),
         ),
       ),
     ),
@@ -2668,7 +2707,12 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
   );
 
   const remainingGroups = shuffle(
-    groups.filter((group) => !selectedTagGroups.has(group.tagGroup) && !blockedTagGroups.has(group.tagGroup)),
+    groups.filter(
+      (group) =>
+        !selectedTagGroups.has(group.tagGroup) &&
+        !blockedTagGroups.has(group.tagGroup) &&
+        !recentGeneralTagGroups.has(group.tagGroup),
+    ),
   );
   for (const group of remainingGroups) {
     if (selectedGroups.length >= GENERAL_QUESTION_COUNT) {
@@ -2683,12 +2727,37 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
     );
   }
 
+  if (selectedGroups.length < GENERAL_QUESTION_COUNT) {
+    for (const group of shuffle(
+      groups.filter(
+        (group) =>
+          recentGeneralTagGroups.has(group.tagGroup) &&
+          !selectedTagGroups.has(group.tagGroup) &&
+          !blockedTagGroups.has(group.tagGroup),
+      ),
+    )) {
+      if (selectedGroups.length >= GENERAL_QUESTION_COUNT) {
+        break;
+      }
+      addGeneralQuestionGroup(
+        group,
+        selectedGroups,
+        selectedTagGroups,
+        blockedTagGroups,
+        mutuallyExclusiveTagGroups,
+      );
+    }
+  }
+
   const questions = selectedGroups
     .slice(0, GENERAL_QUESTION_COUNT)
     .map((group) => {
       const question = randomItem(
-        group.questions.filter((item) =>
-          hasDistinctBinaryOptions(item, runtimeSelection?.similarOptionGroups?.[group.tagGroup] || []),
+        freshQuestionVariants(
+          group.questions.filter((item) =>
+            hasDistinctBinaryOptions(item, runtimeSelection?.similarOptionGroups?.[group.tagGroup] || []),
+          ),
+          recentQuestionIds,
         ),
       );
       return question == null ? null : toGeneralQuestion(group, question);
@@ -2697,7 +2766,17 @@ function buildGeneralQuestions(sourceQuestions: Question[]) {
 
   return questions.length === GENERAL_QUESTION_COUNT
     ? questions
-    : buildFallbackGeneralQuestions(blockedTagGroups, mutuallyExclusiveTagGroups);
+    : buildFallbackGeneralQuestions(
+        blockedTagGroups,
+        mutuallyExclusiveTagGroups,
+        recentQuestionIds,
+        recentGeneralTagGroups,
+      );
+}
+
+function freshQuestionVariants<T extends { id: string }>(questions: T[], recentQuestionIds: Set<string>) {
+  const fresh = questions.filter((question) => !recentQuestionIds.has(question.id));
+  return fresh.length > 0 ? fresh : questions;
 }
 
 function hasDistinctBinaryOptions(question: GeneralQuestionItem, similarGroups: string[][]) {
@@ -2708,7 +2787,12 @@ function hasDistinctBinaryOptions(question: GeneralQuestionItem, similarGroups: 
   return !similarGroups.some((group) => optionIds.every((optionId) => group.includes(optionId)));
 }
 
-function buildFallbackGeneralQuestions(blockedTagGroups: Set<string>, mutuallyExclusiveTagGroups: string[][]) {
+function buildFallbackGeneralQuestions(
+  blockedTagGroups: Set<string>,
+  mutuallyExclusiveTagGroups: string[][],
+  recentQuestionIds: Set<string>,
+  recentGeneralTagGroups: Set<string>,
+) {
   const selectedQuestions: Question[] = [];
   const selectedTagGroups = new Set<string>();
   const addQuestion = (question: Question | undefined) => {
@@ -2720,16 +2804,25 @@ function buildFallbackGeneralQuestions(blockedTagGroups: Set<string>, mutuallyEx
     blockSiblingTagGroups(question.id, blockedTagGroups, mutuallyExclusiveTagGroups);
   };
 
-  addQuestion(generalQuestionPool.find((question) => question.id === 'crowd'));
+  if (!recentGeneralTagGroups.has('crowd') && !recentQuestionIds.has('crowd')) {
+    addQuestion(generalQuestionPool.find((question) => question.id === 'crowd'));
+  }
   addQuestion(
     shuffle(
       generalQuestionPool.filter(
         (question) =>
-          (question.id === 'mobility' || question.id === 'accessibility') && !blockedTagGroups.has(question.id),
+          (question.id === 'mobility' || question.id === 'accessibility') &&
+          !blockedTagGroups.has(question.id) &&
+          !recentGeneralTagGroups.has(question.id) &&
+          !recentQuestionIds.has(question.id),
       ),
     )[0],
   );
-  for (const question of shuffle(generalQuestionPool)) {
+  const freshQuestions = generalQuestionPool.filter(
+    (question) =>
+      !recentGeneralTagGroups.has(question.id) && !recentQuestionIds.has(question.id),
+  );
+  for (const question of shuffle([...freshQuestions, ...generalQuestionPool])) {
     if (selectedQuestions.length >= GENERAL_QUESTION_COUNT) {
       break;
     }
@@ -2909,6 +3002,53 @@ async function resolveAnonymousUserKey(): Promise<string> {
     return generated;
   } catch (_) {
     return `runtime-${createWheregoSessionId()}`;
+  }
+}
+
+function emptyQuestionHistory(): QuestionHistory {
+  return { questionIds: [], generalTagGroups: [] };
+}
+
+async function readQuestionHistory(): Promise<QuestionHistory> {
+  try {
+    const stored = await Storage.getItem(QUESTION_HISTORY_STORAGE_KEY);
+    if (!stored) {
+      return emptyQuestionHistory();
+    }
+    const parsed = JSON.parse(stored) as Partial<QuestionHistory>;
+    return {
+      questionIds: uniqueStrings(
+        Array.isArray(parsed.questionIds)
+          ? parsed.questionIds.filter((value): value is string => typeof value === 'string')
+          : [],
+      ).slice(0, SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT),
+      generalTagGroups: uniqueStrings(
+        Array.isArray(parsed.generalTagGroups)
+          ? parsed.generalTagGroups.filter((value): value is string => typeof value === 'string')
+          : [],
+      ).slice(0, GENERAL_QUESTION_COUNT),
+    };
+  } catch (_) {
+    return emptyQuestionHistory();
+  }
+}
+
+async function saveQuestionHistory(questions: Question[]) {
+  const history: QuestionHistory = {
+    questionIds: uniqueStrings(questions.map((question) => question.id)).slice(
+      0,
+      SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT,
+    ),
+    generalTagGroups: uniqueStrings(
+      questions
+        .filter((question) => question.type === 'general')
+        .map((question) => question.tags?.[0] || question.id),
+    ).slice(0, GENERAL_QUESTION_COUNT),
+  };
+  try {
+    await Storage.setItem(QUESTION_HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch (_) {
+    // Question generation still works when local history storage is unavailable.
   }
 }
 

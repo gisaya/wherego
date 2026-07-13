@@ -23,7 +23,7 @@
 - AI는 Render 서버의 Gemini Flash-Lite를 최종 큐레이터로 사용한다. 클라이언트 선택지 메타데이터를 서버가 검색 계획으로 바꾸고, 관광공사/DataLab 후보를 점수 조건에 따라 5~7개로 압축한 뒤, 전면광고 실제 노출 후 Gemini가 최종 1개 장소와 추천 카피를 고른다.
 - AI/API 키는 클라이언트에 넣지 않는다.
 - 실제 Apps in Toss 앱 구현은 Granite React Native 기준이다. 메인 앱은 TDS Provider로 감싸고 TDS `Text`/`Button`을 사용한다. 선택/지역 카드는 React Native `Pressable` 기반 고정 크기 카드다. 제출 전 실기기 시각 검수는 아직 필요하다.
-- 질문은 필수 3개 + 일반 4개, 총 7개 구조로 간다. 일반 질문은 `crowd` 1개, `mobility`/`accessibility` 중 1개, 목적지 유형 질문 1개, 겹치지 않는 추가 태그 그룹 1개를 포함한다.
+- 질문은 필수 3개 + 일반 4개, 총 7개 구조로 간다. 일반 질문은 `crowd`를 우선하고 `mobility`/`accessibility` 중 1개, 목적지 유형 질문 1개, 겹치지 않는 추가 태그 그룹을 포함한다. 직전 세트의 질문 ID와 일반 테마는 다음 세트에서 한 번 제외하므로 `crowd`도 연속 출제하지 않는다.
 - 위치 필터는 현재 위치 또는 사용자가 선택한 출발지를 기준으로 한다. MVP에서는 직선거리 x 1.35, 평균 45km/h, 15분 주행시간 버퍼, 10km 거리 버퍼로 이동 조건을 추정한다.
 - 거리/지역 제약은 `max*`뿐 아니라 `min*`, `regionScope`, `preferredRegionGroup`, `stayType`까지 추천 프로브에서 해석한다.
 
@@ -150,6 +150,7 @@
   - 2026-07-12 KST 저장 검증: 새 분류 필터에 맞춰 질문 선택지 메타데이터를 재점검했다. 호수/강변공원은 도시공원 `VE03`, 한옥마을은 민속마을 `HS010600`, 전통시장은 `SH06`, 문화거리는 `VE040100`으로 연결하고 `활기찬 핫플`은 `전통시장/문화거리/축제` 검색 의도를 사용한다. 서버와 앱 fallback 원천 질문풀을 함께 수정했으며 런타임 목적지 질문 122개에서 매핑 누락과 무분류 의도 모두 0건이었다. `jbg` Wherego route unittest 42개와 Python 컴파일, `wherego` TypeScript 검사와 AIT build가 성공했다. 앱인토스 산출물 `wherego.ait` deploymentId는 `019f549b-f407-7e79-815a-76adc369d386`이며 Git 제외.
   - 2026-07-12 KST 저장 검증: 앱인토스 익명 키를 서버에서 재해시하고 7개 답변, 후보 압축 수, 최종 추천, AI 근거, 이미지/지도 여부, 지연을 90일 익명 QC 로그로 저장한다. 정확한 좌표는 저장하지 않으며 DB RLS를 활성화했다. `qc` 자동화는 매일 09:30 KST 실행하고 월요일에는 7일 편향 검사를 추가한다. 서버 질문 채택 조건의 8문항 오류를 3+4 구조로 수정했다. 풍경의 동굴/지질, 문화의 사찰/명상, 원천질문의 배움/놀이 선택지를 추가하고 `동굴/산사/테마파크/루지` 검색 인텐트를 연결했다. 실제 KTO 첫 페이지는 각각 10/20/10/9건이었다. `jbg` Wherego/QC unittest 48개, 7문항 probe, TypeScript, AIT build가 성공했고 deploymentId는 `019f55cd-b4e1-7a76-bd40-b840763dc74b`이다.
   - 2026-07-12 KST 프로덕션 저장 검증: Render에서 질문은행 `2026-07-12+2026-07-12`, 7문항을 확인했다. 전체 요청은 후보 `8 -> 7 -> 5`, Gemini 3.1 Flash Lite, 3201ms였고 `노을캠핑장(서울)`을 추천했다. QC DB는 `7/3/4`, Gemini, 이미지/지도 존재로 저장됐으며 smoke 레코드는 삭제했다. Vercel production `dpl_AZ1p4nVd9TJif3c4BL5ZUxfn3LTW`가 READY이고 `https://wherego-lake.vercel.app`에 연결됐다.
+  - 2026-07-13 KST 연속 출제 중복 방지: 토스 `Storage`에 직전 질문 ID 7개와 일반 테마 4개만 저장하고 다음 `/api/wherego/questions` 요청의 제외 목록으로 전달한다. 서버와 앱 fallback 모두 직전 질문·일반 테마를 한 세트 쉬게 하며, 후보가 부족할 때만 재사용한다. 연속 생성 5,000쌍에서 일반 테마 반복 0, 동일 질문 반복 0, 7문항 구성 오류 0을 확인했고 백엔드 관련 테스트 56개, TypeScript 검사, AIT build가 통과했다. deploymentId는 `019f59ab-076c-7c37-a835-43f7d9ce9840`이다.
 
 ## 운영 규칙
 
