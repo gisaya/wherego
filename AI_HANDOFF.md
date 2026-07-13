@@ -299,6 +299,8 @@ Latest save verification (2026-07-13 KST): the intro gallery no longer relies on
 
 Recommendation latency update (2026-07-13 KST): QC showed Gemini final selection at about 1.9 seconds while the final KTO detail call reached 6.9 seconds. JBG now skips KTO detail entirely when the selected candidate already has title, address, coordinates, and a Type1 image. Incomplete candidates use only `detailCommon2` with a hard three-second cap and fall back to candidate metadata on failure; `detailIntro2` is no longer called. Backend Wherego tests passed 56 cases. After Render deploy, verify complete candidates report near-zero `detailMs`.
 
+Result promotion update (2026-07-13 KST): the result screen now automatically calls the non-game Apps in Toss `grantPromotionReward` SDK with production promotion code `01KXDEWCPRY1FH6A4DEWB8282P` and amount 10. The screen displays immediate-payment, one-person/one-time, and early-termination notices and reports loading/success/already-granted/unsupported/error states. A successful reward key is stored under a promotion-code-specific Apps in Toss `Storage` key, while a session ref prevents duplicate calls during re-rendering. The earlier `TEST_` code is no longer present in release configuration. TypeScript, `git diff --check`, and Android/iOS AIT build passed with deploymentId `019f5b1c-f69c-7fae-9797-16cbb88a734d`. Real payment verification remains pending in a Toss app 5.232.0+ QR test. Local storage prevents normal repeat calls but cannot fully prevent app-data reset or multi-device abuse; strict production enforcement requires Toss login plus mTLS server-to-server promotion execution.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
@@ -313,7 +315,9 @@ Recommendation latency update (2026-07-13 KST): QC showed Gemini final selection
 2. On a Toss app 5.223.0+ device, exhaust base credits and verify rewarded ad +1, contacts share +3 once, and the result interstitial for every recommendation.
 3. Reconnect the Android device and verify `[wherego:interstitial-ad] load requested -> loaded -> show/impression -> dismissed` in logcat using the Apps in Toss dev server.
 4. Test the complete SDK/device flow: server-generated questions, banner ads, interstitial completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
-5. After Render deploy, watch `/api/wherego/recommend` `source.timingsMs`; complete candidates should have near-zero `detailMs`, while incomplete candidates must stay within the three-second detail cap.
-6. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
-7. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
-8. After production recommendations accumulate, review the first daily and Monday QC reports and tune thresholds only after at least 10 successful samples.
+5. In a Toss app 5.232.0+ QR test, open one recommendation result and confirm the 10 won promotion toast/history once, then revisit the result and confirm no second grant occurs.
+6. Before scaling promotion budget, decide whether to add Toss login and mTLS server-to-server execution so one-person/one-time enforcement survives app-data reset and multiple devices.
+7. After Render deploy, watch `/api/wherego/recommend` `source.timingsMs`; complete candidates should have near-zero `detailMs`, while incomplete candidates must stay within the three-second detail cap.
+8. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
+9. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
+10. After production recommendations accumulate, review the first daily and Monday QC reports and tune thresholds only after at least 10 successful samples.

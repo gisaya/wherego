@@ -152,6 +152,21 @@ Ads guideline notes:
 - Do not decorate or alter the ad creative beyond the allowed wrapper layout.
 - Before submission, scan the release source and AIT artifact to confirm that only live ad group IDs remain.
 
+Result promotion:
+
+```text
+production promotion code: 01KXDEWCPRY1FH6A4DEWB8282P
+reward amount: 10 won
+minimum Toss app version: 5.232.0
+```
+
+- `src/promotion/resultPromotion.ts` calls non-game `grantPromotionReward` when a successful recommendation result first opens.
+- A promotion-code-specific `Storage` value and an in-session ref prevent normal duplicate calls. Changing from `TEST_...` to the production code intentionally uses a new storage key.
+- The result screen must retain the immediate-payment, one-person/one-time, and possible-early-termination notices.
+- Validate production only through an uploaded AIT and Toss app QR test; the sandbox cannot complete promotion testing.
+- Confirm the first result returns success and Toss shows the payment toast/history. Reopening or rerendering the result must not create a second grant.
+- Local storage is not sufficient against app-data reset or multiple devices. For strict monetary abuse prevention, implement Toss login and the mTLS server-to-server promotion APIs before increasing campaign exposure or budget.
+
 ## Recommendation API
 
 Wherego uses the existing `뭐샀지` Render FastAPI service:

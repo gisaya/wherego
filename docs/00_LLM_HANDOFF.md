@@ -155,6 +155,7 @@
   - 2026-07-13 KST 첫 화면 개편: 한국관광공사 데이터 기반 AI 추천을 전면에 두고, 국내 바다·숲길·한옥 문화공간을 담은 실사형 정적 사진 3장을 첫 화면 갤러리에 추가했다. 사진은 각각 720x720 JPEG로 앱 번들에 포함해 외부 네트워크 없이 표시한다. `yarn typecheck`, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f59f9-8854-7a53-ba01-938d4bafb3cb`이다.
   - 2026-07-13 KST 첫 화면 사진 호환성 보완: 앱 테스트에서 정적 JPEG 모듈이 빈 영역으로 보이는 문제를 피하려고 3개 사진을 480x480 baseline JPEG Base64 data URI로 번들에 직접 포함했다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5a1b-d7d8-7ef7-a861-6003cf5b63ad`이다. AIT 번들에 data URI 3개가 포함된 것을 확인했으며 실기기 화면 확인은 남아 있다.
   - 2026-07-13 KST 추천 지연 보완: 운영 성공 5건에서 Gemini 선택은 중앙값 1867ms였고 KTO 최종 상세는 최대 6903ms였다. JBG는 최종 후보 메타데이터와 Type1 이미지가 완전하면 상세 조회를 생략하고, 부족할 때만 `detailCommon2`를 최대 3초 호출한 뒤 후보 데이터로 fallback한다. `detailIntro2`는 제거했고 백엔드 Wherego 테스트 56개가 통과했다. Render 배포 후 `detailMs`를 재확인한다.
+  - 2026-07-13 KST 결과 프로모션 운영 전환: 결과 화면 진입 시 비게임 `grantPromotionReward`로 토스 포인트 10원을 자동 지급하도록 운영 코드 `01KXDEWCPRY1FH6A4DEWB8282P`를 연결했다. 프로모션 코드별 Apps in Toss 저장소와 추천 세션 ref로 일반적인 중복 호출을 막고, 즉시 지급·1인 1회·사전 중단 가능 문구와 상태 UI를 추가했다. 출시 설정에는 `TEST_` 코드가 남아 있지 않다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5b1c-f69c-7fae-9797-16cbb88a734d`이다. 토스앱 5.232.0+ QR에서 실제 1회 지급과 재진입 무지급을 확인해야 하며, 앱 데이터 초기화·다중 기기까지 막으려면 토스 로그인+mTLS 서버 지급이 필요하다.
 
 ## 운영 규칙
 

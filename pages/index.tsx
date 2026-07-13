@@ -47,7 +47,15 @@ import {
   INTRO_CULTURE_SOURCE,
   INTRO_FOREST_SOURCE,
 } from '../src/assets/introPhotoData';
-import { WHEREGO_SHARE_REWARD_MODULE_ID } from '../src/config';
+import {
+  WHEREGO_RESULT_PROMOTION_AMOUNT,
+  WHEREGO_RESULT_PROMOTION_CODE,
+  WHEREGO_SHARE_REWARD_MODULE_ID,
+} from '../src/config';
+import {
+  grantResultViewPromotion,
+  type ResultPromotionOutcome,
+} from '../src/promotion/resultPromotion';
 
 export const Route = createRoute('/', {
   component: Index,
@@ -426,6 +434,7 @@ function Index() {
   const candidateSetPromiseRef = useRef<Promise<WheregoCandidateSet | null> | null>(null);
   const selectedAnswersRef = useRef<SelectedAnswer[]>([]);
   const recommendationSessionIdRef = useRef(createWheregoSessionId());
+  const promotionAttemptedSessionRef = useRef<string | null>(null);
   const anonymousUserKeyRef = useRef<string | null>(null);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
@@ -451,6 +460,7 @@ function Index() {
   const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
+  const [resultPromotion, setResultPromotion] = useState<ResultPromotionOutcome>({ status: 'idle' });
   const currentQuestion = questionSet[questionIndex];
   const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
   const result = getResult(origin, recommendation);
@@ -555,6 +565,37 @@ function Index() {
 
     void Image.prefetch(result.imageUrl).catch(() => undefined);
   }, [result.imageUrl, step]);
+
+  useEffect(() => {
+    if (step !== 'result' || recommendation == null) {
+      return;
+    }
+
+    const sessionId = recommendationSessionIdRef.current;
+    if (promotionAttemptedSessionRef.current === sessionId) {
+      return;
+    }
+    promotionAttemptedSessionRef.current = sessionId;
+
+    let cancelled = false;
+    setResultPromotion({ status: 'loading' });
+    void grantResultViewPromotion()
+      .then((outcome) => {
+        if (!cancelled) {
+          setResultPromotion(outcome);
+        }
+      })
+      .catch((error) => {
+        console.error('[wherego:result-promotion] failed', error);
+        if (!cancelled) {
+          setResultPromotion({ status: 'error' });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recommendation, step]);
 
   useEffect(() => {
     if (!waitingForLocation) {
@@ -839,11 +880,13 @@ function Index() {
     setLocationStatus('');
     candidateSetPromiseRef.current = null;
     recommendationSessionIdRef.current = createWheregoSessionId();
+    promotionAttemptedSessionRef.current = null;
     quotaExceededRef.current = false;
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
+    setResultPromotion({ status: 'idle' });
     setQuotaRewardMessage('');
     setUsageMessage(options.message || '');
     if (options.refresh !== false) {
@@ -1142,10 +1185,12 @@ function Index() {
     setLocationStatus('질문 세트를 준비하고 있어요.');
     candidateSetPromiseRef.current = null;
     recommendationSessionIdRef.current = createWheregoSessionId();
+    promotionAttemptedSessionRef.current = null;
     quotaExceededRef.current = false;
     setRecommendation(null);
     setRecommendationStatus('idle');
     setResultMessage('');
+    setResultPromotion({ status: 'idle' });
 
     const fallbackSessionId = recommendationSessionIdRef.current;
     let nextQuestionSet: { questions: Question[]; sessionId: string };
@@ -1360,6 +1405,7 @@ function Index() {
               <>
                 <ResultScreen
                   message={resultMessage}
+                  promotion={resultPromotion}
                   result={result}
                   onHome={resetToIntro}
                   onMap={openMap}
@@ -1903,18 +1949,21 @@ function ResultScreen({
   onHome,
   onMap,
   onSave,
+  promotion,
   result,
 }: {
   message: string;
   onHome: () => void;
   onMap: () => void;
   onSave: () => void;
+  promotion: ResultPromotionOutcome;
   result: DemoResult;
 }) {
   const locationText = resultLocationText(result);
 
   return (
     <View style={styles.resultScreen}>
+      <ResultPromotionNotice outcome={promotion} />
       <View style={styles.resultCard}>
         <View style={styles.resultArt}>
           {result.imageUrl ? (
@@ -1948,6 +1997,48 @@ function ResultScreen({
       <SecondaryButton label="처음으로 돌아가기" onPress={onHome} viewStyle={styles.homeButton} />
     </View>
   );
+}
+
+function ResultPromotionNotice({ outcome }: { outcome: ResultPromotionOutcome }) {
+  const statusText = resultPromotionStatusText(outcome);
+  const isTestPromotion = WHEREGO_RESULT_PROMOTION_CODE.startsWith('TEST_');
+
+  return (
+    <View style={styles.resultPromotionNotice}>
+      <View style={styles.resultPromotionHeading}>
+        <Text style={styles.resultPromotionLabel}>
+          {isTestPromotion ? '프로모션 테스트' : '결과 확인 혜택'}
+        </Text>
+        {outcome.status === 'loading' ? <ActivityIndicator color="#3182F6" size="small" /> : null}
+      </View>
+      <Text style={styles.resultPromotionTitle}>토스 포인트 {WHEREGO_RESULT_PROMOTION_AMOUNT}원</Text>
+      <Text style={styles.resultPromotionStatus}>{statusText}</Text>
+      <Text style={styles.resultPromotionCaption}>
+        {isTestPromotion
+          ? '테스트 코드는 실제 토스 포인트를 지급하지 않아요.'
+          : '추천 결과를 처음 확인하면 즉시 지급 · 1인 1회'}
+      </Text>
+      {!isTestPromotion ? (
+        <Text style={styles.resultPromotionCaption}>본 프로모션은 사전 고지 없이 중단될 수 있어요.</Text>
+      ) : null}
+    </View>
+  );
+}
+
+function resultPromotionStatusText(outcome: ResultPromotionOutcome) {
+  switch (outcome.status) {
+    case 'idle':
+    case 'loading':
+      return '토스 포인트 지급을 확인하고 있어요.';
+    case 'success':
+      return `토스 포인트 ${WHEREGO_RESULT_PROMOTION_AMOUNT}원을 지급했어요.`;
+    case 'alreadyGranted':
+      return '이미 프로모션 혜택을 받았어요.';
+    case 'unsupported':
+      return '토스 앱 5.232.0 이상에서 혜택을 받을 수 있어요.';
+    case 'error':
+      return '토스 포인트를 지급하지 못했어요.';
+  }
 }
 
 const ResultCardPngSource = React.forwardRef<
@@ -3248,6 +3339,45 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     minHeight: 650,
     paddingBottom: 18,
+  },
+  resultPromotionNotice: {
+    backgroundColor: '#EAF3FF',
+    borderLeftColor: '#3182F6',
+    borderLeftWidth: 4,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  resultPromotionHeading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  resultPromotionLabel: {
+    color: '#1E63D6',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  resultPromotionTitle: {
+    color: '#191F28',
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 21,
+    marginTop: 4,
+  },
+  resultPromotionStatus: {
+    color: '#333D4B',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  resultPromotionCaption: {
+    color: '#8B95A1',
+    fontSize: 10,
+    fontWeight: '600',
+    lineHeight: 15,
+    marginTop: 2,
   },
   resultCard: {
     ...cardBase,
