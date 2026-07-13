@@ -261,7 +261,7 @@ Required Render env additions:
 - `WHEREGO_KTO_DATALAB_LOOKBACK_DAYS=14`
 - `WHEREGO_KTO_DATALAB_ROWS=12000`
 - `WHEREGO_KTO_DATALAB_FAILURE_CACHE_SECONDS=300`
-- `WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=8`
+- `WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=3`
 - `WHEREGO_GEMINI_CANDIDATE_LIMIT=7`
 - `WHEREGO_GEMINI_SCORE_WINDOW=24`
 - `WHEREGO_KTO_CACHE_ENABLED=true`
@@ -295,6 +295,10 @@ Repeat-run failure diagnosis (2026-07-13 KST): the second run created a fresh se
 
 Repeat-run production verification (2026-07-13 KST): Render commit `516aa62870df019538c168b8f04304eda6133936` completed the same failed combination with candidate counts `1 -> 1 -> 1`, Gemini `gemini-3.1-flash-lite`, final place `장흥자생수목원`, and 5669ms server total. The chosen fallback candidate had estimated road distance 19.1km and no image, so nearby candidate diversity and fallback-image rate remain monitoring items. Smoke usage/QC rows were removed.
 
+Latest save verification (2026-07-13 KST): the intro gallery no longer relies on static JPEG module resolution. The three 480x480 baseline JPEGs are embedded as `data:image/jpeg;base64` sources in `src/assets/introPhotoData.ts`, which matches the Apps in Toss React Native image path and avoids the blank-photo behavior seen in the app test. `yarn typecheck`, `git diff --check`, and the Android/iOS AIT build passed with deploymentId `019f5a1b-d7d8-7ef7-a861-6003cf5b63ad`. The generated AIT contains all three data URIs. Real-device visual confirmation remains pending because ADB was disconnected.
+
+Recommendation latency update (2026-07-13 KST): QC showed Gemini final selection at about 1.9 seconds while the final KTO detail call reached 6.9 seconds. JBG now skips KTO detail entirely when the selected candidate already has title, address, coordinates, and a Type1 image. Incomplete candidates use only `detailCommon2` with a hard three-second cap and fall back to candidate metadata on failure; `detailIntro2` is no longer called. Backend Wherego tests passed 56 cases. After Render deploy, verify complete candidates report near-zero `detailMs`.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
@@ -309,7 +313,7 @@ Repeat-run production verification (2026-07-13 KST): Render commit `516aa62870df
 2. On a Toss app 5.223.0+ device, exhaust base credits and verify rewarded ad +1, contacts share +3 once, and the result interstitial for every recommendation.
 3. Reconnect the Android device and verify `[wherego:interstitial-ad] load requested -> loaded -> show/impression -> dismissed` in logcat using the Apps in Toss dev server.
 4. Test the complete SDK/device flow: server-generated questions, banner ads, interstitial completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
-5. Watch Render `/api/wherego/candidates` and `/api/wherego/recommend` latency separately; if final wait is still unstable, tune KTO/Gemini timeouts or add backend prewarming.
+5. After Render deploy, watch `/api/wherego/recommend` `source.timingsMs`; complete candidates should have near-zero `detailMs`, while incomplete candidates must stay within the three-second detail cap.
 6. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
 7. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
 8. After production recommendations accumulate, review the first daily and Monday QC reports and tune thresholds only after at least 10 successful samples.

@@ -42,6 +42,11 @@ import {
   type WheregoRecommendedPlace,
   type WheregoUsage,
 } from '../src/api/wheregoApi';
+import {
+  INTRO_COAST_SOURCE,
+  INTRO_CULTURE_SOURCE,
+  INTRO_FOREST_SOURCE,
+} from '../src/assets/introPhotoData';
 import { WHEREGO_SHARE_REWARD_MODULE_ID } from '../src/config';
 
 export const Route = createRoute('/', {
@@ -131,9 +136,6 @@ type DemoResult = {
 };
 
 const LOGO_IMAGE = require('../assets/logo.png') as number;
-const INTRO_COAST_IMAGE = require('../assets/intro-coast.jpg') as number;
-const INTRO_FOREST_IMAGE = require('../assets/intro-forest.jpg') as number;
-const INTRO_CULTURE_IMAGE = require('../assets/intro-culture.jpg') as number;
 const regionOptions: Origin[] = [
   {
     type: 'selected_region',
@@ -1434,13 +1436,13 @@ function IntroScreen({
           style={styles.introGallery}
         >
           <View style={[styles.introPhotoFrame, styles.introPhotoSide]}>
-            <Image source={INTRO_COAST_IMAGE} style={styles.introPhoto} />
+            <Image fadeDuration={0} source={INTRO_COAST_SOURCE} style={styles.introPhoto} />
           </View>
           <View style={[styles.introPhotoFrame, styles.introPhotoMain]}>
-            <Image source={INTRO_FOREST_IMAGE} style={styles.introPhoto} />
+            <Image fadeDuration={0} source={INTRO_FOREST_SOURCE} style={styles.introPhoto} />
           </View>
           <View style={[styles.introPhotoFrame, styles.introPhotoSide]}>
-            <Image source={INTRO_CULTURE_IMAGE} style={styles.introPhoto} />
+            <Image fadeDuration={0} source={INTRO_CULTURE_SOURCE} style={styles.introPhoto} />
           </View>
         </View>
         <Text style={styles.introTitle}>오늘 갈 여행지,{`\n`}AI가 딱 골라드려요.</Text>

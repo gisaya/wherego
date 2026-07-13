@@ -209,7 +209,7 @@ WHEREGO_KTO_DATALAB_LAG_DAYS=30
 WHEREGO_KTO_DATALAB_LOOKBACK_DAYS=14
 WHEREGO_KTO_DATALAB_ROWS=12000
 WHEREGO_KTO_DATALAB_FAILURE_CACHE_SECONDS=300
-WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=8
+WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=3
 WHEREGO_GEMINI_CANDIDATE_LIMIT=7
 WHEREGO_GEMINI_SCORE_WINDOW=24
 WHEREGO_KTO_CACHE_ENABLED=true
@@ -238,7 +238,7 @@ python -m backend.scripts.wherego_qc_report --hours 168 --json
 Quota/runtime behavior:
 
 - Search is capped by `WHEREGO_KTO_SEARCH_MAX_CALLS` per request.
-- The backend maps answers to three canonical destination intents, legal-district region codes, and intent-specific KTO content types. All three searches run concurrently with up to 50 rows each; a fourth call is used only when fewer than five candidates survive filtering. Final common/intro detail calls also run concurrently.
+- The backend maps answers to three canonical destination intents, legal-district region codes, and intent-specific KTO content types. All three searches run concurrently with up to 50 rows each; a fourth call is used only when fewer than five candidates survive filtering.
 - KTO images are composited into saved cards only when `cpyrhtDivCd` allows modification (`Type1`), and the card displays the Korea Tourism Organization attribution.
 - DataLab checks one 14-day window about 30 days behind today and checks one earlier window only when the first is empty. Empty/error results are cached briefly so a DataLab outage does not repeat the same scan for every candidate.
 - Gemini final selection uses `thinkingLevel=minimal`, a compact JSON schema, 640 output tokens, and at most one retry. Check `source.model` and `source.timingsMs` before attributing total latency to Gemini.
@@ -248,7 +248,7 @@ Quota/runtime behavior:
 - If keyword candidates are empty and the user selected a maximum distance/time, the server spends the final call-budget slot on `locationBasedList2`. It keeps the original distance filter, caps the fallback radius at 20km, and never exceeds `WHEREGO_KTO_SEARCH_MAX_CALLS`.
 - `POST /api/wherego/recommend` accepts the prepared candidate set and reuses it so KTO search is not repeated. If no candidate set is supplied, it keeps the older all-in-one fallback path.
 - Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place only after the full-screen ad starts showing; failed or omitted ad events use the bounded fallback path.
-- Only the final selected place gets KTO detail calls.
+- The final selected place skips KTO detail calls when candidate metadata already has title, address, coordinates, and a Type1 image. Otherwise only `detailCommon2` runs with a hard three-second cap; failures fall back to candidate metadata and `detailIntro2` is not called.
 - A single KTO search timeout is skipped if other search calls return candidates.
 - `detailImage2` is disabled by default; use search/detail common image fields first.
 - KTO search responses are cached in server memory for 24 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.

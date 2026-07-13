@@ -153,6 +153,8 @@
   - 2026-07-12 KST 프로덕션 저장 검증: Render에서 질문은행 `2026-07-12+2026-07-12`, 7문항을 확인했다. 전체 요청은 후보 `8 -> 7 -> 5`, Gemini 3.1 Flash Lite, 3201ms였고 `노을캠핑장(서울)`을 추천했다. QC DB는 `7/3/4`, Gemini, 이미지/지도 존재로 저장됐으며 smoke 레코드는 삭제했다. Vercel production `dpl_AZ1p4nVd9TJif3c4BL5ZUxfn3LTW`가 READY이고 `https://wherego-lake.vercel.app`에 연결됐다.
   - 2026-07-13 KST 질문 중복 정책 정정: 중복 방지 범위는 이전 세트가 아니라 현재 7문항 세트 내부다. 서버는 3개 원천축과 4개 일반 테마를 각각 한 번만 선택하고, 상호배타 테마 및 원천질문과 의미가 겹치는 일반 테마를 함께 내보내지 않는다. 앱 번들 질문은행과 로컬 생성 fallback은 제거해 이후 질문·선택지 변경은 서버 배포만으로 반영한다. 5,000세트 중 질문/테마 중복 0건, Wherego 테스트 54개, TypeScript, AIT build가 통과했고 deploymentId는 `019f59d5-3dc8-713c-bfcf-ff2569863aeb`이다.
   - 2026-07-13 KST 첫 화면 개편: 한국관광공사 데이터 기반 AI 추천을 전면에 두고, 국내 바다·숲길·한옥 문화공간을 담은 실사형 정적 사진 3장을 첫 화면 갤러리에 추가했다. 사진은 각각 720x720 JPEG로 앱 번들에 포함해 외부 네트워크 없이 표시한다. `yarn typecheck`, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f59f9-8854-7a53-ba01-938d4bafb3cb`이다.
+  - 2026-07-13 KST 첫 화면 사진 호환성 보완: 앱 테스트에서 정적 JPEG 모듈이 빈 영역으로 보이는 문제를 피하려고 3개 사진을 480x480 baseline JPEG Base64 data URI로 번들에 직접 포함했다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5a1b-d7d8-7ef7-a861-6003cf5b63ad`이다. AIT 번들에 data URI 3개가 포함된 것을 확인했으며 실기기 화면 확인은 남아 있다.
+  - 2026-07-13 KST 추천 지연 보완: 운영 성공 5건에서 Gemini 선택은 중앙값 1867ms였고 KTO 최종 상세는 최대 6903ms였다. JBG는 최종 후보 메타데이터와 Type1 이미지가 완전하면 상세 조회를 생략하고, 부족할 때만 `detailCommon2`를 최대 3초 호출한 뒤 후보 데이터로 fallback한다. `detailIntro2`는 제거했고 백엔드 Wherego 테스트 56개가 통과했다. Render 배포 후 `detailMs`를 재확인한다.
 
 ## 운영 규칙
 
