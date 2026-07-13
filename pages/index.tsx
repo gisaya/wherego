@@ -43,8 +43,6 @@ import {
   type WheregoUsage,
 } from '../src/api/wheregoApi';
 import { WHEREGO_SHARE_REWARD_MODULE_ID } from '../src/config';
-import generalQuestionBank from '../data/general-question-bank.json';
-import sourceQuestionBlueprint from '../data/source-question-blueprint.json';
 
 export const Route = createRoute('/', {
   component: Index,
@@ -65,12 +63,6 @@ type Option = {
   constraints?: Record<string, boolean | number | string | string[]>;
 };
 
-type OptionMetadata = {
-  tags?: string[];
-  searchHints?: string[];
-  constraints?: Record<string, boolean | number | string | string[]>;
-};
-
 type Question = {
   type: QuestionKind;
   id: string;
@@ -80,72 +72,6 @@ type Question = {
   layout: QuestionLayout;
   tags?: string[];
   options: Option[];
-};
-
-type BankQuestionType = 'select_2' | 'select_4';
-
-type BankOption = {
-  key?: string;
-  sourceId?: string;
-  label: string;
-  caption?: string;
-  tags?: string[];
-  searchHints?: string[];
-  constraints?: Record<string, boolean | number | string | string[]>;
-};
-
-type SourceQuestionVariant = {
-  id: string;
-  type: BankQuestionType;
-  question: string;
-  options: BankOption[];
-};
-
-type SourceQuestionAxis = {
-  axis: string;
-  label: string;
-  why?: string;
-  variants: SourceQuestionVariant[];
-};
-
-type SourceQuestionBlueprint = {
-  requiredAxes: SourceQuestionAxis[];
-};
-
-type GeneralQuestionItem = {
-  id: string;
-  type: BankQuestionType;
-  tagGroup: string;
-  label: string;
-  question: string;
-  tags?: string[];
-  options: BankOption[];
-};
-
-type GeneralQuestionGroup = {
-  tagGroup: string;
-  label: string;
-  why?: string;
-  questions: GeneralQuestionItem[];
-};
-
-type GeneralQuestionRuntimeSelection = {
-  requiredTagGroups?: string[];
-  oneOfTagGroups?: string[];
-  mutuallyExclusiveTagGroups?: string[][];
-  similarOptionGroups?: Record<string, string[][]>;
-  excludedSourceQuestionIds?: string[];
-  sourceQuestionConflicts?: Record<string, string[]>;
-};
-
-type GeneralQuestionBank = {
-  runtimeSelection?: GeneralQuestionRuntimeSelection;
-  tagGroups: GeneralQuestionGroup[];
-};
-
-type QuestionHistory = {
-  questionIds: string[];
-  generalTagGroups: string[];
 };
 
 type SelectedAnswer = {
@@ -205,321 +131,6 @@ type DemoResult = {
 };
 
 const LOGO_IMAGE = require('../assets/logo.png') as number;
-const sourceQuestionData = sourceQuestionBlueprint as SourceQuestionBlueprint;
-const generalQuestionData = generalQuestionBank as GeneralQuestionBank;
-
-const sourceQuestionPool: Question[] = [
-  {
-    type: 'source',
-    id: 'move_time_binary_01',
-    eyebrow: '거리',
-    question: '오늘은 가볍게 갈까요, 멀리 제대로 갈까요?',
-    subcopy: '출발지 기준으로 후보 지역을 먼저 좁힙니다.',
-    layout: 'two',
-    options: [
-      { label: '가볍게 근교로', caption: '왕복 2시간 안쪽' },
-      { label: '멀리 제대로', caption: '목적지 우선' },
-    ],
-  },
-  {
-    type: 'source',
-    id: 'party_companion_01',
-    eyebrow: '동행',
-    question: '누구랑 가는 여행이에요?',
-    subcopy: '같은 장소도 누구와 가는지에 따라 만족도가 달라집니다.',
-    layout: 'four',
-    options: [
-      { label: '혼자 조용히', caption: '한산한 산책' },
-      { label: '연인/친구와', caption: '사진과 카페' },
-      { label: '아이와 가족끼리', caption: '안전한 동선' },
-      { label: '부모님/시니어와', caption: '편한 길' },
-    ],
-  },
-  {
-    type: 'source',
-    id: 'intent_landscape_01',
-    eyebrow: '목적지',
-    question: '오늘 끌리는 풍경은 어느 쪽이에요?',
-    subcopy: '한국관광공사 검색 키워드를 정하는 핵심 질문입니다.',
-    layout: 'four',
-    options: [
-      { label: '숲과 수목원', caption: '그늘과 산책' },
-      { label: '바다와 해안', caption: '시원한 전망' },
-      { label: '호수와 강변', caption: '데크길' },
-      { label: '도심과 문화공간', caption: '전시와 카페' },
-    ],
-  },
-];
-
-const generalQuestionPool: Question[] = [
-  {
-    type: 'general',
-    id: 'crowd',
-    eyebrow: '혼잡도',
-    question: '인파는 어느 쪽이 더 좋아요?',
-    subcopy: '지역별 방문자수 데이터를 결과 보조 신호로 씁니다.',
-    layout: 'two',
-    options: [
-      { label: '한산한 숨은 곳', caption: '여유 우선' },
-      { label: '활기찬 인기 명소', caption: '핫플 우선' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'mood',
-    eyebrow: '무드',
-    question: '오늘 여행의 온도는 어느 쪽이에요?',
-    subcopy: '결과 카드의 한 줄 평과 장소 분위기를 맞춥니다.',
-    layout: 'four',
-    options: [
-      { label: '차분한 힐링', caption: '쉬러 가기' },
-      { label: '사진 남기기', caption: '예쁜 장면' },
-      { label: '새로운 경험', caption: '이색 코스' },
-      { label: '맛있는 하루', caption: '먹거리 중심' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'mobility',
-    eyebrow: '접근성',
-    question: '도착 후 걷는 건 어디까지 괜찮아요?',
-    subcopy: '주차, 보행, 계단 조건을 추천 점수에 반영합니다.',
-    layout: 'four',
-    options: [
-      { label: '주차 후 5분 컷', caption: '최소 보행' },
-      { label: '30분 산책 정도', caption: '가벼운 코스' },
-      { label: '1시간 이상 걷기', caption: '트레킹 가능' },
-      { label: '언덕/계단도 가능', caption: '전망대 가능' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'budget',
-    eyebrow: '예산',
-    question: '오늘 지출은 어느 정도가 편해요?',
-    subcopy: '입장료와 주변 소비가 큰 후보를 조절합니다.',
-    layout: 'two',
-    options: [
-      { label: '가볍게 무료 위주', caption: '공원/산책' },
-      { label: '괜찮으면 유료도', caption: '전시/체험' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'weather',
-    eyebrow: '날씨',
-    question: '날씨가 애매하면 어떤 곳이 좋아요?',
-    subcopy: '실내 대안과 그늘 조건을 후보 필터에 더합니다.',
-    layout: 'four',
-    options: [
-      { label: '실내 대안 필수', caption: '비 와도 안정' },
-      { label: '비 와도 운치', caption: '감성 우선' },
-      { label: '맑은 날 야외', caption: '전망 우선' },
-      { label: '그늘 많은 곳', caption: '더위 대응' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'food',
-    eyebrow: '먹거리',
-    question: '밥이나 카페는 얼마나 중요해요?',
-    subcopy: '목적지 주변 상권과 체류 방식을 함께 봅니다.',
-    layout: 'four',
-    options: [
-      { label: '맛집까지 중요', caption: '식사 포함' },
-      { label: '카페가 있으면 좋음', caption: '쉬는 시간' },
-      { label: '간식 정도면 충분', caption: '가벼운 소비' },
-      { label: '장소만 좋으면 됨', caption: '목적지 우선' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'outdoor_stay',
-    eyebrow: '야외 체류 여부',
-    question: '이번 여행에 캠핑이나 피크닉을 넣을까요?',
-    subcopy: '원할 때만 캠핑장이나 피크닉 가능한 장소를 후보로 좁힙니다.',
-    layout: 'four',
-    options: [
-      { label: '돗자리 피크닉', caption: '공원', tags: ['picnic', 'outdoor_stay'], searchHints: ['피크닉', '도시공원', '잔디광장'], constraints: { destinationCategory: 'picnic', ktoContentTypeIds: ['12'] } },
-      { label: '당일 캠크닉', caption: '캠핑장', tags: ['campnic', 'day_camping'], searchHints: ['캠핑장', '야영장', '캠크닉'], constraints: { destinationCategory: 'camping', ktoContentTypeIds: ['28'] } },
-      { label: '편한 글램핑', caption: '글램핑', tags: ['glamping', 'comfort_stay'], searchHints: ['글램핑', '캠핑장'], constraints: { destinationCategory: 'camping', ktoContentTypeIds: ['28'] } },
-      { label: '캠핑·피크닉 제외', caption: '일반 관광지', tags: ['no_outdoor_stay'], searchHints: [], constraints: { destinationCategory: 'standard', ktoContentTypeIds: ['12'] } },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'accessibility',
-    eyebrow: '편의',
-    question: '꼭 챙겨야 하는 편의 조건이 있어요?',
-    subcopy: '강한 제약은 결과에서 필터처럼 반영합니다.',
-    layout: 'four',
-    options: [
-      { label: '아이 편의시설', caption: '가족 동선' },
-      { label: '반려동물 동반', caption: '펫 가능' },
-      { label: '화장실/쉼터', caption: '쉬운 체류' },
-      { label: '특별히 없음', caption: '넓게 추천' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'photo',
-    eyebrow: '기록',
-    question: '사진은 어느 정도 챙길까요?',
-    subcopy: '전망, 계절감, 포토존 성격을 추천에 더합니다.',
-    layout: 'two',
-    options: [
-      { label: '사진 잘 나와야 함', caption: '장면 우선' },
-      { label: '눈으로 보면 충분', caption: '체류 우선' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'route_style',
-    eyebrow: '동선',
-    question: '오늘 동선은 어떤 쪽이 좋아요?',
-    subcopy: '결과 카드에서 단일 목적지인지 주변 코스인지 결정합니다.',
-    layout: 'two',
-    options: [
-      { label: '목적지 하나', caption: '한 곳에 오래' },
-      { label: '주변까지 코스', caption: '여러 곳 묶기' },
-    ],
-  },
-  {
-    type: 'general',
-    id: 'time_slot',
-    eyebrow: '시간대',
-    question: '출발 타이밍은 어느 쪽에 가까워요?',
-    subcopy: '오전형, 오후형, 야경형 후보를 다르게 잡습니다.',
-    layout: 'four',
-    options: [
-      { label: '아침부터 출발', caption: '긴 체류' },
-      { label: '점심 먹고 출발', caption: '반나절' },
-      { label: '해질녘 맞춰', caption: '노을' },
-      { label: '밤 분위기', caption: '야경' },
-    ],
-  },
-];
-
-const optionMetadataByQuestionId: Record<string, Record<string, OptionMetadata>> = {
-  move_time_binary_01: {
-    '가볍게 근교로': {
-      tags: ['nearby', 'short_trip', 'daytrip', 'low_fatigue'],
-      searchHints: ['공원', '수목원', '산책'],
-      constraints: { areaScope: 'nearby', maxRoundTripMinutes: 150, maxDistanceKm: 85 },
-    },
-    '멀리 제대로': {
-      tags: ['wide_trip', 'destination_first', 'long_daytrip'],
-      searchHints: ['전망대', '자연휴양림', '해변'],
-      constraints: { areaScope: 'nationwide', minDistanceKm: 45 },
-    },
-  },
-  party_companion_01: {
-    '혼자 조용히': {
-      tags: ['solo', 'quiet', 'low_crowd', 'healing'],
-      searchHints: ['숲', '공원', '산책'],
-      constraints: { preferLowCrowd: true },
-    },
-    '연인/친구와': {
-      tags: ['couple_or_friends', 'photo', 'cafe_ok'],
-      searchHints: ['전망대', '문화공간', '정원'],
-      constraints: { preferPhotoSpot: true },
-    },
-    '아이와 가족끼리': {
-      tags: ['kids', 'family', 'safe', 'parking'],
-      searchHints: ['생태공원', '수목원', '어린이'],
-      constraints: { preferParking: true, preferEasyWalk: true },
-    },
-    '부모님/시니어와': {
-      tags: ['senior', 'easy_walk', 'restroom', 'low_slope'],
-      searchHints: ['공원', '수목원', '무장애'],
-      constraints: { preferParking: true, preferEasyWalk: true },
-    },
-  },
-  intent_landscape_01: {
-    '숲과 수목원': {
-      tags: ['forest', 'arboretum', 'nature', 'shade'],
-      searchHints: ['수목원', '숲', '자연휴양림', '생태공원', '정원'],
-    },
-    '바다와 해안': {
-      tags: ['sea', 'coast', 'water', 'open_view'],
-      searchHints: ['해변', '해안산책로', '바다', '전망대', '섬'],
-    },
-    '호수와 강변': {
-      tags: ['lake', 'river', 'deck_walk', 'calm_water'],
-      searchHints: ['호수', '강변', '저수지', '둘레길', '데크길'],
-    },
-    '도심과 문화공간': {
-      tags: ['city', 'culture', 'exhibition', 'cafe_ok'],
-      searchHints: ['박물관', '미술관', '문화공간', '전망대'],
-    },
-  },
-  crowd: {
-    '한산한 숨은 곳': {
-      tags: ['low_crowd', 'hidden', 'quiet'],
-      constraints: { preferLowCrowd: true },
-    },
-    '활기찬 인기 명소': {
-      tags: ['popular', 'hotplace', 'lively'],
-      constraints: { allowCrowd: true },
-    },
-  },
-  mood: {
-    '차분한 힐링': { tags: ['healing', 'rest', 'calm'], searchHints: ['숲', '수목원', '공원'] },
-    '사진 남기기': { tags: ['photo', 'view', 'shareable'], searchHints: ['전망대', '정원', '문화공간'] },
-    '새로운 경험': { tags: ['experience', 'novelty'], searchHints: ['체험마을', '박물관', '테마파크'] },
-    '맛있는 하루': { tags: ['food', 'cafe', 'local_food'], searchHints: ['문화거리', '전통시장', '카페거리'] },
-  },
-  mobility: {
-    '주차 후 5분 컷': {
-      tags: ['minimal_walk', 'parking_close', 'easy_walk'],
-      constraints: { preferParking: true, preferEasyWalk: true, maxOneWayMinutes: 90 },
-    },
-    '30분 산책 정도': { tags: ['easy_walk', 'walk'], searchHints: ['산책', '공원', '둘레길'] },
-    '1시간 이상 걷기': { tags: ['long_walk', 'trail'], searchHints: ['둘레길', '숲길', '자연휴양림'] },
-    '언덕/계단도 가능': { tags: ['slope_ok', 'view', 'active'], searchHints: ['전망대', '둘레길'] },
-  },
-  budget: {
-    '가볍게 무료 위주': { tags: ['free_preferred', 'park', 'light_spend'], searchHints: ['공원', '산책'] },
-    '괜찮으면 유료도': { tags: ['paid_ok', 'exhibition', 'experience'], searchHints: ['박물관', '미술관', '체험'] },
-  },
-  weather: {
-    '실내 대안 필수': { tags: ['indoor_required', 'rain_safe'], searchHints: ['박물관', '미술관', '전시관'] },
-    '비 와도 운치': { tags: ['rain_ok', 'mood'], searchHints: ['숲', '정원', '문화공간'] },
-    '맑은 날 야외': { tags: ['outdoor', 'sunny', 'view'], searchHints: ['전망대', '해변', '공원'] },
-    '그늘 많은 곳': { tags: ['shade', 'summer_safe', 'forest'], searchHints: ['숲', '수목원', '자연휴양림'] },
-  },
-  food: {
-    '맛집까지 중요': { tags: ['food_required', 'local_food'], searchHints: ['전통시장', '문화거리'] },
-    '카페가 있으면 좋음': { tags: ['cafe_required', 'rest'], searchHints: ['카페거리', '문화공간'] },
-    '간식 정도면 충분': { tags: ['light_food', 'snack'], searchHints: ['공원', '문화공간'] },
-    '장소만 좋으면 됨': { tags: ['destination_only'], searchHints: ['수목원', '전망대', '정원'] },
-  },
-  accessibility: {
-    '아이 편의시설': {
-      tags: ['kids_facility', 'family', 'easy_walk'],
-      searchHints: ['어린이', '생태공원', '수목원'],
-      constraints: { preferParking: true, preferEasyWalk: true },
-    },
-    '반려동물 동반': { tags: ['pet_friendly'], searchHints: ['공원', '산책'] },
-    '화장실/쉼터': { tags: ['restroom', 'rest_area', 'comfort'], searchHints: ['공원', '수목원'] },
-    '특별히 없음': { tags: ['no_constraints'] },
-  },
-  photo: {
-    '사진 잘 나와야 함': { tags: ['photo_required', 'view'], searchHints: ['전망대', '정원', '야경'] },
-    '눈으로 보면 충분': { tags: ['rest_first', 'simple_viewing'], searchHints: ['숲', '공원', '산책'] },
-  },
-  route_style: {
-    '목적지 하나': { tags: ['single_destination', 'slow_route'], constraints: { singleDestination: true } },
-    '주변까지 코스': { tags: ['multi_stop', 'route_link'], constraints: { multiStopOk: true } },
-  },
-  time_slot: {
-    '아침부터 출발': { tags: ['morning', 'early_start'], constraints: { preferTimeSlot: 'morning' } },
-    '점심 먹고 출발': { tags: ['late_start', 'half_day'], constraints: { preferTimeSlot: 'afternoon' } },
-    '해질녘 맞춰': { tags: ['sunset', 'warm_photo'], searchHints: ['노을', '전망대'] },
-    '밤 분위기': { tags: ['night', 'night_view'], searchHints: ['야경', '전망대', '문화공간'] },
-  },
-};
-
 const regionOptions: Origin[] = [
   {
     type: 'selected_region',
@@ -776,7 +387,6 @@ const FULL_SCREEN_AD_GROUP_ID = 'ait.v2.live.69c443b05e6a42ea';
 const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const ANONYMOUS_STORAGE_KEY = 'wherego.anonymous-key.v1';
-const QUESTION_HISTORY_STORAGE_KEY = 'wherego.question-history.v1';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
 const RESULT_CARD_HERO_HEIGHT = 460;
@@ -788,16 +398,6 @@ const QUESTION_ADVANCE_DELAY_MS = 1000;
 const QUESTION_SET_LOADING_MIN_MS = 2000;
 const REWARDED_AD_LOAD_TIMEOUT_MS = 15000;
 const FULL_SCREEN_AD_EVENT_TIMEOUT_MS = 8000;
-const DESTINATION_GENERAL_TAG_GROUPS = new Set([
-  'weather',
-  'landscape',
-  'activity',
-  'outdoor_stay',
-  'culture_style',
-  'season',
-  'photo',
-  'healing_energy',
-]);
 
 function Index() {
   const backEvent = useBackEvent();
@@ -1542,39 +1142,35 @@ function Index() {
     setRecommendationStatus('idle');
     setResultMessage('');
 
-    const questionHistory = await readQuestionHistory();
-    if (questionSetRequestIdRef.current !== requestId) {
+    const fallbackSessionId = recommendationSessionIdRef.current;
+    let nextQuestionSet: { questions: Question[]; sessionId: string };
+    try {
+      const [response] = await Promise.all([
+        fetchWheregoQuestionSet({ origin: nextOrigin }),
+        delay(QUESTION_SET_LOADING_MIN_MS),
+      ]);
+      const remoteQuestions = normalizeRemoteQuestions(response.questions);
+      if (remoteQuestions.length !== SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT) {
+        throw new Error('서버 질문 세트 구성이 올바르지 않아요.');
+      }
+      nextQuestionSet = {
+        questions: remoteQuestions,
+        sessionId: response.questionSetId || fallbackSessionId,
+      };
+    } catch (error) {
+      if (questionSetRequestIdRef.current !== requestId) {
+        return;
+      }
+      setIsQuestionSetLoading(false);
+      setLocationStatus(`질문지를 불러오지 못했어요. ${toErrorMessage(error)}`);
       return;
     }
-    const fallbackQuestionSet = buildQuestionSet(questionHistory);
-    const fallbackSessionId = recommendationSessionIdRef.current;
-    const questionSetPromise = fetchWheregoQuestionSet({
-      origin: nextOrigin,
-      excludeQuestionIds: questionHistory.questionIds,
-      excludeGeneralTagGroups: questionHistory.generalTagGroups,
-    })
-      .then((response) => {
-        const remoteQuestions = normalizeRemoteQuestions(response.questions);
-        return {
-          questions:
-            remoteQuestions.length === SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT
-              ? remoteQuestions
-              : fallbackQuestionSet,
-          sessionId: response.questionSetId || fallbackSessionId,
-        };
-      })
-      .catch(() => ({ questions: fallbackQuestionSet, sessionId: fallbackSessionId }));
-    const [nextQuestionSet] = await Promise.all([
-      questionSetPromise,
-      delay(QUESTION_SET_LOADING_MIN_MS),
-    ]);
 
     if (questionSetRequestIdRef.current !== requestId) {
       return;
     }
 
     recommendationSessionIdRef.current = nextQuestionSet.sessionId;
-    void saveQuestionHistory(nextQuestionSet.questions);
     setQuestionSet(nextQuestionSet.questions);
     setIsQuestionSetLoading(false);
     setLocationStatus('');
@@ -1593,7 +1189,6 @@ function Index() {
 
     clearQuestionAdvanceTimer();
 
-    const metadata = mergeOptionMetadata(optionMetadataByQuestionId[currentQuestion.id]?.[option.label], option);
     const nextAnswers = [
       ...selectedAnswers,
       {
@@ -1602,9 +1197,9 @@ function Index() {
         question: currentQuestion.question,
         answer: option.label,
         caption: option.caption,
-        tags: uniqueStrings([...(currentQuestion.tags || []), ...(metadata.tags || [])]),
-        searchHints: metadata.searchHints || [],
-        constraints: metadata.constraints || {},
+        tags: uniqueStrings([...(currentQuestion.tags || []), ...(option.tags || [])]),
+        searchHints: option.searchHints || [],
+        constraints: option.constraints || {},
       },
     ];
 
@@ -2565,18 +2160,6 @@ function Pill({ label }: { label: string }) {
   );
 }
 
-function buildQuestionSet(history: QuestionHistory = emptyQuestionHistory()) {
-  const excludedQuestionIds = new Set(history.questionIds);
-  const excludedGeneralTagGroups = new Set(history.generalTagGroups);
-  const sourceQuestions = buildSourceQuestions(excludedQuestionIds);
-  const generalQuestions = buildGeneralQuestions(
-    sourceQuestions,
-    excludedQuestionIds,
-    excludedGeneralTagGroups,
-  );
-  return shuffle([...sourceQuestions, ...generalQuestions]);
-}
-
 function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
   const normalized = questions
     .filter((question) => {
@@ -2613,309 +2196,16 @@ function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
 
   const sourceCount = normalized.filter((question) => question.type === 'source').length;
   const generalCount = normalized.filter((question) => question.type === 'general').length;
+  const questionIds = normalized.map((question) => question.id);
+  const themeKeys = normalized.map((question) => question.tags?.[0] || '');
   return normalized.length === SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT &&
     sourceCount === SOURCE_QUESTION_COUNT &&
-    generalCount === GENERAL_QUESTION_COUNT
+    generalCount === GENERAL_QUESTION_COUNT &&
+    questionIds.length === new Set(questionIds).size &&
+    themeKeys.every(Boolean) &&
+    themeKeys.length === new Set(themeKeys).size
     ? normalized
     : [];
-}
-
-function buildSourceQuestions(recentQuestionIds: Set<string> = new Set()) {
-  const globallyExcludedQuestionIds = new Set(
-    generalQuestionData.runtimeSelection?.excludedSourceQuestionIds || [],
-  );
-  const questions = sourceQuestionData.requiredAxes
-    .map((axis) => {
-      const globallyAllowedVariants = axis.variants.filter(
-        (variant) => !globallyExcludedQuestionIds.has(variant.id),
-      );
-      const freshVariants = globallyAllowedVariants.filter(
-        (variant) => !recentQuestionIds.has(variant.id),
-      );
-      const variant = randomItem(
-        freshVariants.length > 0 ? freshVariants : globallyAllowedVariants.length > 0 ? globallyAllowedVariants : axis.variants,
-      );
-      return variant == null ? null : toSourceQuestion(axis, variant);
-    })
-    .filter((question): question is Question => question != null);
-
-  return questions.length === SOURCE_QUESTION_COUNT ? questions : sourceQuestionPool;
-}
-
-function buildGeneralQuestions(
-  sourceQuestions: Question[],
-  recentQuestionIds: Set<string> = new Set(),
-  recentGeneralTagGroups: Set<string> = new Set(),
-) {
-  const groups = generalQuestionData.tagGroups;
-  const selectedGroups: GeneralQuestionGroup[] = [];
-  const selectedTagGroups = new Set<string>();
-  const runtimeSelection = generalQuestionData.runtimeSelection;
-  const requiredTagGroups = runtimeSelection?.requiredTagGroups || ['crowd'];
-  const oneOfTagGroups = runtimeSelection?.oneOfTagGroups || ['mobility', 'accessibility'];
-  const mutuallyExclusiveTagGroups = runtimeSelection?.mutuallyExclusiveTagGroups || [oneOfTagGroups];
-  const blockedTagGroups = sourceQuestions.reduce((blocked, question) => {
-    for (const tagGroup of runtimeSelection?.sourceQuestionConflicts?.[question.id] || []) {
-      blocked.add(tagGroup);
-    }
-    return blocked;
-  }, new Set<string>());
-
-  for (const tagGroup of requiredTagGroups) {
-    if (recentGeneralTagGroups.has(tagGroup)) {
-      continue;
-    }
-    addGeneralQuestionGroup(
-      groups.find((group) => group.tagGroup === tagGroup),
-      selectedGroups,
-      selectedTagGroups,
-      blockedTagGroups,
-      mutuallyExclusiveTagGroups,
-    );
-  }
-
-  addGeneralQuestionGroup(
-    randomItem(
-      shuffle(oneOfTagGroups)
-        .filter((tagGroup) => !blockedTagGroups.has(tagGroup))
-        .filter((tagGroup) => !recentGeneralTagGroups.has(tagGroup))
-        .map((tagGroup) => groups.find((group) => group.tagGroup === tagGroup))
-        .filter(isDefined),
-    ),
-    selectedGroups,
-    selectedTagGroups,
-    blockedTagGroups,
-    mutuallyExclusiveTagGroups,
-  );
-
-  addGeneralQuestionGroup(
-    randomItem(
-      shuffle(
-        groups.filter(
-          (group) =>
-            DESTINATION_GENERAL_TAG_GROUPS.has(group.tagGroup) &&
-            !selectedTagGroups.has(group.tagGroup) &&
-            !blockedTagGroups.has(group.tagGroup) &&
-            !recentGeneralTagGroups.has(group.tagGroup),
-        ),
-      ),
-    ),
-    selectedGroups,
-    selectedTagGroups,
-    blockedTagGroups,
-    mutuallyExclusiveTagGroups,
-  );
-
-  const remainingGroups = shuffle(
-    groups.filter(
-      (group) =>
-        !selectedTagGroups.has(group.tagGroup) &&
-        !blockedTagGroups.has(group.tagGroup) &&
-        !recentGeneralTagGroups.has(group.tagGroup),
-    ),
-  );
-  for (const group of remainingGroups) {
-    if (selectedGroups.length >= GENERAL_QUESTION_COUNT) {
-      break;
-    }
-    addGeneralQuestionGroup(
-      group,
-      selectedGroups,
-      selectedTagGroups,
-      blockedTagGroups,
-      mutuallyExclusiveTagGroups,
-    );
-  }
-
-  if (selectedGroups.length < GENERAL_QUESTION_COUNT) {
-    for (const group of shuffle(
-      groups.filter(
-        (group) =>
-          recentGeneralTagGroups.has(group.tagGroup) &&
-          !selectedTagGroups.has(group.tagGroup) &&
-          !blockedTagGroups.has(group.tagGroup),
-      ),
-    )) {
-      if (selectedGroups.length >= GENERAL_QUESTION_COUNT) {
-        break;
-      }
-      addGeneralQuestionGroup(
-        group,
-        selectedGroups,
-        selectedTagGroups,
-        blockedTagGroups,
-        mutuallyExclusiveTagGroups,
-      );
-    }
-  }
-
-  const questions = selectedGroups
-    .slice(0, GENERAL_QUESTION_COUNT)
-    .map((group) => {
-      const question = randomItem(
-        freshQuestionVariants(
-          group.questions.filter((item) =>
-            hasDistinctBinaryOptions(item, runtimeSelection?.similarOptionGroups?.[group.tagGroup] || []),
-          ),
-          recentQuestionIds,
-        ),
-      );
-      return question == null ? null : toGeneralQuestion(group, question);
-    })
-    .filter((question): question is Question => question != null);
-
-  return questions.length === GENERAL_QUESTION_COUNT
-    ? questions
-    : buildFallbackGeneralQuestions(
-        blockedTagGroups,
-        mutuallyExclusiveTagGroups,
-        recentQuestionIds,
-        recentGeneralTagGroups,
-      );
-}
-
-function freshQuestionVariants<T extends { id: string }>(questions: T[], recentQuestionIds: Set<string>) {
-  const fresh = questions.filter((question) => !recentQuestionIds.has(question.id));
-  return fresh.length > 0 ? fresh : questions;
-}
-
-function hasDistinctBinaryOptions(question: GeneralQuestionItem, similarGroups: string[][]) {
-  if (question.options.length !== 2) {
-    return true;
-  }
-  const optionIds = question.options.map((option) => option.sourceId || '');
-  return !similarGroups.some((group) => optionIds.every((optionId) => group.includes(optionId)));
-}
-
-function buildFallbackGeneralQuestions(
-  blockedTagGroups: Set<string>,
-  mutuallyExclusiveTagGroups: string[][],
-  recentQuestionIds: Set<string>,
-  recentGeneralTagGroups: Set<string>,
-) {
-  const selectedQuestions: Question[] = [];
-  const selectedTagGroups = new Set<string>();
-  const addQuestion = (question: Question | undefined) => {
-    if (question == null || selectedTagGroups.has(question.id) || blockedTagGroups.has(question.id)) {
-      return;
-    }
-    selectedQuestions.push(question);
-    selectedTagGroups.add(question.id);
-    blockSiblingTagGroups(question.id, blockedTagGroups, mutuallyExclusiveTagGroups);
-  };
-
-  if (!recentGeneralTagGroups.has('crowd') && !recentQuestionIds.has('crowd')) {
-    addQuestion(generalQuestionPool.find((question) => question.id === 'crowd'));
-  }
-  addQuestion(
-    shuffle(
-      generalQuestionPool.filter(
-        (question) =>
-          (question.id === 'mobility' || question.id === 'accessibility') &&
-          !blockedTagGroups.has(question.id) &&
-          !recentGeneralTagGroups.has(question.id) &&
-          !recentQuestionIds.has(question.id),
-      ),
-    )[0],
-  );
-  const freshQuestions = generalQuestionPool.filter(
-    (question) =>
-      !recentGeneralTagGroups.has(question.id) && !recentQuestionIds.has(question.id),
-  );
-  for (const question of shuffle([...freshQuestions, ...generalQuestionPool])) {
-    if (selectedQuestions.length >= GENERAL_QUESTION_COUNT) {
-      break;
-    }
-    addQuestion(question);
-  }
-  return selectedQuestions;
-}
-
-function addGeneralQuestionGroup(
-  group: GeneralQuestionGroup | undefined,
-  selectedGroups: GeneralQuestionGroup[],
-  selectedTagGroups: Set<string>,
-  blockedTagGroups: Set<string>,
-  mutuallyExclusiveTagGroups: string[][],
-) {
-  if (group == null || selectedTagGroups.has(group.tagGroup) || blockedTagGroups.has(group.tagGroup)) {
-    return;
-  }
-
-  selectedGroups.push(group);
-  selectedTagGroups.add(group.tagGroup);
-  blockSiblingTagGroups(group.tagGroup, blockedTagGroups, mutuallyExclusiveTagGroups);
-}
-
-function blockSiblingTagGroups(tagGroup: string, blockedTagGroups: Set<string>, families: string[][]) {
-  for (const family of families) {
-    if (!family.includes(tagGroup)) {
-      continue;
-    }
-    for (const sibling of family) {
-      if (sibling !== tagGroup) {
-        blockedTagGroups.add(sibling);
-      }
-    }
-  }
-}
-
-function toSourceQuestion(axis: SourceQuestionAxis, variant: SourceQuestionVariant): Question {
-  return {
-    type: 'source',
-    id: variant.id,
-    eyebrow: axis.label,
-    question: variant.question,
-    subcopy: sourceQuestionSubcopy(axis),
-    layout: questionLayout(variant.type, variant.options.length),
-    tags: [axis.axis],
-    options: variant.options.map(toQuestionOption),
-  };
-}
-
-function toGeneralQuestion(group: GeneralQuestionGroup, question: GeneralQuestionItem): Question {
-  return {
-    type: 'general',
-    id: question.id,
-    eyebrow: group.label || question.label,
-    question: question.question,
-    subcopy: group.why || '선택한 취향을 관광지 검색 조건과 추천 근거에 반영합니다.',
-    layout: questionLayout(question.type, question.options.length),
-    tags: uniqueStrings([question.tagGroup, ...(question.tags || [])]),
-    options: question.options.map(toQuestionOption),
-  };
-}
-
-function toQuestionOption(option: BankOption): Option {
-  const searchHints = option.searchHints || [];
-  const tags = option.tags || [];
-
-  return {
-    key: option.key || option.sourceId,
-    label: option.label,
-    caption: optionCaption(searchHints, option.caption),
-    tags,
-    searchHints,
-    constraints: option.constraints || {},
-  };
-}
-
-function questionLayout(type: BankQuestionType, optionCount: number): QuestionLayout {
-  return type === 'select_2' || optionCount <= 2 ? 'two' : 'four';
-}
-
-function sourceQuestionSubcopy(axis: SourceQuestionAxis) {
-  if (axis.why) {
-    return axis.why;
-  }
-
-  if (axis.axis === 'movement_scope') {
-    return '출발지 기준으로 추천 가능한 지역 후보를 먼저 좁힙니다.';
-  }
-  if (axis.axis === 'party_constraints') {
-    return '동행자와 이동 제약을 추천 조건에 반영합니다.';
-  }
-  return '관광지 검색 키워드와 목적지 분위기를 정합니다.';
 }
 
 function optionCaption(searchHints: string[], rawCaption?: string) {
@@ -2943,24 +2233,8 @@ function cleanOptionCaption(value: string) {
     .trim();
 }
 
-function mergeOptionMetadata(fallback: OptionMetadata | undefined, option: Option): OptionMetadata {
-  return {
-    tags: uniqueStrings([...(fallback?.tags || []), ...(option.tags || [])]),
-    searchHints: uniqueStrings([...(fallback?.searchHints || []), ...(option.searchHints || [])]),
-    constraints: { ...(fallback?.constraints || {}), ...(option.constraints || {}) },
-  };
-}
-
 function uniqueStrings(items: string[]) {
   return Array.from(new Set(items.filter((item) => item.length > 0)));
-}
-
-function randomItem<T>(items: T[]) {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
 }
 
 function chunkOptions(options: Option[], size: number) {
@@ -2969,13 +2243,6 @@ function chunkOptions(options: Option[], size: number) {
     rows.push(options.slice(index, index + size));
   }
   return rows;
-}
-
-function shuffle<T>(items: T[]) {
-  return [...items]
-    .map((item) => ({ item, sort: Math.random() }))
-    .sort((a, b) => a.sort - b.sort)
-    .map(({ item }) => item);
 }
 
 function createWheregoSessionId() {
@@ -3002,53 +2269,6 @@ async function resolveAnonymousUserKey(): Promise<string> {
     return generated;
   } catch (_) {
     return `runtime-${createWheregoSessionId()}`;
-  }
-}
-
-function emptyQuestionHistory(): QuestionHistory {
-  return { questionIds: [], generalTagGroups: [] };
-}
-
-async function readQuestionHistory(): Promise<QuestionHistory> {
-  try {
-    const stored = await Storage.getItem(QUESTION_HISTORY_STORAGE_KEY);
-    if (!stored) {
-      return emptyQuestionHistory();
-    }
-    const parsed = JSON.parse(stored) as Partial<QuestionHistory>;
-    return {
-      questionIds: uniqueStrings(
-        Array.isArray(parsed.questionIds)
-          ? parsed.questionIds.filter((value): value is string => typeof value === 'string')
-          : [],
-      ).slice(0, SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT),
-      generalTagGroups: uniqueStrings(
-        Array.isArray(parsed.generalTagGroups)
-          ? parsed.generalTagGroups.filter((value): value is string => typeof value === 'string')
-          : [],
-      ).slice(0, GENERAL_QUESTION_COUNT),
-    };
-  } catch (_) {
-    return emptyQuestionHistory();
-  }
-}
-
-async function saveQuestionHistory(questions: Question[]) {
-  const history: QuestionHistory = {
-    questionIds: uniqueStrings(questions.map((question) => question.id)).slice(
-      0,
-      SOURCE_QUESTION_COUNT + GENERAL_QUESTION_COUNT,
-    ),
-    generalTagGroups: uniqueStrings(
-      questions
-        .filter((question) => question.type === 'general')
-        .map((question) => question.tags?.[0] || question.id),
-    ).slice(0, GENERAL_QUESTION_COUNT),
-  };
-  try {
-    await Storage.setItem(QUESTION_HISTORY_STORAGE_KEY, JSON.stringify(history));
-  } catch (_) {
-    // Question generation still works when local history storage is unavailable.
   }
 }
 

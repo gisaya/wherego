@@ -222,8 +222,6 @@ export async function grantWheregoReward(params: {
 
 export async function fetchWheregoQuestionSet(params: {
   origin: WheregoRecommendOrigin;
-  excludeQuestionIds?: string[];
-  excludeGeneralTagGroups?: string[];
 }): Promise<WheregoQuestionSet> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -241,8 +239,6 @@ export async function fetchWheregoQuestionSet(params: {
         },
         body: JSON.stringify({
           origin: params.origin,
-          excludeQuestionIds: params.excludeQuestionIds || [],
-          excludeGeneralTagGroups: params.excludeGeneralTagGroups || [],
         }),
       }),
       timeoutPromise,

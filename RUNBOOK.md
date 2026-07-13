@@ -291,10 +291,10 @@ Validate script syntax:
 & 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' --check scripts/probe-question-bank-result.cjs
 ```
 
-Validate generated question-bank shape:
+Validate the server-owned question-bank shape:
 
 ```powershell
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -e "const fs=require('fs'); const bank=JSON.parse(fs.readFileSync('data/general-question-bank.json','utf8')); const counts=bank.tagGroups.map(g=>g.questions.length); const sourceCounts=bank.tagGroups.map(g=>new Set(g.questions.flatMap(q=>q.options.map(o=>o.sourceId))).size); console.log(JSON.stringify({tagGroups:bank.tagGroups.length,total:counts.reduce((a,b)=>a+b,0),min:Math.min(...counts),max:Math.max(...counts),sourceOptionMin:Math.min(...sourceCounts),sourceOptionMax:Math.max(...sourceCounts),requiredTagGroups:bank.runtimeSelection.requiredTagGroups,oneOfTagGroups:bank.runtimeSelection.oneOfTagGroups}));"
+& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -e "const fs=require('fs'); const bank=JSON.parse(fs.readFileSync('../jbg/apps/server/backend/app/resources/wherego/general-question-bank.json','utf8')); const counts=bank.tagGroups.map(g=>g.questions.length); const sourceCounts=bank.tagGroups.map(g=>new Set(g.questions.flatMap(q=>q.options.map(o=>o.sourceId))).size); console.log(JSON.stringify({tagGroups:bank.tagGroups.length,total:counts.reduce((a,b)=>a+b,0),min:Math.min(...counts),max:Math.max(...counts),sourceOptionMin:Math.min(...sourceCounts),sourceOptionMax:Math.max(...sourceCounts),requiredTagGroups:bank.runtimeSelection.requiredTagGroups,oneOfTagGroups:bank.runtimeSelection.oneOfTagGroups}));"
 ```
 
 Run the real KTO API probe with a stable date override:
@@ -346,7 +346,7 @@ The mockup uses:
 - recommendation loading appears after the full-screen-ad CTA while candidate preparation and final AI selection run
 - result card with tourism info, PNG card-download button, Naver Map open button, and home reset. The mock save flow downloads PNG only and does not open share.
 - result screen hides the top `어디고 / 추천 완료` header
-- live app requests the question set from `POST /api/wherego/questions` after origin selection; bundled question-bank fallback is used if the server is unavailable
+- live app requests the question set from `POST /api/wherego/questions` after origin selection; question copy and metadata are server-only, and the app stays on the origin screen with a retry message if the server is unavailable or returns an invalid 3+4 set
 - origin selection shows a question-set loading screen before the first question, keeps it for at least 2 seconds, and shows the banner ad during this loading screen
 - banner ads remount on `question-set-loading` and each `question-${questionIndex}` screen
 - option numbers are fixed circular badges so long Korean labels do not push or clip the number
@@ -359,7 +359,7 @@ Use this JSON when another AI or a copy reviewer needs to inspect card wording w
 docs/wherego-copy-review.json
 ```
 
-It includes source-question cards, generated general-question cards, option label/caption previews, banned/risky expressions, and result-card Gemini copy constraints. Regenerate it after changing `data/source-question-blueprint.json`, `data/general-question-bank.json`, or result-card copy rules.
+It includes source-question cards, generated general-question cards, option label/caption previews, banned/risky expressions, and result-card Gemini copy constraints. Runtime changes belong in the JBG server resource files; update this review artifact separately when external copy review is needed.
 
 
 ## Local Android Dev
