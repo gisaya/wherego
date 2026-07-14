@@ -134,8 +134,8 @@ contacts share-reward module ID: 1e6b212b-9093-4546-9991-99f478262910
 
 `pages/index.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts on the banner-free intro screen and the loaded ad is preserved across origin/question transitions; the ad gate loads again only if the earlier request failed or timed out. `showFullScreenAd` runs on the ad CTA, and `show`/`impression` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
 - The full-screen-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `show`/`impression`; `dismissed` is a fallback if the native display event was omitted.
-- Every recommendation uses the result interstitial gate, including recommendations funded by rewarded-ad and contacts-share credits. The rewarded ad is only for adding recommendation credits.
-- Daily usage is KST-based: base 3, rewarded ad +1 up to 10/day, contacts share +3 once/day. Candidate preparation reserves a credit; failures refund it; abandoned reservations expire after 30 minutes.
+- Every free, rewarded-ad, and contacts-share recommendation uses the result interstitial gate. A recommendation funded by a paid AI recommendation pass skips the result interstitial.
+- Daily usage is KST-based: base 3, rewarded ad +1 up to 3/day, contacts share +3 once/day. Paid recommendation passes do not expire at midnight. Candidate preparation reserves a credit; failures refund it; abandoned reservations expire after 30 minutes.
 - Rewarded-ad credits are granted only on `userEarnedReward`. Contacts sharing requires Toss app 5.223.0+.
 - After `/api/wherego/usage/reward` confirms the grant, return to the intro screen and show the updated remaining count. Do not navigate away on ad dismissal or grant failure.
 - `useBackEvent` must remain registered on the single-route app. Back from every step shows an exit confirmation, `계속하기` keeps the current screen, and only `나가기` calls `closeView`.
@@ -144,6 +144,51 @@ contacts share-reward module ID: 1e6b212b-9093-4546-9991-99f478262910
 - The AI loading screen and result screen each render their own bottom `InlineAd`. These banners mount only after the full-screen ad is dismissed and use separate keys so the two screens do not share a stale banner instance.
 
 During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
+
+## In-App Purchase
+
+Wherego sells a consumable `AI 여행지 추천 10회 이용권`. The app always renders the product name, description, icon, and final price returned by `IAP.getProductItemList()`; do not hardcode the displayed price in the client.
+
+Console setup:
+
+```text
+product type: consumable
+product name: AI 여행지 추천 10회 이용권
+benefit: 10 AI destination recommendations
+supply price: 900 won
+expected customer price: 990 won including VAT (confirm the Console calculation)
+product image: dedicated 1024x1024 asset; the current 600x600 app logo is not sufficient
+```
+
+Render setup after Console issues the SKU and mTLS client certificate:
+
+```text
+WHEREGO_IAP_10_CREDIT_SKU=<console-sku>
+WHEREGO_LOGIN_IDENTITY_SECRET=<random-secret-at-least-32-characters>
+WHEREGO_LOGIN_SESSION_TTL_HOURS=24
+WHEREGO_LOGIN_UNLINK_BASIC_AUTH=<unlink-callback-secret>
+APPS_IN_TOSS_MTLS_CERT_PEM=<multiline-client-certificate-pem>
+APPS_IN_TOSS_MTLS_KEY_PEM=<multiline-private-key-pem>
+APPS_IN_TOSS_MTLS_KEY_PASSWORD=<optional-private-key-password>
+```
+
+The exhausted-quota screen always shows the 10-credit purchase area. Until the SDK product lookup succeeds it shows a neutral `상품 확인` state without a hardcoded price, and tapping it retries product loading. The product can be viewed before login, but a successful product lookup is required before tapping purchase invokes the official `appLogin()` flow. The client exchanges the one-time authorization code with Render, which keeps only a hashed app session and the app-scoped Toss `userKey`; no name, phone, email, or CI scope is requested. The app session is kept in native Storage for up to 24 hours. The client calls `processProductGrant`, the Render server resolves that login session, sends `x-toss-user-key` to the Apps in Toss order-status API, and only then atomically adds 10 credits. `orderId` is unique, so retries cannot grant twice. App startup restores `getPendingOrders()`, completes granted orders with `completeProductGrant()`, and independently verifies `REFUNDED` orders before removing their credits.
+
+Console Toss-login setup uses no optional personal-information scope. Register these URLs:
+
+```text
+service terms: https://wherego-lake.vercel.app/terms/service
+privacy policy: https://wherego-lake.vercel.app/terms/privacy
+unlink callback: POST https://jbg.onrender.com/api/wherego/login/unlink
+```
+
+Required sandbox checks:
+
+1. Successful payment grants exactly 10 credits and returns to the intro screen.
+2. Payment success plus server grant failure leaves a pending order; reopening the app restores it exactly once.
+3. User cancellation and network errors do not grant credits.
+4. A refunded order removes the original 10 credits, including after some credits were used.
+5. The last paid credit still skips the result interstitial.
 
 Ads guideline notes:
 
@@ -161,11 +206,11 @@ minimum Toss app version: 5.232.0
 ```
 
 - `src/promotion/resultPromotion.ts` calls non-game `grantPromotionReward` when a successful recommendation result first opens.
-- A promotion-code-specific `Storage` value and an in-session ref prevent normal duplicate calls. Changing from `TEST_...` to the production code intentionally uses a new storage key.
+- A promotion-code-specific `Storage` value, an in-session ref, and `/api/wherego/promotion/attempt` prevent normal duplicate calls. The server atomically reserves `(anonymous user hash, promotion code)` before the SDK opens Toss's confirmation screen.
 - The result screen must retain the immediate-payment, one-person/one-time, and possible-early-termination notices.
 - Validate production only through an uploaded AIT and Toss app QR test; the sandbox cannot complete promotion testing.
 - Confirm the first result returns success and Toss shows the payment toast/history. Reopening or rerendering the result must not create a second grant.
-- Local storage is not sufficient against app-data reset or multiple devices. For strict monetary abuse prevention, implement Toss login and the mTLS server-to-server promotion APIs before increasing campaign exposure or budget.
+- The anonymous-key server guard survives app-data reset and normal rebuilds, but the client SDK flow is not a tamper-proof payment boundary. For strict monetary abuse prevention, use Toss login and the mTLS server-to-server promotion APIs before increasing campaign exposure or budget.
 
 ## Recommendation API
 
@@ -200,6 +245,11 @@ POST /api/wherego/candidates
 POST /api/wherego/recommend
 POST /api/wherego/usage
 POST /api/wherego/usage/reward
+POST /api/wherego/iap/products
+POST /api/wherego/iap/grant
+POST /api/wherego/iap/reconcile
+POST /api/wherego/login/exchange
+POST /api/wherego/login/unlink
 ```
 
 Required Render env:
@@ -214,6 +264,10 @@ GEMINI_WHEREGO_TIMEOUT_SECONDS=15
 GEMINI_WHEREGO_MAX_OUTPUT_TOKENS=640
 GEMINI_WHEREGO_HTTP_RETRIES=1
 WHEREGO_USAGE_LIMIT_ENABLED=true
+WHEREGO_IAP_10_CREDIT_SKU=<apps-in-toss-consumable-sku>
+APPS_IN_TOSS_MTLS_CERT_PEM=<multiline-client-certificate-pem>
+APPS_IN_TOSS_MTLS_KEY_PEM=<multiline-private-key-pem>
+APPS_IN_TOSS_MTLS_KEY_PASSWORD=<optional-private-key-password>
 WHEREGO_KTO_SEARCH_MAX_CALLS=4
 WHEREGO_KTO_SEARCH_ROWS=50
 WHEREGO_KTO_SEARCH_PARALLELISM=3

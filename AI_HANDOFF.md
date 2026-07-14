@@ -301,6 +301,16 @@ Recommendation latency update (2026-07-13 KST): QC showed Gemini final selection
 
 Result promotion update (2026-07-13 KST): the result screen now automatically calls the non-game Apps in Toss `grantPromotionReward` SDK with production promotion code `01KXDEWCPRY1FH6A4DEWB8282P` and amount 10. The screen displays immediate-payment, one-person/one-time, and early-termination notices and reports loading/success/already-granted/unsupported/error states. A successful reward key is stored under a promotion-code-specific Apps in Toss `Storage` key, while a session ref prevents duplicate calls during re-rendering. The earlier `TEST_` code is no longer present in release configuration. TypeScript, `git diff --check`, and Android/iOS AIT build passed with deploymentId `019f5b1c-f69c-7fae-9797-16cbb88a734d`. Real payment verification remains pending in a Toss app 5.232.0+ QR test. Local storage prevents normal repeat calls but cannot fully prevent app-data reset or multi-device abuse; strict production enforcement requires Toss login plus mTLS server-to-server promotion execution.
 
+Usage and IAP policy update (2026-07-14 KST): daily base recommendations remain three. A completed rewarded ad grants +1 up to three times per KST day, contacts sharing grants +3 once per day, and the consumable IAP product grants ten permanent paid credits. Daily credits are consumed before paid credits. Purchase login is requested only when the user taps the purchase CTA; a server-backed 24-hour Toss login session resolves the stable paid wallet, so reopening the app and logging in again restores remaining paid credits. The server verifies the Apps in Toss order over mTLS before granting, uses the order ID as the idempotency key, and reconciles verified refunds. Product name and price come from the SDK product query; the quota screen never hardcodes a price and remains usable when product lookup must be retried.
+
+Promotion duplicate guard update (2026-07-14 KST): result promotion execution now reserves `(anonymous user hash, promotion code)` through `/api/wherego/promotion/attempt` before opening the SDK confirmation flow. The Postgres guard complements local Apps in Toss Storage and the in-session ref, so a normal reinstall or rebuild cannot issue the same promotion twice for the same anonymous Apps in Toss identity.
+
+Server compatibility verification (2026-07-14 KST): 76 Wherego recommendation/usage/login/IAP/QC tests and 131 existing JBG HTTP/security/CORS/receipt regression tests passed, followed by Python bytecode compilation. The new functionality adds only `/api/wherego/*` routes and `wherego_*` tables via `CREATE TABLE IF NOT EXISTS`; it does not replace existing receipt routes or destructively migrate existing tables. Backend-first deployment is therefore the intended rollout order before uploading the new AIT client.
+
+Latest client build verification (2026-07-14 KST): terms static build, question probe syntax, TypeScript, and Android/iOS AIT builds passed with zero bundle errors and warnings. The generated `wherego.ait` is excluded from Git; deploymentId is `019f5f7e-dbeb-7a36-a155-f3b0f5a1f3dd`.
+
+Production server-first rollout (2026-07-14 KST): Render served backend commit `180f278fb020b2b37a42faf423ce13ff717406a8` with `ok=true` and Postgres storage. `/api/wherego/questions` returned seven questions with 3 source axes and 4 general questions. `/api/wherego/iap/products` returned HTTP 200 but `enabled=false` with zero products, so the production consumable SKU and the required mTLS/login environment configuration must be completed before the purchase QR test. Existing JBG service health remained normal throughout the deployment.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
@@ -311,13 +321,10 @@ Result promotion update (2026-07-13 KST): the result screen now automatically ca
 
 ## Next Recommended Steps
 
-1. After the Render deployment is healthy, verify the intro starts at three recommendations and a failed recommendation restores the reserved credit.
-2. On a Toss app 5.223.0+ device, exhaust base credits and verify rewarded ad +1, contacts share +3 once, and the result interstitial for every recommendation.
-3. Reconnect the Android device and verify `[wherego:interstitial-ad] load requested -> loaded -> show/impression -> dismissed` in logcat using the Apps in Toss dev server.
-4. Test the complete SDK/device flow: server-generated questions, banner ads, interstitial completion, Gemini loading, result rendering, PNG save without a share sheet, and Naver Map open.
-5. In a Toss app 5.232.0+ QR test, open one recommendation result and confirm the 10 won promotion toast/history once, then revisit the result and confirm no second grant occurs.
-6. Before scaling promotion budget, decide whether to add Toss login and mTLS server-to-server execution so one-person/one-time enforcement survives app-data reset and multiple devices.
-7. After Render deploy, watch `/api/wherego/recommend` `source.timingsMs`; complete candidates should have near-zero `detailMs`, while incomplete candidates must stay within the three-second detail cap.
-8. Run `docs/wherego-copy-review.json` through another AI/copy reviewer and apply only concrete wording improvements that preserve search tags and recommendation intent.
-9. Connect GitHub auto-deploy for Vercel project `joyai/wherego`, or continue using CLI manual deploys for terms-only updates.
-10. After production recommendations accumulate, review the first daily and Monday QC reports and tune thresholds only after at least 10 successful samples.
+1. Configure the production consumable SKU, Toss login credentials, and mTLS certificate/key on Render, then verify `/api/wherego/iap/products` returns the registered ten-credit product.
+2. Upload the new `wherego.ait` and run a Toss QR test covering purchase login, completed purchase +10, app restart/login restore, duplicate order retry, and refunded order reconciliation.
+3. Exhaust daily credits and verify rewarded ad +1 stops after three grants per KST day, contacts share +3 remains once per day, and paid credits are consumed only afterward.
+4. Confirm the result promotion pays once, and revisiting the result or reinstalling the app is rejected by the server attempt guard.
+5. Run the complete device flow: server questions, banner/interstitial ads, Gemini loading, result rendering, PNG save without a share sheet, Naver Map open, and back-exit confirmation.
+6. Watch Render health and `/api/wherego/recommend` timings after deployment; complete candidates should have near-zero `detailMs`, while incomplete candidates stay within the three-second cap.
+7. Review daily and Monday QC reports after at least 10 successful production samples before changing recommendation thresholds.

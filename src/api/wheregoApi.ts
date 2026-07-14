@@ -4,12 +4,15 @@ const QUESTION_SET_TIMEOUT_MS = 8000;
 const CANDIDATE_SET_TIMEOUT_MS = 25000;
 const RECOMMENDATION_TIMEOUT_MS = 45000;
 const USAGE_TIMEOUT_MS = 8000;
+const IAP_TIMEOUT_MS = 20000;
+const LOGIN_TIMEOUT_MS = 15000;
 
-export type WheregoCreditSource = 'base' | 'ad' | 'share';
+export type WheregoCreditSource = 'base' | 'ad' | 'share' | 'paid';
 
 export type WheregoUsage = {
   date: string;
   remaining: number;
+  dailyRemaining?: number;
   baseDailyLimit: number;
   baseUsed: number;
   baseRemaining: number;
@@ -18,8 +21,25 @@ export type WheregoUsage = {
   adCreditsRemaining: number;
   shareRewardUsed: boolean;
   shareCreditsRemaining: number;
+  paidCreditsRemaining?: number;
   nextResetAt: string;
   limitEnabled: boolean;
+};
+
+export type WheregoIapProductConfig = {
+  sku: string;
+  credits: number;
+};
+
+export type WheregoIapConfig = {
+  enabled: boolean;
+  products: WheregoIapProductConfig[];
+};
+
+export type WheregoLoginSession = {
+  sessionToken: string;
+  anonymousUserKey: string;
+  expiresAt: string;
 };
 
 export type WheregoRecommendOrigin = {
@@ -196,10 +216,12 @@ export class WheregoApiError extends Error {
 
 export async function fetchWheregoUsage(params: {
   anonymousUserKey?: string | null;
+  loginSessionToken?: string | null;
   sessionId?: string;
 }): Promise<WheregoUsage> {
   const body = await postUsage('/api/wherego/usage', {
     anonymousUserKey: params.anonymousUserKey || undefined,
+    loginSessionToken: params.loginSessionToken || undefined,
     sessionId: params.sessionId,
   });
   return body.usage;
@@ -207,17 +229,70 @@ export async function fetchWheregoUsage(params: {
 
 export async function grantWheregoReward(params: {
   anonymousUserKey?: string | null;
+  loginSessionToken?: string | null;
   sessionId?: string;
   source: 'ad' | 'share';
   grantId: string;
 }): Promise<WheregoUsage> {
   const body = await postUsage('/api/wherego/usage/reward', {
     anonymousUserKey: params.anonymousUserKey || undefined,
+    loginSessionToken: params.loginSessionToken || undefined,
     sessionId: params.sessionId,
     source: params.source,
     grantId: params.grantId,
   });
   return body.usage;
+}
+
+export async function updateWheregoPromotionAttempt(params: {
+  anonymousUserKey?: string | null;
+  promotionCode: string;
+  action: 'reserve' | 'granted' | 'release';
+}): Promise<{ shouldGrant: boolean }> {
+  return postWherego('/api/wherego/promotion/attempt', {
+    anonymousUserKey: params.anonymousUserKey || undefined,
+    promotionCode: params.promotionCode,
+    action: params.action,
+  });
+}
+
+export async function fetchWheregoIapConfig(): Promise<WheregoIapConfig> {
+  return postWherego<WheregoIapConfig>('/api/wherego/iap/products', {}, IAP_TIMEOUT_MS);
+}
+
+export async function exchangeWheregoTossLogin(params: {
+  authorizationCode: string;
+  referrer: 'DEFAULT' | 'SANDBOX';
+}): Promise<WheregoLoginSession> {
+  return postWherego('/api/wherego/login/exchange', params, LOGIN_TIMEOUT_MS);
+}
+
+export async function grantWheregoIapPurchase(params: {
+  anonymousUserKey?: string | null;
+  loginSessionToken: string;
+  orderId: string;
+  sku: string;
+}): Promise<{ usage: WheregoUsage; grantedCredits: number }> {
+  return postWherego('/api/wherego/iap/grant', {
+    anonymousUserKey: params.anonymousUserKey || undefined,
+    loginSessionToken: params.loginSessionToken,
+    orderId: params.orderId,
+    sku: params.sku,
+  }, IAP_TIMEOUT_MS);
+}
+
+export async function reconcileWheregoIapPurchase(params: {
+  anonymousUserKey?: string | null;
+  loginSessionToken: string;
+  orderId: string;
+  sku: string;
+}): Promise<{ usage: WheregoUsage; status: string }> {
+  return postWherego('/api/wherego/iap/reconcile', {
+    anonymousUserKey: params.anonymousUserKey || undefined,
+    loginSessionToken: params.loginSessionToken,
+    orderId: params.orderId,
+    sku: params.sku,
+  }, IAP_TIMEOUT_MS);
 }
 
 export async function fetchWheregoQuestionSet(params: {
@@ -261,6 +336,7 @@ export async function prepareWheregoCandidates(params: {
   answers: WheregoRecommendAnswer[];
   sessionId?: string;
   anonymousUserKey?: string | null;
+  loginSessionToken?: string | null;
 }): Promise<WheregoCandidateSet> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -281,6 +357,7 @@ export async function prepareWheregoCandidates(params: {
           answers: params.answers,
           sessionId: params.sessionId,
           anonymousUserKey: params.anonymousUserKey || undefined,
+          loginSessionToken: params.loginSessionToken || undefined,
         }),
       }),
       timeoutPromise,
@@ -304,6 +381,7 @@ export async function recommendWheregoDestination(params: {
   candidateSet?: WheregoCandidateSet | null;
   sessionId?: string;
   anonymousUserKey?: string | null;
+  loginSessionToken?: string | null;
 }): Promise<WheregoRecommendation> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -326,6 +404,7 @@ export async function recommendWheregoDestination(params: {
           candidateSet: params.candidateSet || undefined,
           sessionId: params.sessionId,
           anonymousUserKey: params.anonymousUserKey || undefined,
+          loginSessionToken: params.loginSessionToken || undefined,
         }),
       }),
       timeoutPromise,
@@ -367,11 +446,19 @@ async function parseApiError(response: Response): Promise<WheregoApiError> {
 }
 
 async function postUsage(path: string, payload: Record<string, unknown>): Promise<{ usage: WheregoUsage }> {
+  return postWherego(path, payload);
+}
+
+async function postWherego<T>(
+  path: string,
+  payload: Record<string, unknown>,
+  timeoutMs = USAGE_TIMEOUT_MS,
+): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
       reject(new WheregoApiError('추천 횟수 확인이 지연되고 있어요.', 408));
-    }, USAGE_TIMEOUT_MS);
+    }, timeoutMs);
   });
 
   try {
@@ -388,7 +475,7 @@ async function postUsage(path: string, payload: Record<string, unknown>): Promis
     if (!response.ok) {
       throw await parseApiError(response);
     }
-    return (await response.json()) as { usage: WheregoUsage };
+    return (await response.json()) as T;
   } finally {
     if (timeoutId != null) {
       clearTimeout(timeoutId);

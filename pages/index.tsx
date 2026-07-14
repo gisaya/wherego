@@ -1,7 +1,9 @@
 import {
   Accuracy,
+  appLogin,
   contactsViral,
   getAnonymousKey,
+  IAP,
   InlineAd,
   isMinVersionSupported,
   loadFullScreenAd,
@@ -32,15 +34,22 @@ import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Path, Rect, Text as 
 import {
   fetchWheregoQuestionSet,
   fetchWheregoUsage,
+  exchangeWheregoTossLogin,
   grantWheregoReward,
   prepareWheregoCandidates,
   recommendWheregoDestination,
+  updateWheregoPromotionAttempt,
   WheregoApiError,
   type WheregoCandidateSet,
+  type WheregoCreditSource,
+  type WheregoLoginSession,
+  fetchWheregoIapConfig,
   type WheregoQuestion,
   type WheregoRecommendation,
   type WheregoRecommendedPlace,
   type WheregoUsage,
+  grantWheregoIapPurchase,
+  reconcileWheregoIapPurchase,
 } from '../src/api/wheregoApi';
 import {
   INTRO_COAST_SOURCE,
@@ -66,6 +75,15 @@ type QuestionKind = 'source' | 'general';
 type QuestionLayout = 'two' | 'four';
 type RewardAdStatus = 'idle' | 'loading' | 'ready' | 'showing' | 'unsupported' | 'error';
 type RecommendationStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+type WheregoIapProduct = {
+  sku: string;
+  credits: number;
+  displayName: string;
+  displayAmount: string;
+  description: string;
+  iconUrl: string;
+};
 
 type Option = {
   key?: string;
@@ -400,6 +418,7 @@ const FULL_SCREEN_AD_GROUP_ID = 'ait.v2.live.69c443b05e6a42ea';
 const REWARDED_AD_GROUP_ID = 'ait.v2.live.7f9040b7cff746c5';
 const BANNER_AD_GROUP_ID = 'ait.v2.live.67b07bf813d74267';
 const ANONYMOUS_STORAGE_KEY = 'wherego.anonymous-key.v1';
+const TOSS_LOGIN_SESSION_STORAGE_KEY = 'wherego.toss-login-session.v1';
 const RESULT_CARD_IMAGE_WIDTH = 1080;
 const RESULT_CARD_IMAGE_HEIGHT = 1350;
 const RESULT_CARD_HERO_HEIGHT = 460;
@@ -426,6 +445,12 @@ function Index() {
   const quotaRewardDismissedRef = useRef(false);
   const pendingAdRewardRef = useRef<{ message: string; usage: WheregoUsage } | null>(null);
   const contactsViralCleanupRef = useRef<(() => void) | null>(null);
+  const iapPurchaseCleanupRef = useRef<(() => void) | null>(null);
+  const iapLoadAttemptedRef = useRef(false);
+  const iapConfiguredSkusRef = useRef<Set<string>>(new Set());
+  const iapRestoreAttemptedTokenRef = useRef<string | null>(null);
+  const tossLoginSessionTokenRef = useRef<string | null>(null);
+  const tossLoginPromiseRef = useRef<Promise<string | null> | null>(null);
   const quotaExceededRef = useRef(false);
   const exitPromptOpenRef = useRef(false);
   const resultCardSvgRef = useRef<Svg | null>(null);
@@ -435,6 +460,7 @@ function Index() {
   const selectedAnswersRef = useRef<SelectedAnswer[]>([]);
   const recommendationSessionIdRef = useRef(createWheregoSessionId());
   const promotionAttemptedSessionRef = useRef<string | null>(null);
+  const guestAnonymousUserKeyRef = useRef<string | null>(null);
   const anonymousUserKeyRef = useRef<string | null>(null);
   const [step, setStep] = useState<Step>('intro');
   const [origin, setOrigin] = useState<Origin | null>(null);
@@ -457,6 +483,13 @@ function Index() {
   const [quotaAdStatus, setQuotaAdStatus] = useState<RewardAdStatus>('idle');
   const [quotaRewardMessage, setQuotaRewardMessage] = useState('');
   const [isRewardGranting, setIsRewardGranting] = useState(false);
+  const [iapProduct, setIapProduct] = useState<WheregoIapProduct | null>(null);
+  const [isIapLoading, setIsIapLoading] = useState(false);
+  const [isIapPurchasing, setIsIapPurchasing] = useState(false);
+  const [isTossLoggedIn, setIsTossLoggedIn] = useState(false);
+  const [isTossLoginLoading, setIsTossLoginLoading] = useState(false);
+  const [iapMessage, setIapMessage] = useState('');
+  const [reservedCreditSource, setReservedCreditSource] = useState<WheregoCreditSource | null>(null);
   const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
@@ -464,6 +497,10 @@ function Index() {
   const currentQuestion = questionSet[questionIndex];
   const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
   const result = getResult(origin, recommendation);
+  const willUsePaidCredit = Boolean(
+    reservedCreditSource === 'paid' ||
+      (usage?.limitEnabled && usageDailyRemaining(usage) <= 0 && usagePaidCredits(usage) > 0),
+  );
   const supportsShareReward =
     Boolean(WHEREGO_SHARE_REWARD_MODULE_ID) &&
     isMinVersionSupported({ android: '5.223.0', ios: '5.223.0' });
@@ -482,10 +519,28 @@ function Index() {
           : 'question-set-loading';
 
   useEffect(() => {
-    void resolveAnonymousUserKey().then((key) => {
+    void (async () => {
+      const { key } = await resolveAnonymousUserKey();
+      guestAnonymousUserKeyRef.current = key;
       anonymousUserKeyRef.current = key;
-      void refreshUsage(key);
-    });
+      await refreshUsage(key);
+
+      try {
+        const stored = await Storage.getItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
+        const session = parseStoredTossLoginSession(stored);
+        if (session) {
+          tossLoginSessionTokenRef.current = session.sessionToken;
+          anonymousUserKeyRef.current = session.anonymousUserKey;
+          setIsTossLoggedIn(true);
+          await refreshUsage(session.anonymousUserKey);
+        } else if (stored) {
+          await Storage.removeItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
+        }
+      } catch (_) {
+        // Product loading still works when local login-session restoration is unavailable.
+      }
+      await loadIapProductAndRestore(anonymousUserKeyRef.current);
+    })();
 
     return () => {
       rewardAdUnregisterRef.current?.();
@@ -495,6 +550,7 @@ function Index() {
       clearQuestionAdvanceTimer();
       quotaAdUnregisterRef.current?.();
       contactsViralCleanupRef.current?.();
+      iapPurchaseCleanupRef.current?.();
     };
   }, []);
 
@@ -512,6 +568,7 @@ function Index() {
   useEffect(() => {
     const shouldPreloadRewardAd =
       !hasRewardAccess &&
+      !willUsePaidCredit &&
       usage?.remaining !== 0 &&
       (step === 'intro' || step === 'origin' || step === 'rewardGate');
 
@@ -520,7 +577,20 @@ function Index() {
     }
 
     loadRewardAd();
-  }, [hasRewardAccess, isRewardAdLoaded, step, usage?.remaining]);
+  }, [hasRewardAccess, isRewardAdLoaded, step, usage?.remaining, willUsePaidCredit]);
+
+  useEffect(() => {
+    if (!willUsePaidCredit || hasRewardAccess) {
+      return;
+    }
+    clearRewardAdLoadTimer();
+    rewardAdUnregisterRef.current?.();
+    rewardAdUnregisterRef.current = null;
+    rewardAdLoadRequestedRef.current = false;
+    setIsRewardAdLoaded(false);
+    setRewardAdStatus('idle');
+    setRewardAdMessage('');
+  }, [hasRewardAccess, willUsePaidCredit]);
 
   useEffect(() => {
     if (step !== 'quota' || quotaAdLoadedRef.current || quotaAdStatus !== 'idle') {
@@ -546,6 +616,13 @@ function Index() {
     quotaAdLoadedRef.current = false;
     setQuotaAdStatus('idle');
   }, [step]);
+
+  useEffect(() => {
+    if (step !== 'quota' || iapLoadAttemptedRef.current || isIapLoading) {
+      return;
+    }
+    void loadIapProductAndRestore(anonymousUserKeyRef.current);
+  }, [isIapLoading, step]);
 
   useEffect(() => {
     if (step !== 'rewardGate' || !hasRewardAccess) {
@@ -579,7 +656,23 @@ function Index() {
 
     let cancelled = false;
     setResultPromotion({ status: 'loading' });
-    void grantResultViewPromotion()
+    void grantResultViewPromotion({
+      reserve: async () => {
+        const response = await updateWheregoPromotionAttempt({
+          anonymousUserKey: guestAnonymousUserKeyRef.current,
+          promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
+          action: 'reserve',
+        });
+        return response.shouldGrant;
+      },
+      resolve: async (granted) => {
+        await updateWheregoPromotionAttempt({
+          anonymousUserKey: guestAnonymousUserKeyRef.current,
+          promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
+          action: granted ? 'granted' : 'release',
+        });
+      },
+    })
       .then((outcome) => {
         if (!cancelled) {
           setResultPromotion(outcome);
@@ -654,13 +747,296 @@ function Index() {
     try {
       const nextUsage = await fetchWheregoUsage({
         anonymousUserKey: key,
+        loginSessionToken: tossLoginSessionTokenRef.current,
         sessionId: recommendationSessionIdRef.current,
       });
       setUsage(nextUsage);
     } catch (error) {
+      if (isWheregoLoginRequiredError(error)) {
+        await clearTossLoginSession();
+        setUsageMessage('토스 로그인 시간이 만료됐어요. 이용권 구매 또는 복원 시 다시 로그인해 주세요.');
+        return;
+      }
       setUsageMessage(toErrorMessage(error));
     } finally {
       setIsUsageLoading(false);
+    }
+  }
+
+  async function loadIapProductAndRestore(
+    key = anonymousUserKeyRef.current,
+    options: { force?: boolean } = {},
+  ): Promise<WheregoIapProduct | null> {
+    if ((iapLoadAttemptedRef.current && !options.force) || isIapLoading) {
+      return iapProduct;
+    }
+    iapLoadAttemptedRef.current = true;
+    setIsIapLoading(true);
+    try {
+      const config = await fetchWheregoIapConfig();
+      if (!config.enabled || config.products.length === 0) {
+        setIapMessage('이용권 상품을 준비 중이에요. 잠시 후 다시 확인해 주세요.');
+        return null;
+      }
+      if (!isMinVersionSupported({ android: '5.219.0', ios: '5.219.0' })) {
+        setIapMessage('토스 앱을 업데이트하면 AI 추천 이용권을 구매할 수 있어요.');
+        return null;
+      }
+
+      const response = await IAP.getProductItemList();
+      const configuredBySku = new Map(config.products.map((product) => [product.sku, product]));
+      iapConfiguredSkusRef.current = new Set(config.products.map((item) => item.sku));
+      const product = response?.products.find(
+        (item) => item.type === 'CONSUMABLE' && configuredBySku.has(item.sku),
+      );
+      if (product == null) {
+        setIapMessage('등록된 이용권 상품을 확인하지 못했어요. 구매 버튼을 눌러 다시 시도해 주세요.');
+        return null;
+      }
+      const configured = configuredBySku.get(product.sku);
+      if (configured == null) {
+        setIapMessage('이용권 상품 구성을 확인하지 못했어요.');
+        return null;
+      }
+      const nextProduct: WheregoIapProduct = {
+        sku: product.sku,
+        credits: configured.credits,
+        displayName: product.displayName,
+        displayAmount: product.displayAmount,
+        description: product.description,
+        iconUrl: product.iconUrl,
+      };
+      setIapProduct(nextProduct);
+      setIapMessage('');
+      const loginSessionToken = tossLoginSessionTokenRef.current;
+      if (loginSessionToken) {
+        await restoreIapOrders(key, iapConfiguredSkusRef.current, loginSessionToken);
+      }
+      return nextProduct;
+    } catch (error) {
+      console.error('[wherego:iap] product setup failed', error);
+      setIapMessage('이용권 정보를 불러오지 못했어요. 구매 버튼을 눌러 다시 시도해 주세요.');
+      return null;
+    } finally {
+      setIsIapLoading(false);
+    }
+  }
+
+  async function restoreIapOrders(
+    key: string | null,
+    configuredSkus: Set<string>,
+    loginSessionToken: string,
+  ) {
+    if (!key || !loginSessionToken || iapRestoreAttemptedTokenRef.current === loginSessionToken) {
+      return;
+    }
+    iapRestoreAttemptedTokenRef.current = loginSessionToken;
+    let restoredCredits = 0;
+    if (isMinVersionSupported({ android: '5.234.0', ios: '5.231.0' })) {
+      try {
+        const pending = await IAP.getPendingOrders();
+        for (const order of pending?.orders || []) {
+          if (!configuredSkus.has(order.sku)) {
+            continue;
+          }
+          const granted = await grantWheregoIapPurchase({
+            anonymousUserKey: key,
+            loginSessionToken,
+            orderId: order.orderId,
+            sku: order.sku,
+          });
+          const completed = await IAP.completeProductGrant({ params: { orderId: order.orderId } });
+          setUsage(granted.usage);
+          if (completed) {
+            restoredCredits += granted.grantedCredits;
+          }
+        }
+      } catch (error) {
+        console.error('[wherego:iap] pending order restore failed', error);
+        if (isWheregoLoginRequiredError(error)) {
+          await clearTossLoginSession();
+          return;
+        }
+      }
+    }
+
+    if (isMinVersionSupported({ android: '5.231.0', ios: '5.231.0' })) {
+      try {
+        let nextKey: string | null | undefined;
+        for (let page = 0; page < 5; page += 1) {
+          const response = await IAP.getCompletedOrRefundedOrders(nextKey ? { key: nextKey } : undefined);
+          for (const order of response?.orders || []) {
+            if (order.status !== 'REFUNDED' || !configuredSkus.has(order.sku)) {
+              continue;
+            }
+            const reconciled = await reconcileWheregoIapPurchase({
+              anonymousUserKey: key,
+              loginSessionToken,
+              orderId: order.orderId,
+              sku: order.sku,
+            });
+            setUsage(reconciled.usage);
+          }
+          if (!response?.hasNext || !response.nextKey) {
+            break;
+          }
+          nextKey = response.nextKey;
+        }
+      } catch (error) {
+        console.error('[wherego:iap] refunded order reconcile failed', error);
+        if (isWheregoLoginRequiredError(error)) {
+          await clearTossLoginSession();
+        }
+      }
+    }
+
+    if (restoredCredits > 0) {
+      setUsageMessage(`이전에 구매한 AI 추천 이용권 ${restoredCredits}회를 복구했어요.`);
+    }
+  }
+
+  async function loginForIap({ automatic = false }: { automatic?: boolean } = {}) {
+    if (tossLoginSessionTokenRef.current) {
+      return tossLoginSessionTokenRef.current;
+    }
+    if (tossLoginPromiseRef.current) {
+      return tossLoginPromiseRef.current;
+    }
+
+    const loginPromise = (async () => {
+      setIsTossLoginLoading(true);
+      if (!automatic) {
+        setIapMessage('구매 내역을 안전하게 보관하기 위해 토스로 로그인할게요.');
+      }
+      try {
+        const { authorizationCode, referrer } = await appLogin();
+        const session = await exchangeWheregoTossLogin({ authorizationCode, referrer });
+        tossLoginSessionTokenRef.current = session.sessionToken;
+        anonymousUserKeyRef.current = session.anonymousUserKey;
+        setIsTossLoggedIn(true);
+        await Storage.setItem(TOSS_LOGIN_SESSION_STORAGE_KEY, JSON.stringify(session));
+        await refreshUsage(session.anonymousUserKey);
+
+        if (iapConfiguredSkusRef.current.size > 0) {
+          await restoreIapOrders(
+            session.anonymousUserKey,
+            iapConfiguredSkusRef.current,
+            session.sessionToken,
+          );
+        }
+        if (!automatic) {
+          setIapMessage('토스 로그인이 완료됐어요. 결제를 이어갈게요.');
+        }
+        return session.sessionToken;
+      } catch (error) {
+        console.error('[wherego:login] failed', error);
+        if (!automatic) {
+          setIapMessage(`토스 로그인을 완료하지 못했어요. ${toErrorMessage(error)}`);
+        }
+        return null;
+      } finally {
+        setIsTossLoginLoading(false);
+      }
+    })();
+
+    tossLoginPromiseRef.current = loginPromise;
+    try {
+      return await loginPromise;
+    } finally {
+      tossLoginPromiseRef.current = null;
+    }
+  }
+
+  async function clearTossLoginSession() {
+    tossLoginSessionTokenRef.current = null;
+    iapRestoreAttemptedTokenRef.current = null;
+    setIsTossLoggedIn(false);
+    const guestKey = guestAnonymousUserKeyRef.current;
+    if (guestKey) {
+      anonymousUserKeyRef.current = guestKey;
+    }
+    try {
+      await Storage.removeItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
+    } catch (_) {
+      // The in-memory session is already cleared.
+    }
+    if (guestKey) {
+      await refreshUsage(guestKey);
+    }
+  }
+
+  async function purchaseIapProduct() {
+    if (isIapPurchasing || isIapLoading) {
+      return;
+    }
+    const product = iapProduct ?? await loadIapProductAndRestore(
+      anonymousUserKeyRef.current,
+      { force: true },
+    );
+    if (product == null) {
+      return;
+    }
+    const loginSessionToken =
+      tossLoginSessionTokenRef.current || (await loginForIap({ automatic: false }));
+    if (!loginSessionToken || !anonymousUserKeyRef.current) {
+      return;
+    }
+    if (!isMinVersionSupported({ android: '5.219.0', ios: '5.219.0' })) {
+      setIapMessage('토스 앱을 업데이트하면 AI 추천 이용권을 구매할 수 있어요.');
+      return;
+    }
+
+    iapPurchaseCleanupRef.current?.();
+    iapPurchaseCleanupRef.current = null;
+    setIsIapPurchasing(true);
+    setIapMessage('결제 화면을 준비하고 있어요.');
+    let grantedCredits = product.credits;
+
+    try {
+      iapPurchaseCleanupRef.current = IAP.createOneTimePurchaseOrder({
+        options: {
+          sku: product.sku,
+          processProductGrant: async ({ orderId }) => {
+            try {
+              const granted = await grantWheregoIapPurchase({
+                anonymousUserKey: anonymousUserKeyRef.current,
+                loginSessionToken,
+                orderId,
+                sku: product.sku,
+              });
+              grantedCredits = granted.grantedCredits;
+              setUsage(granted.usage);
+              return true;
+            } catch (error) {
+              console.error('[wherego:iap] product grant failed', error);
+              if (isWheregoLoginRequiredError(error)) {
+                await clearTossLoginSession();
+              }
+              setIapMessage(`결제는 완료됐지만 이용권 지급을 확인하고 있어요. 앱을 다시 열면 자동 복구돼요.`);
+              return false;
+            }
+          },
+        },
+        onEvent: (event) => {
+          if (event.type !== 'success') {
+            return;
+          }
+          iapPurchaseCleanupRef.current?.();
+          iapPurchaseCleanupRef.current = null;
+          setIsIapPurchasing(false);
+          resetToIntro({ message: `AI 추천 이용권 ${grantedCredits}회가 추가됐어요.`, refresh: false });
+        },
+        onError: (error) => {
+          console.error('[wherego:iap] purchase failed', error);
+          iapPurchaseCleanupRef.current?.();
+          iapPurchaseCleanupRef.current = null;
+          setIsIapPurchasing(false);
+          setIapMessage(`결제를 완료하지 못했어요. ${toErrorMessage(error)}`);
+        },
+      });
+    } catch (error) {
+      setIsIapPurchasing(false);
+      setIapMessage(`결제 화면을 열지 못했어요. ${toErrorMessage(error)}`);
     }
   }
 
@@ -798,6 +1174,7 @@ function Index() {
     try {
       const nextUsage = await grantWheregoReward({
         anonymousUserKey: anonymousUserKeyRef.current,
+        loginSessionToken: tossLoginSessionTokenRef.current,
         sessionId: recommendationSessionIdRef.current,
         source,
         grantId,
@@ -879,6 +1256,7 @@ function Index() {
     setWaitingForLocation(false);
     setLocationStatus('');
     candidateSetPromiseRef.current = null;
+    setReservedCreditSource(null);
     recommendationSessionIdRef.current = createWheregoSessionId();
     promotionAttemptedSessionRef.current = null;
     quotaExceededRef.current = false;
@@ -888,6 +1266,8 @@ function Index() {
     setResultMessage('');
     setResultPromotion({ status: 'idle' });
     setQuotaRewardMessage('');
+    setIapMessage('');
+    setIsIapPurchasing(false);
     setUsageMessage(options.message || '');
     if (options.refresh !== false) {
       void refreshUsage();
@@ -1028,8 +1408,10 @@ function Index() {
       answers: selectedAnswersRef.current,
       sessionId: recommendationSessionIdRef.current,
       anonymousUserKey: anonymousUserKeyRef.current,
+      loginSessionToken: tossLoginSessionTokenRef.current,
     })
       .then((candidateSet) => {
+        setReservedCreditSource(candidateSet.creditSource || null);
         if (candidateSet.usage) {
           setUsage(candidateSet.usage);
         }
@@ -1054,6 +1436,16 @@ function Index() {
 
   function showRewardAd() {
     if (rewardAdStatus === 'showing') {
+      return;
+    }
+
+    if (willUsePaidCredit) {
+      startCandidatePreparation();
+      setHasRewardAccess(true);
+      setHasClosedFullScreenAd(true);
+      setRewardAdStatus('idle');
+      setRewardAdMessage('AI 추천 이용권을 사용해 광고 없이 결과를 준비하고 있어요.');
+      startRecommendationAnalysis();
       return;
     }
 
@@ -1184,6 +1576,7 @@ function Index() {
     setWaitingForLocation(false);
     setLocationStatus('질문 세트를 준비하고 있어요.');
     candidateSetPromiseRef.current = null;
+    setReservedCreditSource(null);
     recommendationSessionIdRef.current = createWheregoSessionId();
     promotionAttemptedSessionRef.current = null;
     quotaExceededRef.current = false;
@@ -1300,6 +1693,7 @@ function Index() {
         candidateSet,
         sessionId: recommendationSessionIdRef.current,
         anonymousUserKey: anonymousUserKeyRef.current,
+        loginSessionToken: tossLoginSessionTokenRef.current,
       });
       setRecommendation(nextRecommendation);
       if (nextRecommendation.usage) {
@@ -1381,6 +1775,7 @@ function Index() {
             {step === 'rewardGate' ? (
               <RewardGate
                 hasRewardAccess={hasRewardAccess}
+                paidCreditNext={willUsePaidCredit}
                 message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
                 recommendationStatus={recommendationStatus}
                 status={rewardAdStatus}
@@ -1392,10 +1787,17 @@ function Index() {
               <QuotaScreen
                 adStatus={quotaAdStatus}
                 granting={isRewardGranting}
+                iapLoading={isIapLoading}
+                iapMessage={iapMessage}
+                iapProduct={iapProduct}
+                iapPurchasing={isIapPurchasing}
+                tossLoggedIn={isTossLoggedIn}
+                tossLoginLoading={isTossLoginLoading}
                 message={quotaRewardMessage || usageMessage}
                 onBack={resetToIntro}
                 onShare={openShareReward}
                 onStart={() => setStep('origin')}
+                onPurchase={purchaseIapProduct}
                 onWatchAd={showQuotaRewardAd}
                 shareReady={supportsShareReward}
                 usage={usage}
@@ -1468,7 +1870,9 @@ function IntroScreen({
   usage: WheregoUsage | null;
 }) {
   const usageLabel = usage?.limitEnabled
-    ? `오늘 ${usage.remaining}번 더 찾을 수 있어요`
+    ? usagePaidCredits(usage) > 0
+      ? `오늘 무료 ${usageDailyRemaining(usage)}회 · 이용권 ${usagePaidCredits(usage)}회`
+      : `오늘 ${usageDailyRemaining(usage)}번 더 찾을 수 있어요`
     : loading
       ? 'AI 추천 준비 중'
       : 'AI 추천 바로 시작';
@@ -1516,8 +1920,15 @@ function IntroScreen({
 function QuotaScreen({
   adStatus,
   granting,
+  iapLoading,
+  iapMessage,
+  iapProduct,
+  iapPurchasing,
+  tossLoggedIn,
+  tossLoginLoading,
   message,
   onBack,
+  onPurchase,
   onShare,
   onStart,
   onWatchAd,
@@ -1526,8 +1937,15 @@ function QuotaScreen({
 }: {
   adStatus: RewardAdStatus;
   granting: boolean;
+  iapLoading: boolean;
+  iapMessage: string;
+  iapProduct: WheregoIapProduct | null;
+  iapPurchasing: boolean;
+  tossLoggedIn: boolean;
+  tossLoginLoading: boolean;
   message: string;
   onBack: () => void;
+  onPurchase: () => void;
   onShare: () => void;
   onStart: () => void;
   onWatchAd: () => void;
@@ -1551,22 +1969,49 @@ function QuotaScreen({
     : usage?.shareRewardUsed
       ? '오늘 공유 보상 완료'
       : '친구에게 공유하고 3회 받기';
+  const purchaseButtonLabel = iapPurchasing
+    ? '결제 확인 중'
+    : tossLoginLoading
+      ? '토스 로그인 중'
+      : iapProduct == null
+        ? '이용권 상품 확인하기'
+        : !tossLoggedIn
+          ? '토스로 로그인하고 구매하기'
+          : `${iapProduct.credits}회 이용권 구매`;
 
   return (
     <View style={styles.centerScreen}>
       <View style={styles.panelCentered}>
         <Pill label="AI 추천 횟수" />
         <Text style={styles.panelTitle}>
-          {hasCredit ? `추천 ${usage?.remaining || 0}회가 준비됐어요.` : '오늘의 기본 추천을 모두 사용했어요.'}
+          {hasCredit
+            ? `추천 ${usage?.remaining || 0}회가 준비됐어요.`
+            : '오늘의 기본 추천을 모두 사용했어요.'}
         </Text>
         <Text style={styles.panelCopy}>
-          광고 시청 완료 시 1회씩 하루 최대 10회, 친구 공유 완료 시 하루 한 번 3회를 받을 수 있어요.
+          광고 시청 완료 시 1회씩 하루 최대 3회, 친구 공유 완료 시 하루 한 번 3회를 받을 수 있어요.
         </Text>
         <View style={styles.quotaSummary}>
-          <Text style={styles.quotaSummaryText}>광고 보상 {usage?.adRewardsUsed || 0} / {usage?.adRewardsLimit || 10}</Text>
+          <Text style={styles.quotaSummaryText}>광고 보상 {usage?.adRewardsUsed || 0} / {usage?.adRewardsLimit || 3}</Text>
           <Text style={styles.quotaSummaryText}>공유 보상 {usage?.shareRewardUsed ? '완료' : '미사용'}</Text>
+          <Text style={styles.quotaSummaryText}>보유 이용권 {usagePaidCredits(usage)}회</Text>
         </View>
         {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
+        {iapMessage ? <Text style={styles.rewardStatus}>{iapMessage}</Text> : null}
+        <View style={styles.iapOffer}>
+          {iapProduct?.iconUrl ? <Image source={{ uri: iapProduct.iconUrl }} style={styles.iapOfferIcon} /> : null}
+          <View style={styles.iapOfferText}>
+            <Text numberOfLines={2} style={styles.iapOfferName}>
+              {iapProduct?.displayName || 'AI 여행지 추천 10회 이용권'}
+            </Text>
+            <Text numberOfLines={2} style={styles.iapOfferDescription}>
+              {iapProduct?.description || '구매한 추천 횟수는 기간 제한 없이 보관돼요.'}
+            </Text>
+          </View>
+          <Text style={styles.iapOfferPrice}>
+            {iapProduct?.displayAmount || (iapLoading ? '확인 중' : '상품 확인')}
+          </Text>
+        </View>
         <View style={styles.quotaActions}>
           {hasCredit ? <PrimaryButton label="추천 시작하기" onPress={onStart} /> : null}
           <PrimaryButton
@@ -1582,6 +2027,11 @@ function QuotaScreen({
             onPress={onWatchAd}
           />
           <SecondaryButton disabled={shareUnavailable || granting} label={shareButtonLabel} onPress={onShare} />
+          <SecondaryButton
+            disabled={iapLoading || iapPurchasing || tossLoginLoading || granting}
+            label={iapLoading ? '이용권 불러오는 중' : purchaseButtonLabel}
+            onPress={onPurchase}
+          />
           <SecondaryButton label="처음으로 돌아가기" onPress={onBack} />
         </View>
       </View>
@@ -1826,6 +2276,7 @@ function RewardGate({
   message,
   onRetryRecommendation,
   onWatchAd,
+  paidCreditNext,
   recommendationStatus,
   status,
 }: {
@@ -1833,10 +2284,11 @@ function RewardGate({
   message: string;
   onRetryRecommendation: () => void;
   onWatchAd: () => void;
+  paidCreditNext: boolean;
   recommendationStatus: RecommendationStatus;
   status: RewardAdStatus;
 }) {
-  const isAdLoading = status === 'loading';
+  const isAdLoading = !paidCreditNext && status === 'loading';
   const isRecommendationLoading = recommendationStatus === 'loading';
   const isRecommendationError = recommendationStatus === 'error';
   const isRecommendationDone = recommendationStatus === 'ready';
@@ -1851,12 +2303,16 @@ function RewardGate({
     );
   }
 
-  const isButtonDisabled = status === 'loading' || status === 'showing' || (hasRewardAccess && !isRecommendationError);
+  const isButtonDisabled =
+    (!paidCreditNext && (status === 'loading' || status === 'showing')) ||
+    (hasRewardAccess && !isRecommendationError);
   const buttonLabel = isRecommendationError
     ? '추천 다시 시도'
     : hasRewardAccess
       ? '추천 마무리 중'
-      : rewardButtonLabel(status, isRecommendationLoading);
+      : paidCreditNext
+        ? '이용권으로 결과 보기'
+        : rewardButtonLabel(status, isRecommendationLoading);
   const pillLabel = isRecommendationError
     ? '추천 재시도 필요'
     : isRecommendationDone
@@ -1870,7 +2326,9 @@ function RewardGate({
     ? '추천 카드 준비가 끝났어요.'
     : hasStartedRecommendation
       ? 'AI가 맞춤 여행지를 고르고 있어요.'
-      : '광고를 보면 맞춤 여행지를 추천해드려요.';
+      : paidCreditNext
+        ? '광고 없이 맞춤 여행지를 추천해드려요.'
+        : '광고를 보면 맞춤 여행지를 추천해드려요.';
   const copy = isRecommendationError
     ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
     : isRecommendationDone
@@ -1879,7 +2337,9 @@ function RewardGate({
       ? '광고를 불러오는 동안에도 버튼은 유지됩니다. 준비가 끝나면 바로 시청할 수 있어요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
-      : '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
+      : paidCreditNext
+        ? '보유한 AI 추천 이용권 1회를 사용해 바로 추천 카드를 만들어요.'
+        : '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
 
   return (
     <View style={styles.centerScreen}>
@@ -2000,6 +2460,10 @@ function ResultScreen({
 }
 
 function ResultPromotionNotice({ outcome }: { outcome: ResultPromotionOutcome }) {
+  if (outcome.status === 'alreadyGranted') {
+    return null;
+  }
+
   const statusText = resultPromotionStatusText(outcome);
   const isTestPromotion = WHEREGO_RESULT_PROMOTION_CODE.startsWith('TEST_');
 
@@ -2367,11 +2831,50 @@ function createWheregoSessionId() {
   return `wherego-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function resolveAnonymousUserKey(): Promise<string> {
+function usageDailyRemaining(usage: WheregoUsage | null | undefined) {
+  return usage?.dailyRemaining ?? usage?.remaining ?? 0;
+}
+
+function usagePaidCredits(usage: WheregoUsage | null | undefined) {
+  return usage?.paidCreditsRemaining ?? 0;
+}
+
+function parseStoredTossLoginSession(value: string | null): WheregoLoginSession | null {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value) as Partial<WheregoLoginSession>;
+    const expiresAt = Date.parse(String(parsed.expiresAt || ''));
+    if (
+      typeof parsed.sessionToken !== 'string' ||
+      parsed.sessionToken.length < 20 ||
+      typeof parsed.anonymousUserKey !== 'string' ||
+      !parsed.anonymousUserKey.startsWith('toss-login-') ||
+      !Number.isFinite(expiresAt) ||
+      expiresAt <= Date.now() + 60_000
+    ) {
+      return null;
+    }
+    return {
+      sessionToken: parsed.sessionToken,
+      anonymousUserKey: parsed.anonymousUserKey,
+      expiresAt: parsed.expiresAt as string,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function isWheregoLoginRequiredError(error: unknown) {
+  return error instanceof WheregoApiError && error.code === 'wherego_login_required';
+}
+
+async function resolveAnonymousUserKey(): Promise<{ key: string; isTossHash: boolean }> {
   try {
     const result = await getAnonymousKey();
     if (result && result !== 'ERROR' && result.type === 'HASH') {
-      return result.hash;
+      return { key: result.hash, isTossHash: true };
     }
   } catch (_) {
     // Use an installation key when the anonymous-key bridge is unavailable.
@@ -2380,13 +2883,13 @@ async function resolveAnonymousUserKey(): Promise<string> {
   try {
     const stored = await Storage.getItem(ANONYMOUS_STORAGE_KEY);
     if (stored) {
-      return stored;
+      return { key: stored, isTossHash: false };
     }
     const generated = `install-${createWheregoSessionId()}`;
     await Storage.setItem(ANONYMOUS_STORAGE_KEY, generated);
-    return generated;
+    return { key: generated, isTossHash: false };
   } catch (_) {
-    return `runtime-${createWheregoSessionId()}`;
+    return { key: `runtime-${createWheregoSessionId()}`, isTossHash: false };
   }
 }
 
@@ -3014,8 +3517,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E8EB',
     borderRadius: 12,
     borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -3029,6 +3531,48 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     gap: 10,
     marginTop: 12,
+  },
+  iapOffer: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    backgroundColor: '#F2F7FF',
+    borderColor: '#C9DDFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: 12,
+    minHeight: 72,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  iapOfferIcon: {
+    borderRadius: 8,
+    height: 44,
+    marginRight: 10,
+    width: 44,
+  },
+  iapOfferText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  iapOfferName: {
+    color: '#191F28',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 19,
+  },
+  iapOfferDescription: {
+    color: '#6B7684',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  iapOfferPrice: {
+    color: '#1E63D6',
+    fontSize: 14,
+    fontWeight: '800',
+    marginLeft: 10,
   },
   originRegionButton: {
     ...cardBase,
