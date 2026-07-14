@@ -311,6 +311,8 @@ Latest client build verification (2026-07-14 KST): terms static build, question 
 
 Production server-first rollout (2026-07-14 KST): Render served backend commit `180f278fb020b2b37a42faf423ce13ff717406a8` with `ok=true` and Postgres storage. `/api/wherego/questions` returned seven questions with 3 source axes and 4 general questions. `/api/wherego/iap/products` returned HTTP 200 but `enabled=false` with zero products, so the production consumable SKU and the required mTLS/login environment configuration must be completed before the purchase QR test. Existing JBG service health remained normal throughout the deployment.
 
+Final save deployment verification (2026-07-14 KST): Render reached documentation-inclusive backend HEAD `7b28f54aff9dd77f4399e60101462020f79de370` with `ok=true` and Postgres. Vercel production deployment `dpl_BrqJWdVJLVPnFT4Z7eeUqbd2Vjcg` is READY and aliased to `https://wherego-lake.vercel.app`; `/`, `/terms/service`, and `/terms/privacy` all returned HTTP 200.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.

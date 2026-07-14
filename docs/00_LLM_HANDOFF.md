@@ -161,6 +161,7 @@
   - 2026-07-14 KST 사용량/IAP 보완: 광고 충전은 하루 최대 3회로 낮췄고, 일일 크레딧 뒤에만 차감되는 영구 유료 10회권을 추가했다. 구매 시점 로그인, 서버 세션 복원, SDK 상품 조회, mTLS 주문 검증, 주문 멱등 지급, 환불 회수와 프로모션 서버 중복 예약을 구현했다. Wherego 76개와 기존 JBG 131개 회귀 테스트 및 Python 컴파일이 통과했다.
   - 2026-07-14 KST 저장 검증: 약관 정적 빌드, 질문 프로브 문법, TypeScript, Android/iOS AIT 빌드가 오류·경고 없이 통과했다. `wherego.ait` deploymentId는 `019f5f7e-dbeb-7a36-a155-f3b0f5a1f3dd`이며 산출물은 Git에서 제외한다.
   - 2026-07-14 KST 서버 선배포 확인: Render 커밋 `180f278fb020b2b37a42faf423ce13ff717406a8`에서 health/Postgres와 7문항 원천3+일반4 응답이 정상이었다. IAP 상품 API는 HTTP 200이지만 `enabled=false`, 상품 0개라서 콘솔 SKU와 Render mTLS/로그인 환경변수 구성을 마친 뒤 구매 QR 테스트를 진행한다.
+  - 2026-07-14 KST 최종 배포 확인: Render는 최종 문서 커밋 `7b28f54aff9dd77f4399e60101462020f79de370`에서 정상이고, Vercel production `dpl_BrqJWdVJLVPnFT4Z7eeUqbd2Vjcg`가 READY다. `https://wherego-lake.vercel.app`의 루트·서비스 약관·개인정보 처리방침은 모두 HTTP 200이다.
 
 ## 운영 규칙
 
