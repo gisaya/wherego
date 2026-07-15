@@ -327,6 +327,8 @@ Latest production QC (2026-07-15 KST): the 24-hour report covered 10 recommendat
 
 Quota policy build verification (2026-07-15 KST): all 85 JBG Wherego tests, frontend TypeScript, terms static build, and Android/iOS AIT bundles passed after changing the daily base/ad limits to two. The generated `wherego.ait` remains excluded from Git; deploymentId is `019f64bc-3f58-761e-9688-593431e23681`.
 
+Quota policy production rollout (2026-07-15 KST): Render serves JBG commit `c313bacda559f0a4a6b2b807f809c5485f2376df` with `ok=true`, Postgres, and no missing env. A production `/api/wherego/usage` smoke returned `baseDailyLimit=2`, `baseRemaining=2`, `adRewardsLimit=2`, and total `remaining=2` for a fresh anonymous identity.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
