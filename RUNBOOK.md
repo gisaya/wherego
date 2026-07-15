@@ -204,7 +204,7 @@ Result promotion:
 ```text
 test promotion code: TEST_01KXJHNBZ46JPHND9R3VH7S9TF
 production promotion code: 01KXJHNBZ46JPHND9R3VH7S9TF
-reward amount: 10 won
+reward amount: 50 won
 minimum Toss app version: 5.232.0
 general entry: intoss://wherego
 benefit entry: intoss://wherego/promotion

@@ -331,7 +331,7 @@ Quota policy build verification (2026-07-15 KST): all 85 JBG Wherego tests, fron
 
 Quota policy production rollout (2026-07-15 KST): Render serves JBG commit `c313bacda559f0a4a6b2b807f809c5485f2376df` with `ok=true`, Postgres, and no missing env. A production `/api/wherego/usage` smoke returned `baseDailyLimit=2`, `baseRemaining=2`, `adRewardsLimit=2`, and total `remaining=2` for a fresh anonymous identity.
 
-Promotion entry split (2026-07-15 KST): `intoss://wherego` is the standard app entry and does not execute or display the 10-won promotion. `intoss://wherego/promotion` is the benefit entry, starts with a dedicated Toss-benefit intro, and enables the existing result-time promotion grant and notice. The Apps in Toss benefit placement must use the `/promotion` URL.
+Promotion entry split (2026-07-15 KST): `intoss://wherego` is the standard app entry and does not execute or display the promotion. `intoss://wherego/promotion` is the benefit entry, starts with a dedicated Toss-benefit intro, and enables the existing result-time promotion grant and notice. The current reward amount is 50 won, and the Apps in Toss benefit placement must use the `/promotion` URL.
 
 Promotion code renewal (2026-07-15 KST): the release configuration now uses production code `01KXJHNBZ46JPHND9R3VH7S9TF`. Test code `TEST_01KXJHNBZ46JPHND9R3VH7S9TF` is documented only in `RUNBOOK.md` and must be inserted temporarily for a dedicated QR test so it never remains in a submitted AIT.
 
@@ -340,6 +340,8 @@ Explicit destination-region correction (2026-07-15 KST): region groups are no lo
 Startup routing correction (2026-07-15 KST): route files are now thin wrappers. `pages/index.tsx` and `pages/promotion.tsx` both import `src/WheregoApp.tsx`; promotion no longer imports the root page module. This removes a page-loader initialization cycle that could leave the uploaded app unable to open. TypeScript and the Android Metro bundle pass after the split.
 
 Startup fix build verification (2026-07-15 KST): TypeScript passed, direct Android Metro bundle generation returned HTTP 200, and Android/iOS AIT builds completed after the route split. The generated `wherego.ait` remains excluded from Git; deploymentId is `019f6559-ce3b-7f25-bb91-24eca6249210`. Upload this build before retesting the root and promotion entries.
+
+Promotion amount production build (2026-07-15 KST): the result promotion now grants 50 won through production code `01KXJHNBZ46JPHND9R3VH7S9TF`. TypeScript and Android/iOS AIT builds passed with deploymentId `019f6584-0f70-7d0d-813b-6bf7f0c5d29b`. Archive inspection confirmed the production code and 50-won amount are present and the `TEST_` code is absent.
 
 ## Operating Rules
 
@@ -358,4 +360,4 @@ Startup fix build verification (2026-07-15 KST): TypeScript passed, direct Andro
 5. Confirm the result promotion pays once, and revisiting the result or reinstalling the app is rejected by the server attempt guard.
 6. Run the complete device flow: server questions, banner/interstitial ads, Gemini loading, result rendering, PNG save without a share sheet, Naver Map open, and back-exit confirmation.
 7. Review daily and Monday QC reports after at least 10 successful production samples before changing recommendation thresholds.
-8. Register and QR-test both `intoss://wherego` and `intoss://wherego/promotion`; confirm only the benefit route shows and executes the 10-won promotion.
+8. Register and QR-test both `intoss://wherego` and `intoss://wherego/promotion`; confirm only the benefit route shows and executes the 50-won promotion.
