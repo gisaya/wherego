@@ -60,7 +60,7 @@
   - 서버는 선택지 메타데이터(tags/searchHints/constraints)로 검색 계획을 만들고, `/api/wherego/candidates`에서 한국관광공사 국문 관광정보 API 후보를 수집한다. 좌표/주소/종료 행사 필터, 동일 장소 군집화, 의도별 상위 6개 제한 뒤 DataLab 방문자수 신호를 붙여 재점수하고 점수 조건에 따라 5~7개로 압축한다. 이 단계는 Gemini를 쓰지 않는다.
   - Gemini(`GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`)는 추천 횟수 출처와 관계없이 결과 전면광고 `show`/`impression` 뒤 `/api/wherego/recommend`에서 압축 후보와 메타데이터를 보고 최종 1개 장소와 이유를 고른다. 리워드 광고는 추천 횟수 충전 용도이고, 충전한 횟수를 사용할 때도 결과 전면광고는 노출한다.
   - `/api/wherego/recommend`는 준비된 `candidateSet`이 있으면 관광공사 검색을 반복하지 않고, 없으면 기존 all-in-one fallback으로 검색부터 수행한다.
-  - `/api/wherego/usage`, `/api/wherego/usage/reward`가 KST 일일 추천 횟수를 관리한다. 기본 3회, 리워드 광고 +1회(하루 최대 3회), 친구 공유 +3회(하루 1회)이며 후보 준비 때 예약하고 성공 때 확정한다. 실패 또는 30분 미완료 예약은 환불하고 세션/지급 ID 재전송은 멱등 처리한다.
+  - `/api/wherego/usage`, `/api/wherego/usage/reward`가 KST 일일 추천 횟수를 관리한다. 기본 2회, 리워드 광고 +1회(하루 최대 2회), 친구 공유 +3회(하루 1회)이며 후보 준비 때 예약하고 성공 때 확정한다. 실패 또는 30분 미완료 예약은 환불하고 세션/지급 ID 재전송은 멱등 처리한다.
   - 일일 횟수를 모두 쓰면 소모성 인앱결제 10회권을 구매할 수 있다. 구매 버튼에서만 토스 로그인을 요청하고, 서버의 24시간 로그인 세션과 영구 paid wallet로 앱 재실행 뒤에도 다시 로그인하면 남은 유료 횟수를 복원한다. 서버는 mTLS 주문 조회로 결제 완료를 확인한 뒤 주문 ID 기준 한 번만 지급하고, 확인된 환불은 회수한다.
   - 결과 프로모션은 로컬 Storage와 세션 ref 외에 서버 `/api/wherego/promotion/attempt`의 익명 사용자 해시+프로모션 코드 원자적 예약으로 중복 실행을 막는다.
   - 광고 또는 공유 보상 지급이 서버에서 확정되면 첫 화면으로 자동 복귀하고 추가된 횟수와 갱신된 잔여 횟수를 보여준다. 광고 중도 종료나 지급 실패는 보상 화면에 남긴다.
@@ -159,6 +159,7 @@
   - 2026-07-13 KST 추천 지연 보완: 운영 성공 5건에서 Gemini 선택은 중앙값 1867ms였고 KTO 최종 상세는 최대 6903ms였다. JBG는 최종 후보 메타데이터와 Type1 이미지가 완전하면 상세 조회를 생략하고, 부족할 때만 `detailCommon2`를 최대 3초 호출한 뒤 후보 데이터로 fallback한다. `detailIntro2`는 제거했고 백엔드 Wherego 테스트 56개가 통과했다. Render 배포 후 `detailMs`를 재확인한다.
   - 2026-07-13 KST 결과 프로모션 운영 전환: 결과 화면 진입 시 비게임 `grantPromotionReward`로 토스 포인트 10원을 자동 지급하도록 운영 코드 `01KXDEWCPRY1FH6A4DEWB8282P`를 연결했다. 프로모션 코드별 Apps in Toss 저장소와 추천 세션 ref로 일반적인 중복 호출을 막고, 즉시 지급·1인 1회·사전 중단 가능 문구와 상태 UI를 추가했다. 출시 설정에는 `TEST_` 코드가 남아 있지 않다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5b1c-f69c-7fae-9797-16cbb88a734d`이다. 토스앱 5.232.0+ QR에서 실제 1회 지급과 재진입 무지급을 확인해야 하며, 앱 데이터 초기화·다중 기기까지 막으려면 토스 로그인+mTLS 서버 지급이 필요하다.
   - 2026-07-14 KST 사용량/IAP 보완: 광고 충전은 하루 최대 3회로 낮췄고, 일일 크레딧 뒤에만 차감되는 영구 유료 10회권을 추가했다. 구매 시점 로그인, 서버 세션 복원, SDK 상품 조회, mTLS 주문 검증, 주문 멱등 지급, 환불 회수와 프로모션 서버 중복 예약을 구현했다. Wherego 76개와 기존 JBG 131개 회귀 테스트 및 Python 컴파일이 통과했다.
+  - 2026-07-15 KST 횟수 정책 변경: 기본 추천 2회/일, 광고 +1 최대 2회/일로 조정했다. 공유 +3 하루 1회와 유료 10회권은 유지한다. JBG Wherego 85개 테스트, TypeScript, Android/iOS AIT 빌드가 통과했고 deploymentId는 `019f64bc-3f58-761e-9688-593431e23681`이다.
   - 2026-07-14 KST 저장 검증: 약관 정적 빌드, 질문 프로브 문법, TypeScript, Android/iOS AIT 빌드가 오류·경고 없이 통과했다. `wherego.ait` deploymentId는 `019f5f7e-dbeb-7a36-a155-f3b0f5a1f3dd`이며 산출물은 Git에서 제외한다.
   - 2026-07-14 KST 서버 선배포 확인: Render 커밋 `180f278fb020b2b37a42faf423ce13ff717406a8`에서 health/Postgres와 7문항 원천3+일반4 응답이 정상이었다. IAP 상품 API는 HTTP 200이지만 `enabled=false`, 상품 0개라서 콘솔 SKU와 Render mTLS/로그인 환경변수 구성을 마친 뒤 구매 QR 테스트를 진행한다.
   - 2026-07-14 KST 최종 배포 확인: Render는 최종 문서 커밋 `7b28f54aff9dd77f4399e60101462020f79de370`에서 정상이고, Vercel production `dpl_BrqJWdVJLVPnFT4Z7eeUqbd2Vjcg`가 READY다. `https://wherego-lake.vercel.app`의 루트·서비스 약관·개인정보 처리방침은 모두 HTTP 200이다.
@@ -174,6 +175,6 @@
 
 1. Render에 소모성 10회권 SKU, 토스 로그인 설정, mTLS 인증서를 넣고 상품 조회 endpoint를 확인한다.
 2. 최신 AIT를 QR 테스트해 구매 로그인, +10 지급, 재로그인 복원, 중복 주문, 환불 회수를 확인한다.
-3. 광고 +1 하루 최대 3회, 공유 +3 하루 1회, 유료 횟수 후순위 차감을 실기기에서 확인한다.
+3. 기본 2회, 광고 +1 하루 최대 2회, 공유 +3 하루 1회, 유료 횟수 후순위 차감을 실기기에서 확인한다.
 4. 결과 프로모션이 최초 1회만 지급되고 재진입·재설치에도 서버 guard가 막는지 확인한다.
 5. PNG 저장, 네이버지도, 광고, 뒤로가기, 로고/썸네일까지 전체 실기기 회귀 검수한다.

@@ -2014,10 +2014,10 @@ function QuotaScreen({
             : '오늘의 기본 추천을 모두 사용했어요.'}
         </Text>
         <Text style={styles.panelCopy}>
-          광고 시청 완료 시 1회씩 하루 최대 3회, 친구 공유 완료 시 하루 한 번 3회를 받을 수 있어요.
+          광고 시청 완료 시 1회씩 하루 최대 2회, 친구 공유 완료 시 하루 한 번 3회를 받을 수 있어요.
         </Text>
         <View style={styles.quotaSummary}>
-          <Text style={styles.quotaSummaryText}>광고 보상 {usage?.adRewardsUsed || 0} / {usage?.adRewardsLimit || 3}</Text>
+          <Text style={styles.quotaSummaryText}>광고 보상 {usage?.adRewardsUsed || 0} / {usage?.adRewardsLimit || 2}</Text>
           <Text style={styles.quotaSummaryText}>공유 보상 {usage?.shareRewardUsed ? '완료' : '미사용'}</Text>
           <Text style={styles.quotaSummaryText}>보유 이용권 {usagePaidCredits(usage)}회</Text>
         </View>

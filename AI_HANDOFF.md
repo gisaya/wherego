@@ -321,6 +321,12 @@ Latest client build verification (2026-07-15 KST): the exhausted-quota screen pr
 
 Production backend rollout (2026-07-15 KST): Render serves JBG commit `2d10f9ccf630f3cda461c8c177b3316ad06b0eca` with `ok=true`, Postgres storage, and no missing env. The production OpenAPI includes `/api/wherego/usage/link`, `/api/wherego/login/exchange`, and all IAP routes. `/api/wherego/iap/products` returns `enabled=true` with one registered ten-credit SKU. The remaining release step is uploading the latest AIT and completing the real purchase-login continuity test.
 
+Current quota policy (2026-07-15 KST): free recommendations are two per KST day. A completed rewarded ad grants +1 up to two times per KST day, contacts sharing remains +3 once per day, and purchased ten-credit passes remain permanent. The backend usage response is the source of truth; the client only uses matching two-credit fallback copy while that response loads.
+
+Latest production QC (2026-07-15 KST): the 24-hour report covered 10 recommendations with 100% success, no Gemini fallback, no missing image/map, no answer-shape or distance violations, and p95 total latency 2429ms. Destination concentration was 20% at the top place. Manual semantic review found one follow-up issue: a `대구 출발 + 제주/섬` answer set selected `대구수목원`, so explicit destination-region answers need a hard regional constraint rather than only search weighting.
+
+Quota policy build verification (2026-07-15 KST): all 85 JBG Wherego tests, frontend TypeScript, terms static build, and Android/iOS AIT bundles passed after changing the daily base/ad limits to two. The generated `wherego.ait` remains excluded from Git; deploymentId is `019f64bc-3f58-761e-9688-593431e23681`.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
@@ -338,3 +344,4 @@ Production backend rollout (2026-07-15 KST): Render serves JBG commit `2d10f9ccf
 5. Confirm the result promotion pays once, and revisiting the result or reinstalling the app is rejected by the server attempt guard.
 6. Run the complete device flow: server questions, banner/interstitial ads, Gemini loading, result rendering, PNG save without a share sheet, Naver Map open, and back-exit confirmation.
 7. Review daily and Monday QC reports after at least 10 successful production samples before changing recommendation thresholds.
+8. Add a hard target-region constraint for explicit choices such as `제주/섬`, then replay the QC sample that incorrectly selected a place in the origin region.
