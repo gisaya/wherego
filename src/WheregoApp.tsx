@@ -2131,6 +2131,17 @@ function QuotaScreen({
               {productPrice || (iapLoading ? '확인 중' : '10회권')}
             </Text>
           </View>
+          <View style={styles.iapBenefitList}>
+            <Text style={styles.iapBenefitHeading}>이용권 혜택</Text>
+            <View style={styles.iapBenefitRow}>
+              <View style={styles.iapBenefitDot} />
+              <Text style={styles.iapBenefitText}>이용권 횟수 사용 시 결과 전 전면광고 없이 바로 추천</Text>
+            </View>
+            <View style={[styles.iapBenefitRow, styles.iapBenefitRowSpaced]}>
+              <View style={styles.iapBenefitDot} />
+              <Text style={styles.iapBenefitText}>사용하지 않은 추천 횟수는 만료 없이 보관</Text>
+            </View>
+          </View>
           {iapMessage ? <Text style={styles.iapOfferStatus}>{iapMessage}</Text> : null}
           <PrimaryButton
             disabled={iapLoading || iapPurchasing || tossLoginLoading || granting}
@@ -3811,6 +3822,41 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     maxWidth: 82,
     textAlign: 'right',
+  },
+  iapBenefitList: {
+    borderTopColor: '#DCE8FA',
+    borderTopWidth: 1,
+    marginTop: 12,
+    paddingTop: 10,
+  },
+  iapBenefitHeading: {
+    color: '#1E63D6',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 17,
+    marginBottom: 6,
+  },
+  iapBenefitRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+  },
+  iapBenefitRowSpaced: {
+    marginTop: 4,
+  },
+  iapBenefitDot: {
+    backgroundColor: '#3182F6',
+    borderRadius: 3,
+    height: 6,
+    marginRight: 8,
+    marginTop: 6,
+    width: 6,
+  },
+  iapBenefitText: {
+    color: '#333D4B',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   iapOfferStatus: {
     color: '#4E5968',

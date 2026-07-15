@@ -92,17 +92,20 @@ API 키와 Gemini 키는 Render 환경변수에만 둔다. 클라이언트에는
 - 명시 지역 선택은 질문 JSON의 `regionPolicy`, 허용 지역 코드와 주소 prefix로 KTO 검색과 Gemini 후보를 함께 제한한다.
 - 운영 프로모션 지급액을 50원으로 변경했다.
 - 코드 리뷰에서 프로모션 서버 guard 장애 시 SDK를 계속 호출하던 fail-open 동작을 제거했다.
+- Jest와 Granite 테스트 설정을 추가하고 프로모션 guard/SDK 경계 7개를 자동 검증한다.
+- 이용권 구매 카드에 `이용권 횟수 사용 시 결과 전 전면광고 없음`과 미사용 횟수 무기한 보관을 핵심 혜택으로 표시한다.
 - 문서 역할을 분리하고 과거 빌드 로그를 현재 문서에서 제거했다.
 
 ## 현재 검증 상태
 
 - 프런트 TypeScript strict 검사 통과
+- 프런트 Jest 프로모션 단위 테스트 7개 통과
 - 정적 약관 빌드와 질문 프로브 문법 검사 통과
 - 백엔드 Wherego 테스트 92개와 Python compileall 통과
 - 운영 질문 API는 7문항과 지역 메타데이터를 반환
 - Android/iOS AIT 빌드 0 errors 완료. Apps in Toss 프레임워크 source map 경고만 존재
-- 최신 AIT deploymentId: `019f6598-1cc4-74a8-afa3-06b13e9ad1c1`
-- AIT 내부 운영 프로모션 코드, 50원, 라이브 광고 ID를 확인했고 `TEST_` 코드는 없다.
+- 최신 AIT deploymentId: `019f65c4-a75f-7503-a052-9a2f9ae64f05`
+- AIT 내부 운영 프로모션 코드, 50원, 라이브 광고 ID와 이용권 광고 없음 문구를 확인했고 `TEST_` 및 Jest 테스트 코드는 없다.
 
 ## 남은 위험
 

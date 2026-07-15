@@ -5751,6 +5751,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/jest@npm:^29.5.14":
+  version: 29.5.14
+  resolution: "@types/jest@npm:29.5.14"
+  dependencies:
+    expect: "npm:^29.0.0"
+    pretty-format: "npm:^29.0.0"
+  checksum: 10c0/18e0712d818890db8a8dab3d91e9ea9f7f19e3f83c2e50b312f557017dc81466207a71f3ed79cf4428e813ba939954fa26ffa0a9a7f153181ba174581b1c2aed
+  languageName: node
+  linkType: hard
+
 "@types/node@npm:*":
   version: 25.9.3
   resolution: "@types/node@npm:25.9.3"
@@ -8303,7 +8313,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expect@npm:^29.7.0":
+"expect@npm:^29.0.0, expect@npm:^29.7.0":
   version: 29.7.0
   resolution: "expect@npm:29.7.0"
   dependencies:
@@ -12373,7 +12383,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pretty-format@npm:^29.7.0":
+"pretty-format@npm:^29.0.0, pretty-format@npm:^29.7.0":
   version: 29.7.0
   resolution: "pretty-format@npm:29.7.0"
   dependencies:
@@ -14755,9 +14765,12 @@ __metadata:
     "@granite-js/react-native": "npm:1.0.20"
     "@toss/tds-react-native": "npm:2.0.3"
     "@types/babel__core": "npm:^7.20.5"
+    "@types/jest": "npm:^29.5.14"
     "@types/node": "npm:^22.10.2"
     "@types/react": "npm:19.2.3"
+    babel-plugin-syntax-hermes-parser: "npm:0.32.0"
     brick-module: "npm:0.5.2"
+    jest: "npm:^29.7.0"
     react: "npm:19.2.3"
     react-native: "patch:react-native@npm%3A0.84.0#~/.yarn/patches/react-native-npm-0.84.0-c7614fe55f.patch"
     react-native-svg: "npm:15.15.3"

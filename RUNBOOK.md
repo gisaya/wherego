@@ -20,11 +20,14 @@ $node = 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\
 
 ```powershell
 Set-Location $wherego
+& $node .yarn\releases\yarn-4.9.1.cjs test
 & $node .yarn\releases\yarn-4.9.1.cjs typecheck
 & $node scripts\build-vercel-terms.cjs
 & $node --check scripts\probe-question-bank-result.cjs
 git diff --check
 ```
+
+Jest는 `@granite-js/react-native/jest` 설정을 사용한다. React Native 0.84의 Flow/TypeScript 혼합 문법은 테스트 환경에서만 `babel-plugin-syntax-hermes-parser`로 변환한다.
 
 의존성이 없을 때만 설치한다.
 

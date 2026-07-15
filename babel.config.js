@@ -18,6 +18,7 @@ module.exports = (api) => {
   };
 
   if (isTest) {
+    baseConfig.plugins.unshift([resolve('babel-plugin-syntax-hermes-parser')]);
     baseConfig.presets.unshift([
       resolve('@babel/preset-env'),
       {
