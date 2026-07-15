@@ -157,7 +157,7 @@ product name: AI 여행지 추천 10회 이용권
 benefit: 10 AI destination recommendations
 supply price: 900 won
 expected customer price: 990 won including VAT (confirm the Console calculation)
-product image: dedicated 1024x1024 asset; the current 600x600 app logo is not sufficient
+product image: assets/iap-product-10-credits.png (1024x1024 PNG)
 ```
 
 Render setup after Console issues the SKU and mTLS client certificate:
@@ -172,7 +172,7 @@ APPS_IN_TOSS_MTLS_KEY_PEM=<multiline-private-key-pem>
 APPS_IN_TOSS_MTLS_KEY_PASSWORD=<optional-private-key-password>
 ```
 
-The exhausted-quota screen always shows the 10-credit purchase area. Until the SDK product lookup succeeds it shows a neutral `상품 확인` state without a hardcoded price, and tapping it retries product loading. The product can be viewed before login, but a successful product lookup is required before tapping purchase invokes the official `appLogin()` flow. The client exchanges the one-time authorization code with Render, which keeps only a hashed app session and the app-scoped Toss `userKey`; no name, phone, email, or CI scope is requested. The app session is kept in native Storage for up to 24 hours. The client calls `processProductGrant`, the Render server resolves that login session, sends `x-toss-user-key` to the Apps in Toss order-status API, and only then atomically adds 10 credits. `orderId` is unique, so retries cannot grant twice. App startup restores `getPendingOrders()`, completes granted orders with `completeProductGrant()`, and independently verifies `REFUNDED` orders before removing their credits.
+The exhausted-quota screen always shows one integrated 10-credit purchase card containing the SDK product image, name, description, final price, and primary purchase CTA. Until the SDK product lookup succeeds it shows a neutral retry/loading state without a hardcoded price. The product can be viewed before login, but a successful product lookup is required before tapping purchase invokes the official `appLogin()` flow. The client exchanges the one-time authorization code with Render, which keeps only a hashed app session and the app-scoped Toss `userKey`; no name, phone, email, or CI scope is requested. The app session is kept in native Storage for up to 24 hours. During the first login exchange, and again when restoring an existing login session, the client supplies its pre-login anonymous key. Render conservatively links the current KST day's already-consumed base/ad/share usage to the login identity so login cannot make three daily recommendations reappear; paid wallets are never merged from a guest identity. The client calls `processProductGrant`, the Render server resolves that login session, sends `x-toss-user-key` to the Apps in Toss order-status API, and only then atomically adds 10 credits. `orderId` is unique, so retries cannot grant twice. App startup restores `getPendingOrders()`, completes granted orders with `completeProductGrant()`, and independently verifies `REFUNDED` orders before removing their credits.
 
 Console Toss-login setup uses no optional personal-information scope. Register these URLs:
 
@@ -245,6 +245,7 @@ POST /api/wherego/candidates
 POST /api/wherego/recommend
 POST /api/wherego/usage
 POST /api/wherego/usage/reward
+POST /api/wherego/usage/link
 POST /api/wherego/iap/products
 POST /api/wherego/iap/grant
 POST /api/wherego/iap/reconcile

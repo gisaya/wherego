@@ -313,6 +313,14 @@ Production server-first rollout (2026-07-14 KST): Render served backend commit `
 
 Final save deployment verification (2026-07-14 KST): Render reached documentation-inclusive backend HEAD `7b28f54aff9dd77f4399e60101462020f79de370` with `ok=true` and Postgres. Vercel production deployment `dpl_BrqJWdVJLVPnFT4Z7eeUqbd2Vjcg` is READY and aliased to `https://wherego-lake.vercel.app`; `/`, `/terms/service`, and `/terms/privacy` all returned HTTP 200.
 
+Usage identity correction (2026-07-15 KST): Toss purchase login previously switched the daily quota identity from the guest device key to the logged-in key, which could make three base recommendations appear again. The login exchange now accepts the pre-login anonymous key and returns the conservatively linked usage snapshot. App startup also calls `/api/wherego/usage/link` for a stored login session. Only missing current-day base/ad/share consumption is copied up to policy limits; paid wallets remain attached only to the stable Toss login identity.
+
+Recommendation hard-filter correction (2026-07-15 KST): `pet_required` now maps to a hard `petFriendlyRequired` constraint. Candidate preparation verifies content IDs against cached KorService2 `detailPetTour2` data before Gemini, including prepared candidate-set reuse. Minimum distance is strict, and Gemini copy that contradicts near/long-distance answers is removed during normalization. The pet-tour list is cached for 24 hours by default and uses a bounded 7-second request timeout.
+
+Latest client build verification (2026-07-15 KST): the exhausted-quota screen presents the product image, SDK product name/description, actual Toss price, and purchase CTA in one purchase card, with ad/share recovery as secondary actions. The dedicated 1024x1024 product image is `assets/iap-product-10-credits.png`; local mTLS files are excluded through `mtls/`. TypeScript and Android/iOS AIT builds passed. The generated AIT remains excluded from Git; deploymentId is `019f644e-a961-7c5e-ade7-78f522da892b`.
+
+Production backend rollout (2026-07-15 KST): Render serves JBG commit `2d10f9ccf630f3cda461c8c177b3316ad06b0eca` with `ok=true`, Postgres storage, and no missing env. The production OpenAPI includes `/api/wherego/usage/link`, `/api/wherego/login/exchange`, and all IAP routes. `/api/wherego/iap/products` returns `enabled=true` with one registered ten-credit SKU. The remaining release step is uploading the latest AIT and completing the real purchase-login continuity test.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
@@ -323,10 +331,10 @@ Final save deployment verification (2026-07-14 KST): Render reached documentatio
 
 ## Next Recommended Steps
 
-1. Configure the production consumable SKU, Toss login credentials, and mTLS certificate/key on Render, then verify `/api/wherego/iap/products` returns the registered ten-credit product.
-2. Upload the new `wherego.ait` and run a Toss QR test covering purchase login, completed purchase +10, app restart/login restore, duplicate order retry, and refunded order reconciliation.
-3. Exhaust daily credits and verify rewarded ad +1 stops after three grants per KST day, contacts share +3 remains once per day, and paid credits are consumed only afterward.
-4. Confirm the result promotion pays once, and revisiting the result or reinstalling the app is rejected by the server attempt guard.
-5. Run the complete device flow: server questions, banner/interstitial ads, Gemini loading, result rendering, PNG save without a share sheet, Naver Map open, and back-exit confirmation.
-6. Watch Render health and `/api/wherego/recommend` timings after deployment; complete candidates should have near-zero `detailMs`, while incomplete candidates stay within the three-second cap.
+1. Upload the latest AIT and relaunch the QR test: an exhausted guest must remain at zero after purchase login, then increase by exactly 10 only after a completed purchase.
+2. Reopen the app with a stored Toss login session and confirm `/api/wherego/usage/link` keeps the same exhausted daily count instead of restoring the base three.
+3. Confirm the integrated purchase card shows the Console product image, description, and actual Toss price, then test app restart/login restore, duplicate-order retry, and refund reconciliation.
+4. Test a `pet_required` answer set and confirm every Gemini candidate and final destination is verified by `detailPetTour2`; also test strict minimum-distance filtering.
+5. Confirm the result promotion pays once, and revisiting the result or reinstalling the app is rejected by the server attempt guard.
+6. Run the complete device flow: server questions, banner/interstitial ads, Gemini loading, result rendering, PNG save without a share sheet, Naver Map open, and back-exit confirmation.
 7. Review daily and Monday QC reports after at least 10 successful production samples before changing recommendation thresholds.

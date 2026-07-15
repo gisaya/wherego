@@ -40,6 +40,7 @@ export type WheregoLoginSession = {
   sessionToken: string;
   anonymousUserKey: string;
   expiresAt: string;
+  usage?: WheregoUsage | null;
 };
 
 export type WheregoRecommendOrigin = {
@@ -244,6 +245,17 @@ export async function grantWheregoReward(params: {
   return body.usage;
 }
 
+export async function linkWheregoGuestUsage(params: {
+  guestAnonymousUserKey: string;
+  loginSessionToken: string;
+}): Promise<WheregoUsage> {
+  const body = await postUsage('/api/wherego/usage/link', {
+    guestAnonymousUserKey: params.guestAnonymousUserKey,
+    loginSessionToken: params.loginSessionToken,
+  });
+  return body.usage;
+}
+
 export async function updateWheregoPromotionAttempt(params: {
   anonymousUserKey?: string | null;
   promotionCode: string;
@@ -263,8 +275,13 @@ export async function fetchWheregoIapConfig(): Promise<WheregoIapConfig> {
 export async function exchangeWheregoTossLogin(params: {
   authorizationCode: string;
   referrer: 'DEFAULT' | 'SANDBOX';
+  guestAnonymousUserKey?: string | null;
 }): Promise<WheregoLoginSession> {
-  return postWherego('/api/wherego/login/exchange', params, LOGIN_TIMEOUT_MS);
+  return postWherego('/api/wherego/login/exchange', {
+    authorizationCode: params.authorizationCode,
+    referrer: params.referrer,
+    guestAnonymousUserKey: params.guestAnonymousUserKey || undefined,
+  }, LOGIN_TIMEOUT_MS);
 }
 
 export async function grantWheregoIapPurchase(params: {

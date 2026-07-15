@@ -36,6 +36,7 @@ import {
   fetchWheregoUsage,
   exchangeWheregoTossLogin,
   grantWheregoReward,
+  linkWheregoGuestUsage,
   prepareWheregoCandidates,
   recommendWheregoDestination,
   updateWheregoPromotionAttempt,
@@ -532,7 +533,19 @@ function Index() {
           tossLoginSessionTokenRef.current = session.sessionToken;
           anonymousUserKeyRef.current = session.anonymousUserKey;
           setIsTossLoggedIn(true);
-          await refreshUsage(session.anonymousUserKey);
+          try {
+            const linkedUsage = await linkWheregoGuestUsage({
+              guestAnonymousUserKey: key,
+              loginSessionToken: session.sessionToken,
+            });
+            setUsage(linkedUsage);
+          } catch (error) {
+            if (isWheregoLoginRequiredError(error)) {
+              await clearTossLoginSession();
+            } else {
+              await refreshUsage(session.anonymousUserKey);
+            }
+          }
         } else if (stored) {
           await Storage.removeItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
         }
@@ -910,12 +923,20 @@ function Index() {
       }
       try {
         const { authorizationCode, referrer } = await appLogin();
-        const session = await exchangeWheregoTossLogin({ authorizationCode, referrer });
+        const session = await exchangeWheregoTossLogin({
+          authorizationCode,
+          referrer,
+          guestAnonymousUserKey: guestAnonymousUserKeyRef.current,
+        });
         tossLoginSessionTokenRef.current = session.sessionToken;
         anonymousUserKeyRef.current = session.anonymousUserKey;
         setIsTossLoggedIn(true);
         await Storage.setItem(TOSS_LOGIN_SESSION_STORAGE_KEY, JSON.stringify(session));
-        await refreshUsage(session.anonymousUserKey);
+        if (session.usage) {
+          setUsage(session.usage);
+        } else {
+          await refreshUsage(session.anonymousUserKey);
+        }
 
         if (iapConfiguredSkusRef.current.size > 0) {
           await restoreIapOrders(
@@ -1969,15 +1990,19 @@ function QuotaScreen({
     : usage?.shareRewardUsed
       ? '오늘 공유 보상 완료'
       : '친구에게 공유하고 3회 받기';
+  const productCredits = iapProduct?.credits || 10;
+  const productPrice = iapProduct?.displayAmount || '';
   const purchaseButtonLabel = iapPurchasing
     ? '결제 확인 중'
     : tossLoginLoading
       ? '토스 로그인 중'
       : iapProduct == null
-        ? '이용권 상품 확인하기'
+        ? '이용권 정보 다시 확인하기'
         : !tossLoggedIn
-          ? '토스로 로그인하고 구매하기'
-          : `${iapProduct.credits}회 이용권 구매`;
+          ? `토스로 로그인하고 ${productCredits}회 구매하기`
+          : productPrice
+            ? `${productPrice}에 ${productCredits}회 구매하기`
+            : `${productCredits}회 이용권 구매하기`;
 
   return (
     <View style={styles.centerScreen}>
@@ -1997,24 +2022,45 @@ function QuotaScreen({
           <Text style={styles.quotaSummaryText}>보유 이용권 {usagePaidCredits(usage)}회</Text>
         </View>
         {message ? <Text style={styles.rewardStatus}>{message}</Text> : null}
-        {iapMessage ? <Text style={styles.rewardStatus}>{iapMessage}</Text> : null}
+        {hasCredit ? (
+          <View style={styles.quotaStartAction}>
+            <PrimaryButton label="추천 시작하기" onPress={onStart} />
+          </View>
+        ) : null}
         <View style={styles.iapOffer}>
-          {iapProduct?.iconUrl ? <Image source={{ uri: iapProduct.iconUrl }} style={styles.iapOfferIcon} /> : null}
-          <View style={styles.iapOfferText}>
-            <Text numberOfLines={2} style={styles.iapOfferName}>
-              {iapProduct?.displayName || 'AI 여행지 추천 10회 이용권'}
-            </Text>
-            <Text numberOfLines={2} style={styles.iapOfferDescription}>
-              {iapProduct?.description || '구매한 추천 횟수는 기간 제한 없이 보관돼요.'}
+          <View style={styles.iapOfferHeader}>
+            {iapProduct?.iconUrl ? (
+              <Image source={{ uri: iapProduct.iconUrl }} style={styles.iapOfferIcon} />
+            ) : (
+              <View style={styles.iapOfferIconFallback}>
+                <Text style={styles.iapOfferIconNumber}>{productCredits}</Text>
+                <Text style={styles.iapOfferIconUnit}>회</Text>
+              </View>
+            )}
+            <View style={styles.iapOfferText}>
+              <Text numberOfLines={2} style={styles.iapOfferName}>
+                {iapProduct?.displayName || `AI 여행지 추천 ${productCredits}회 이용권`}
+              </Text>
+              <Text numberOfLines={2} style={styles.iapOfferDescription}>
+                {iapProduct?.description || '구매한 추천 횟수는 기간 제한 없이 보관돼요.'}
+              </Text>
+            </View>
+            <Text numberOfLines={1} style={styles.iapOfferPrice}>
+              {productPrice || (iapLoading ? '확인 중' : '10회권')}
             </Text>
           </View>
-          <Text style={styles.iapOfferPrice}>
-            {iapProduct?.displayAmount || (iapLoading ? '확인 중' : '상품 확인')}
-          </Text>
-        </View>
-        <View style={styles.quotaActions}>
-          {hasCredit ? <PrimaryButton label="추천 시작하기" onPress={onStart} /> : null}
+          {iapMessage ? <Text style={styles.iapOfferStatus}>{iapMessage}</Text> : null}
           <PrimaryButton
+            disabled={iapLoading || iapPurchasing || tossLoginLoading || granting}
+            label={iapLoading ? '이용권 불러오는 중' : purchaseButtonLabel}
+            loading={iapLoading || iapPurchasing || tossLoginLoading}
+            onPress={onPurchase}
+            viewStyle={styles.iapPurchaseButton}
+          />
+        </View>
+        <Text style={styles.quotaRewardHeading}>무료로 더 받기</Text>
+        <View style={styles.quotaActions}>
+          <SecondaryButton
             disabled={
               adLimitReached ||
               adStatus === 'unsupported' ||
@@ -2027,12 +2073,7 @@ function QuotaScreen({
             onPress={onWatchAd}
           />
           <SecondaryButton disabled={shareUnavailable || granting} label={shareButtonLabel} onPress={onShare} />
-          <SecondaryButton
-            disabled={iapLoading || iapPurchasing || tossLoginLoading || granting}
-            label={iapLoading ? '이용권 불러오는 중' : purchaseButtonLabel}
-            onPress={onPurchase}
-          />
-          <SecondaryButton label="처음으로 돌아가기" onPress={onBack} />
+          <SecondaryButton label="처음으로 돌아가기" onPress={onBack} viewStyle={styles.quotaBackButton} />
         </View>
       </View>
     </View>
@@ -2680,11 +2721,13 @@ function PrimaryButton({
   label,
   loading,
   onPress,
+  viewStyle,
 }: {
   disabled?: boolean;
   label: string;
   loading?: boolean;
   onPress: () => void;
+  viewStyle?: StyleProp<ViewStyle>;
 }) {
   return (
     <TDSButton
@@ -2694,7 +2737,7 @@ function PrimaryButton({
       onPress={onPress}
       size="big"
       type="primary"
-      viewStyle={[styles.primaryButton, disabled ? styles.disabledButton : null]}
+      viewStyle={[styles.primaryButton, disabled ? styles.disabledButton : null, viewStyle]}
     >
       {label}
     </TDSButton>
@@ -2705,12 +2748,14 @@ function SecondaryButton({
   disabled,
   grow,
   label,
+  loading,
   onPress,
   viewStyle,
 }: {
   disabled?: boolean;
   grow?: boolean;
   label: string;
+  loading?: boolean;
   onPress: () => void;
   viewStyle?: StyleProp<ViewStyle>;
 }) {
@@ -2718,6 +2763,7 @@ function SecondaryButton({
     <TDSButton
       disabled={disabled}
       display="block"
+      loading={loading}
       onPress={onPress}
       size="large"
       style="weak"
@@ -3530,26 +3576,61 @@ const styles = StyleSheet.create({
   quotaActions: {
     alignSelf: 'stretch',
     gap: 10,
+    marginTop: 8,
+  },
+  quotaStartAction: {
+    alignSelf: 'stretch',
     marginTop: 12,
   },
+  quotaRewardHeading: {
+    alignSelf: 'stretch',
+    color: '#4E5968',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+    marginTop: 20,
+  },
   iapOffer: {
-    alignItems: 'center',
     alignSelf: 'stretch',
     backgroundColor: '#F2F7FF',
     borderColor: '#C9DDFB',
     borderRadius: 12,
     borderWidth: 1,
+    marginTop: 14,
+    padding: 14,
+  },
+  iapOfferHeader: {
+    alignItems: 'center',
     flexDirection: 'row',
-    marginTop: 12,
-    minHeight: 72,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
   iapOfferIcon: {
     borderRadius: 8,
-    height: 44,
-    marginRight: 10,
-    width: 44,
+    height: 52,
+    marginRight: 12,
+    width: 52,
+  },
+  iapOfferIconFallback: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#C9DDFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 52,
+    justifyContent: 'center',
+    marginRight: 12,
+    width: 52,
+  },
+  iapOfferIconNumber: {
+    color: '#1E63D6',
+    fontSize: 19,
+    fontWeight: '800',
+    lineHeight: 21,
+  },
+  iapOfferIconUnit: {
+    color: '#6B7684',
+    fontSize: 10,
+    fontWeight: '800',
+    lineHeight: 12,
   },
   iapOfferText: {
     flex: 1,
@@ -3557,22 +3638,37 @@ const styles = StyleSheet.create({
   },
   iapOfferName: {
     color: '#191F28',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    lineHeight: 19,
+    lineHeight: 20,
   },
   iapOfferDescription: {
     color: '#6B7684',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 16,
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
+    marginTop: 3,
   },
   iapOfferPrice: {
     color: '#1E63D6',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    marginLeft: 10,
+    marginLeft: 8,
+    maxWidth: 82,
+    textAlign: 'right',
+  },
+  iapOfferStatus: {
+    color: '#4E5968',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
+    marginTop: 10,
+  },
+  iapPurchaseButton: {
+    marginTop: 12,
+  },
+  quotaBackButton: {
+    marginTop: 2,
   },
   originRegionButton: {
     ...cardBase,
