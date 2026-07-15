@@ -1,363 +1,127 @@
-# Wherego AI Handoff
-
-## Project Goal
-
-`어디고` is an Apps in Toss mini app concept for quick domestic travel destination recommendations.
-
-Core flow:
-- User enters the mini app.
-- User answers lightweight travel preference questions.
-- The app defines a travel persona from answers.
-- The app recommends one to three domestic destinations.
-- The result card links out to a map app.
-
-## Current Product Decisions
-
-- App name: `어디고`
-- Git remote: `https://github.com/gisaya/wherego.git`
-- Initial recommendation data source direction: 한국관광공사 국문 관광정보 서비스_GW API.
-- Regional crowd signal direction: 한국관광공사 빅데이터 지역별 방문자수_GW API.
-- Public Data Portal credentials and KTO endpoints are stored locally in `.env.local`; do not commit that file.
-- TMAP congestion API is not part of the MVP because of cost.
-- AI direction: Gemini Flash-Lite runs on the Render backend as the final curator. The server builds the search plan from selected-answer metadata first, prepares KTO/DataLab candidates separately, compresses them to a score-qualified set of five through seven, then asks Gemini to choose one place and write persona/result-card copy only after the full-screen ad is shown. Do not put AI API keys in the client.
-- Apps in Toss direction: Granite React Native scaffold now exists, based on the local `toss_tomato_public` build structure. The main app is wrapped in TDS and uses TDS `Text`/`Button`; selection and region cards use React Native `Pressable` with stable card sizing. Real-device visual QA is still required before submission.
-- Question flow: required 3 questions plus 4 general questions. General questions include `crowd`, one of `mobility`/`accessibility`, one destination-specific question, and one additional non-overlapping tag group.
-- Location filtering: use current location when permitted, or a user-selected origin. MVP estimate uses straight-line distance x 1.35, average 45km/h, 15 minutes of drive-time buffer, and 10km of distance buffer.
-- Map opening direction: use Naver Map web search links for the MVP, opened through `openURL`. No Naver Maps API key is needed unless embedding maps or calculating route/time data inside the app.
-- Daily recommendation policy: 3 base recommendations per KST day. A completed rewarded ad grants +1, up to 10 ad grants per day. A completed contacts share grants +3 once per day. Candidate preparation reserves a credit, success settles it, failures refund it, and abandoned reservations expire after 30 minutes.
-
-## Current Apps in Toss App
-
-Granite/Apps in Toss build scaffold was added from the `뭐샀지` (`toss_tomato_public`) pattern:
-
-- `package.json`, `yarn.lock`, `.yarnrc.yml`, `.yarn/releases/`, `.yarn/patches/`
-- `granite.config.ts`
-- `index.ts`
-- `require.context.ts`
-- `src/_app.tsx`
-- `src/router.gen.ts`
-- `src/types/assets.d.ts`
-- `pages/index.tsx`
-- `pages/promotion.tsx`
-- `src/WheregoApp.tsx`
-- `pages/_404.tsx`
-- `scripts/ait-build.ps1`
-- `babel.config.js`, `tsconfig.json`, `react-native.config.js`
-
-Current app flow in `src/WheregoApp.tsx`:
-
-- intro screen with 한국관광공사 관광정보 기반 copy and a start CTA; the top app logo is intentionally omitted from the first viewport, and the text block is lowered toward the vertical center instead of hugging the top
-- origin choice: current location via `useGeolocation` only after the user taps the current-location CTA, or direct region selection fallback. The direct region button is a custom `Pressable` to avoid clipped Korean text in Toss.
-- question flow: 3 required source questions plus 4 random general questions
-- question-card taps now show the selected card and a short 1s loading state before advancing
-- Apps in Toss inline banner ad during questions
-- full-screen interstitial gate before result using Apps in Toss integrated ads; free public-data candidate preparation starts immediately after the final answer, while Gemini recommendation analysis starts only after `show`/`impression` (with `dismissed` fallback)
-- result card with tourism info, Apps in Toss card-save action, Naver Map open button, and home reset
-- result screen intentionally hides the top `어디고 / 추천 완료` header so the card is easier to save/share
-
-Full-screen ad:
-
-- production interstitial ad group ID: `ait.v2.live.69c443b05e6a42ea`
-- production banner ad group ID: `ait.v2.live.67b07bf813d74267`
-- production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
-- contacts share-reward module ID: `1e6b212b-9093-4546-9991-99f478262910`
-- `src/WheregoApp.tsx` preloads the interstitial ad from the intro screen, before question banners mount, and preserves that loaded ad through origin/question transitions. The ad gate retries only when the earlier preload failed or timed out. The checked-in source uses only the live interstitial/banner IDs. A 15-second load timeout, retry state, synchronous error handling, and `[wherego:interstitial-ad]` lifecycle logs with `attempt`/`elapsedMs` prevent an indefinite loading state and expose real SDK latency. The CTA prepares free public-data candidates, `showFullScreenAd` displays the ad, and Gemini starts once on `show`/`impression`, with `dismissed` as a fallback.
-- Gemini starts behind the full-screen ad on `show`/`impression`, so KTO candidate completion and AI generation overlap the ad display time. After `dismissed`, `src/WheregoApp.tsx` shows a dedicated AI loading panel if the result is still pending. The panel shows `광고 확인 완료`, a spinner, and the steps `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택`.
-- `src/WheregoApp.tsx` renders the question-screen banner with `InlineAd`.
-- Non-Toss/local unsupported environments fall back to a development preview result path.
-
-Card save:
-
-- `src/WheregoApp.tsx` renders a hidden `react-native-svg` result card, captures it with `toDataURL`, and uses Apps in Toss `saveBase64Data` to save a 1080x1350 PNG result-card image.
-- Minimum checked app support is Android `5.218.0` and iOS `5.216.0`. Older Toss app versions show a save-not-supported message; the app no longer opens the Apps in Toss `share` fallback from the save button.
-- The save output is PNG only. The hidden SVG card uses the system font instead of forcing Arial, and is kept transparently mounted in-bounds to reduce malformed image output risk. The current saved card uses a narrower centered card, a taller real KTO hero photo, a compact centered location row, extra line capacity for recommendation reason/AI selection copy, and no small bottom source note. Before submission, test on real Toss devices because `saveBase64Data` depends on native Toss app support.
-
-`granite.config.ts` uses:
-
-- `appName: wherego`
-- display name `어디고`
-- `brand.icon` uses the Toss-hosted logo URL supplied during UI review: `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`.
-- `geolocation` permission
-- Apps in Toss navigation bar with back/home buttons
-
-## Current Assets
-
-- `assets/logo.png`: 600x600 app logo.
-- `assets/thumbnail.png`: 1932x828 Apps in Toss-style thumbnail.
-- `public/assets/logo.png`: static copy used only by local/mockup pages, not by the production Apps in Toss brand config.
-- Visual direction follows the existing `toss_tomato` asset pattern:
-  - pale lavender-blue background
-  - polished 3D object
-  - large Korean title on the left for thumbnail
-  - right-side travel object composition
-- Thumbnail copy: `취향대로, 오늘 갈 곳을 찾아봐요.`
-
-## Current Terms Pages
-
-Static Vercel-style terms pages were added:
-
-- `public/index.html`
-- `public/terms/service/index.html`
-- `public/terms/privacy/index.html`
-- `public/terms/styles.css`
-- `scripts/build-vercel-terms.cjs`
-- `vercel.json`
-
-Routes after deployment:
-
-- `/terms/service`
-- `/terms/privacy`
-
-Vercel is used only for terms/privacy URLs. It is not the app server and should not be treated as production logo or thumbnail hosting.
-
-Current Vercel deployment:
-
-- Production alias: `https://wherego-lake.vercel.app`
-- Service terms: `https://wherego-lake.vercel.app/terms/service`
-- Privacy policy: `https://wherego-lake.vercel.app/terms/privacy`
-- Vercel project: `joyai/wherego`
-- GitHub repository auto-link failed during CLI deploy, so current deployment is CLI-created/manual. GitHub auto deploy still needs to be connected from Vercel settings or retried later.
-
-The content is adapted from the existing `뭐샀지` terms-page structure, with Wherego-specific wording for:
-
-- travel preference analysis
-- domestic destination recommendations
-- 한국관광공사 관광정보 API
-- AI-generated recommendation text
-
-Contact/privacy owner currently matches the `뭐샀지` documents:
-
-- 문의 이메일: `minah0413@naver.com`
-- 개인정보 보호책임자: `권민아`
-
-## Current Verification
-
-- `node` is not on the normal PowerShell PATH.
-- The bundled Codex Node executable works:
-  - `C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`
-- Verified command:
-  - `& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts/build-vercel-terms.cjs`
-- Result:
-  - `.vercel/output/static/index.html`
-  - `.vercel/output/static/terms/service/index.html`
-  - `.vercel/output/static/terms/privacy/index.html`
-- Latest save verification:
-  - 2026-07-08 21:57 KST: terms-page build returned `Built static terms pages for Vercel.`
-  - 2026-07-08 22:05 KST: `.env.local` confirmed ignored, committed files checked for raw 64-char key patterns, and terms-page build returned `Built static terms pages for Vercel.`
-  - 2026-07-08 22:16 KST: production Vercel deployment succeeded and `/`, `/terms/service`, `/terms/privacy` all returned HTTP 200.
-  - 2026-07-09 KST: `scripts/probe-question-bank-result.cjs` successfully exercised KTO KorService2, KTO DataLab locgo visitor rows, estimated drive-time filtering, parking-known filtering, and crowd labels.
-  - 2026-07-09 KST save check: terms-page build succeeded, `scripts/probe-question-bank-result.cjs` syntax check passed, generated question bank shape confirmed as 13 groups / 390 questions / 30 per group, and no 64-char hex secret pattern was found in commit candidates.
-  - 2026-07-09 KST: Apps in Toss dependencies installed with committed Yarn 4 release/patches. `yarn typecheck` passed. `yarn build` produced local ignored artifact `wherego.ait` with deploymentId `019f4475-b925-7a22-bca3-fed52822aee1`. Terms-page build also passed.
-  - 2026-07-09 KST save check: server-backed recommendation client, Apps in Toss rewarded ad integration, 15s recommendation fallback timeout, and first-screen copy update verified with `yarn typecheck`; `yarn build` produced ignored `wherego.ait` deploymentId `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
-  - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=gemini`, 3 places, first place `국립중앙박물관 전통염료식물원`.
-  - 2026-07-09 KST save check: Wherego frontend typecheck and `yarn build` passed; ignored AIT artifact deploymentId `019f45b7-4889-72c6-ac16-3d27c8c1336b`. Backend Wherego route tests passed with FastAPI stub; backend `py_compile` passed. Real KTO random-flow probes confirmed source 3 + general 5 answers can collect candidates and compress them to five or fewer. Nationwide search now uses keyword-only KTO calls, keeps long-distance options possible, and skips single KTO timeouts when other calls succeed.
-  - 2026-07-09 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached `jbg` commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`; `POST /api/wherego/recommend` returned HTTP 200 with `source.planner=metadata`, `source.curator=gemini`, 1 place, first place `서울어린이대공원`, and Naver map link present.
-  - 2026-07-09 KST Apps in Toss guideline recheck: MCP transport closed, so official developer docs were checked directly. Non-game/TDS, location permission timing, banner/reward ad placement, build/deploy, and brand icon requirements were reviewed. Code uses TDS primitives where practical, requests location only after CTA tap, keeps the banner at 100% x 96, and keeps Vercel terms-only.
-  - 2026-07-09 KST save check: terms-page build, `yarn typecheck`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f45e3-a0de-7e80-a3f8-464868942345`.
-  - 2026-07-09 KST live recommendation check: Render `POST /api/wherego/recommend` returned HTTP 200 in 2.57s with `source.planner=metadata`, `source.curator=gemini`, `source.kto=KorService2`, `source.crowd=DataLabService locgoRegnVisitrDDList`, selected `우면산자연생태공원`, and an image URL present.
-  - 2026-07-09 KST KTO image check for a legacy local fallback place: `searchKeyword2` returned `firstimage`, while `detailCommon2` and `detailImage2` returned no image. Keep using search-result image fallback when detail images are unavailable.
-  - 2026-07-09 KST save check: `yarn typecheck` passed and `yarn build` passed with ignored AIT artifact deploymentId `019f460a-8635-7ca9-897a-8df0d676cf9d`.
-  - 2026-07-09 KST save check: result screen header removal, question-card two-column layout, reward-gate loading indicator, and initial SVG card-save flow were implemented. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4666-aafa-7a02-b955-c802dffc027d`. Browser mockup confirmed the result header is hidden and a legacy SVG card file could be created.
-  - 2026-07-09 KST fix check: card save was changed from SVG file output to PNG output using `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data(image/png)`. `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4675-4c16-7bf2-b6a2-caef2741f1f7`.
-  - 2026-07-10 KST save check: first-screen intro copy was lowered toward the vertical center in both the app and mockup. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4916-8162-7022-8180-1e354788acc6`.
-  - 2026-07-10 KST save check: question-card tap delay was reduced to 1s, reward-gate top header/progress stays hidden, and recommendation analysis now starts from the rewarded-ad CTA while the ad flow is running. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f492e-81c6-7044-986f-2f3028a34528`.
-  - 2026-07-10 KST save check: direct-region text clipping was fixed with a custom Pressable button and taller region cards; recommendation errors now stay on the reward gate with `추천 다시 시도`; local demo/fallback results no longer open after server failure; card save no longer opens share fallback and uses system-font PNG rendering. Render smoke returned HTTP 200 with `source.curator=gemini`, selected `서울어린이대공원`, and an image URL. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f494b-cb34-72b1-a1f3-1ee8f64da56c`.
-  - 2026-07-10 KST save check: saved PNG result card now uses the real KTO place image, a taller hero photo area, a compact address-only location row, and cleaned AI factor copy so the card fits inside 1080x1350. Terms-page build, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f49fb-2216-7512-b555-4808770c2e41`.
-  - 2026-07-10 KST save check: question generation moved to the `jbg` backend via `POST /api/wherego/questions`; the app fetches that set after origin selection and falls back to the bundled bank if the server is unavailable. SDK-check UI now shows a question-set loading panel, uses TDS `Button` loading for the origin CTA, and renders option numbers as fixed circular badges with two-line text limits. `jbg` Wherego route unittest passed with 16 tests. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a16-6e2b-7383-a0b6-6d42ff134754`.
-  - 2026-07-10 KST save check: recommendation was split into `POST /api/wherego/candidates` for free KTO/DataLab candidate preparation and `POST /api/wherego/recommend` for Gemini final curation. The app starts candidate preparation when the rewarded-ad CTA is tapped, calls Gemini only after `userEarnedReward`, and shows a dedicated AI loading panel after ad completion. `jbg` Wherego route unittest passed with 18 tests. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a38-eefa-7f99-a0b0-217c6cb4363b`.
-  - 2026-07-10 KST save check: question-screen secondary subcopy was removed so only the origin chip, eyebrow, question title, and selection cards remain. Saved PNG result cards were narrowed and centered inside the 1080x1350 image, recommendation reason/AI selection text capacity was expanded, and the location row label/value were vertically realigned. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a54-006b-7c33-9188-b575b14278ef`.
-  - 2026-07-10 KST save check: option-card captions now render as one-line first-segment labels without middle-dot separators, even when the server returns `A · B` style captions. Saved PNG result cards no longer render the small bottom source/answer-count note. `wherego` `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a6c-74da-7641-9d84-451de40c32f3`.
-  - 2026-07-10 KST save check: general question bank expanded to 14 tag groups / 420 questions with `outdoor_stay` 캠핑/피크닉. User-visible question templates were copy-edited to remove `형님`, colon-style prompts, and internal phrases like `여행지 검색어`/`장소를 특정`. `docs/wherego-copy-review.json` was added as a copy-only review file for another AI. `jbg` Gemini result-card prompt now asks for short card-safe Korean copy and clamps persona/reason/factor lengths. `jbg` Wherego route unittest passed with 20 tests, `wherego` copy scan found 0 risky prompt matches, terms build, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f4a9d-4aa5-7dd9-a5b1-80d223a40738`.
-  - 2026-07-11 KST save check: rewarded-ad loading moved from the fifth question to the reward gate so it no longer overlaps question banner loading. The client has a 15-second load timeout, retry state, lifecycle logs, and synchronous load/show error handling. Release source now contains only the live rewarded/banner ad group IDs. Stale `형님` copy was removed from both local recommendation probes. Live Render smoke returned 8 questions, 4 prepared/compressed candidates, `source.curator=gemini`, and a final image URL. Backend unittest 20, terms/question checks, asset dimensions, secret scan, `yarn typecheck`, `git diff --check`, and `yarn build` passed. Ignored AIT artifact deploymentId is `019f5096-2949-7302-a914-4fbf34166f12`. Real rewarded-ad event verification remains pending because no Android device was connected to ADB.
-  - 2026-07-12 KST save check: runtime question selection now prevents repeated or semantically overlapping themes across the three source questions and five general questions. `crowd` remains required; `mobility/accessibility`, `activity/healing_energy`, `landscape/photo`, and `weather/season` are mutually exclusive families. Outdoor answers now distinguish tourism/picnic content type 12 from camping/leports content type 28. The 14-group / 420-question bank has zero duplicate prompts, invalid cards, long options, internal-survey phrases, or broken Korean particles. Five thousand generated sets produced zero theme-rule violations. Backend Wherego unittest passed 26 tests, frontend typecheck and `git diff --check` passed, both question-bank copies have matching SHA-256 hashes, and the ignored AIT build passed with deploymentId `019f533f-515b-7d05-be67-80dffafbde29`.
-  - 2026-07-12 KST save check: runtime flow now uses 3 source questions plus 4 general questions. `crowd`, one of `mobility/accessibility`, and one destination-specific general question remain guaranteed. Binary question generation excludes semantically equivalent option pairs. Full-screen ad event failures or omissions no longer block the result because an 8-second guard continues recommendation analysis. KTO/DataLab candidates are narrowed to 18 or fewer, then compressed to a score-qualified, intent-diverse set of 5 through 7 for Gemini; only the final selected place receives detail/image lookup. Backend Wherego unittest passed 43 tests, frontend typecheck, terms build, question script syntax checks, asset dimensions, matching question-bank hashes, and `git diff --check` passed. AIT build deploymentId is `019f54d0-abe0-768b-b02c-326006f0b471`. Final upload-only logo candidate is `assets/wherego-logo-600.png` at 600x600; code and Toss icon URL remain unchanged for this candidate.
-  - 2026-07-12 KST post-push Render smoke: `https://jbg.onrender.com/api/health` reached backend commit `dca1eae8b8a7cf32700880ea777ec3193838184c`. Three production 7-question probes returned source/general counts `3/4` and candidate reductions `19 -> 7 -> 5`, `97 -> 12 -> 5`, and `144 -> 18 -> 5`. The final Gemini call returned one place, `고양어린이박물관`, with `curator=gemini`, model `gemini-3.1-flash-lite`, and a usable image. A separate `59 -> 12 -> 5` probe showed two surviving search intents; five candidates were correct under the variable policy (two per intent plus one wildcard), not an environment-limit regression.
-  - 2026-07-12 KST save check: result-screen and saved-PNG image attribution moved from a dark overlay in the photo's lower-right corner to a small gray caption below the photo. The KTO attribution remains visible without covering the tourism image. Frontend typecheck, `git diff --check`, and AIT build passed; deploymentId is `019f54e1-f528-7530-af86-609f9b571a79`.
-  - 2026-07-12 KST save check: the 1080x1350 PNG canvas stays social-ready while the inner card width was reduced from 888px to 810px and centered with 135px side margins. Saved-card attribution no longer depends on unsupported SVG end anchoring, location/factor wrapping was tightened, and factor separators use commas so an orphan middle dot cannot start a new line. Frontend typecheck, `git diff --check`, and AIT build passed; deploymentId is `019f54eb-1e6a-71d9-a47b-c2329d3a06f7`.
-
-## Current Question/API Work
-
-- Runtime question copy and metadata are server-only. The canonical files are `C:\Users\ESOL\Documents\jbg\apps\server\backend\app\resources\wherego\source-question-blueprint.json` and `general-question-bank.json`.
-- `data/source-question-blueprint.json` and `data/general-question-bank.json` remain historical review fixtures only; `src/WheregoApp.tsx` does not import or fall back to them.
-- `docs/wherego-copy-review.json`: copy-only JSON for external AI review. It includes source-question copy, generated general-question copy, option label/caption previews, banned/risky expressions, and result-card Gemini copy rules. It intentionally excludes API keys and local credentials.
-- `data/question-bank-normalized.json`: normalized copy of the downloaded Gemini question candidate file.
-- `data/question-bank-additions.json`: curated additional question candidates and policy notes.
-- `scripts/build-general-question-bank.cjs`: deterministic generator for the general bank.
-- `scripts/probe-question-bank-result.cjs`: local Gemini-substitute probe using selected answers, real KTO APIs, min/max distance and time filtering, region-scope search, parking filtering, and DataLab crowd labeling.
-- `scripts/probe-wherego-flow.cjs`: earlier direct KTO API flow probe.
-- `public/mockups/question-flow/index.html`: clickable question-flow mockup. It uses image-free selection cards, location-origin choice, random 3+4 question generation, banner-ad position, full-screen-ad gate, Naver Map link, and result card with tourism info.
-- Latest app UI pass: first screen hides the top nav/header and top logo, keeps the intro copy closer to the vertical center, origin screen hides the header copy, origin CTAs are spaced apart, direct-region text no longer clips, origin selection shows a question-set loading screen, question cards are compact fixed 2-column pastel cards for both 2-choice and 4-choice layouts, option numbers are fixed circular badges, long option text is constrained to two lines, option captions are one-line first-segment labels without middle-dot separators, the question subcopy line is hidden, selected cards show a 1s loading state before advancing, the full-screen-ad gate hides top header/progress, recommendation analysis starts after the ad CTA and actual ad display event, recommendation failure stays on the retry gate instead of opening a demo result, and the final result hides the top header.
-- Banner ad behavior: the banner is visible from the question-set loading screen. The loading screen stays visible for at least 2 seconds. `InlineAd` is keyed by `question-set-loading`, `question-${questionIndex}`, `ai-recommendation-loading`, or `result`. It remounts per meaningful screen, not on option press. Analysis/result banners mount only after the full-screen ad fires `dismissed`, so a hidden banner is not loaded behind the interstitial. Interstitial preloading starts on the banner-free intro screen and is not reset when the question flow starts.
-
-Latest known Render smoke result with the Seoul City Hall test origin:
-
-- Persona: 아이와 함께하는 도심 속 힐링 큐레이터.
-- Recommended place: 서울어린이대공원.
-- Source: `planner=metadata`, `curator=gemini`, `kto=KorService2`, `crowd=DataLabService locgoRegnVisitrDDList`.
-- Crowd data latest base date observed: `20260609`.
-
-## Current Blockers And Risks
-
-- MVP recommendation structure is complete enough for launch-candidate testing, but not yet fully launch-cleared.
-- Vercel project exists and terms URLs are live, but GitHub auto-deploy is not connected yet.
-- API keys for 한국관광공사 and AI services must stay out of client code and Git. `.env.local` is intentionally ignored.
-- The current drive-time filter is an estimate, not real routing. A map/routing API is needed for production-grade travel time.
-- DataLab visitor counts are regional, not place-level. Treat crowd labels as a weak supporting signal.
-- The generated question bank is large enough for MVP experiments. The main remaining copy risk is external review feedback from `docs/wherego-copy-review.json`; the known internal prompt-template issues were cleaned up and scanned to 0 matches for the current banned-expression list.
-- Apps in Toss UI calls the `jbg` Render-backed question and recommendation APIs. If `POST /api/wherego/questions` fails or returns anything other than a valid 3+4 set, the client stays on the origin screen with a retry message; there is no bundled question fallback. Recommendation failures stay on the reward gate with a retry CTA; demo result data must not surface in the normal result flow.
-- KTO `searchKeyword2` can intermittently time out on some nationwide keyword calls; the server now skips single failed search calls, but live monitoring should watch empty-candidate rates.
-- Card-save now writes a PNG card file through Apps in Toss `saveBase64Data`, but real-device validation is still needed.
-- 2026-07-10 KST follow-up: saved PNG card clipping was caused by the hidden SVG card's lower text/AI box coordinates being too close to the 1080x1350 card bottom. `pages/index.tsx` and the mockup card SVG now reserve more bottom space and specify Korean-capable system fonts. The app no longer calls `share`; if a sheet still appears after `saveBase64Data`, it is the native Toss file-save UI because `saveBase64Data` exposes no no-sheet option in the local framework source.
-- `brand.icon` now uses the Toss static logo URL supplied by the user. Still confirm in the Apps in Toss Console/device preview that the same icon appears in the Toss navigation surface before launch submission.
-- The UI is now TDS-based, but the final pass still needs a real Toss app device check for typography, hit areas, ad rendering, and permission prompts.
-- Recommendation failures no longer open a fallback/demo result. The user remains on the reward gate and can retry the recommendation request.
-- Local Android sandbox dev now requires Yarn patches for `@granite-js/mpack`, `metro-react-native-babel-transformer`, and `react-native` because React Native `0.84.0` syntax breaks the older Granite/Metro parser path. Verified on device that `yarn dev` serves `http://127.0.0.1:8081/index.bundle?platform=android&dev=true&minify=false` with HTTP 200, the app opens through `intoss://wherego`, and the first screen -> origin screen -> current-location question flow reaches `출발 기준: 현재 위치(고양시)`.
-
-## Current Server Direction
-
-Wherego now reuses the existing `뭐샀지`/`jbg` Render FastAPI service instead of adding a Vercel API.
-
-- client API base: `https://jbg.onrender.com`
-- server repo/path: `C:\Users\ESOL\Documents\jbg\apps\server`
-- endpoints: `POST /api/wherego/questions`, `POST /api/wherego/candidates`, `POST /api/wherego/recommend`
-- server route file: `apps/server/backend/app/interfaces/http/routes/wherego.py`
-- client API wrapper: `src/api/wheregoApi.ts`
-
-`/api/wherego/questions` generates the runtime 7-question set from server-side resources: 3 source-axis questions and 4 general questions, with `crowd` required, one of `mobility`/`accessibility`, and at least one destination-specific general question. The remaining general question comes from a non-overlapping tag group. `/api/wherego/candidates` converts option metadata into three KTO search intents with content/classification filters, evaluates up to 50 rows per intent, removes invalid/expired rows, clusters sub-facilities of the same destination, and keeps up to 6 per intent (18 total). It attaches DataLab regional visitor signals before scoring for low-crowd/hot-place preference, then compresses to five through seven candidates according to score quality and intent diversity and returns `aiUsed=false`. `/api/wherego/recommend` accepts the prepared candidate set and asks Gemini to choose the final single place from those candidates; if no candidate set is supplied, it keeps the older all-in-one fallback path. If recommendation APIs fail, the client stays on the result gate and exposes a retry CTA. If interstitial show events are omitted or fail, an 8-second guard continues AI analysis instead of leaving the app stuck.
-
-Gemini result-card copy is constrained server-side: persona title, persona summary, one-line recommendation, AI reason, and `whyThisPlace` factors must be short natural Korean suitable for the saved 1080x1350 result card. The server also clamps these fields during normalization.
-
-Quota/runtime guardrails:
-
-- `WHEREGO_KTO_SEARCH_MAX_CALLS=4` hard-caps KorService2 search calls per recommendation request. Search runs up to three destination intents concurrently with up to 50 rows each; a fourth fallback call runs only when fewer than five candidates survive. Final common/intro detail calls run only for the selected place.
-- `WHEREGO_GEMINI_CANDIDATE_LIMIT=7` caps the candidate list sent to Gemini; the server hard-caps it at seven even if the env is higher.
-- `WHEREGO_GEMINI_SCORE_WINDOW=24` excludes candidates whose final server score falls too far behind the strongest candidate while retaining up to seven diverse choices.
-- `WHEREGO_KTO_PER_INTENT_CANDIDATES=6` caps the post-search, post-clustering pool per intent while still evaluating all fetched rows before that cap.
-- `/api/wherego/candidates` does not call Gemini and does not fetch final detail/intro data.
-- `/api/wherego/recommend` reuses a supplied candidate set instead of repeating KTO search.
-- Only the final selected place gets KTO detail calls.
-- For `nationwide` scope, KorService2 search omits `areaCode` so the limited call budget is spent across keywords instead of being exhausted by area-code loops.
-- Single KTO search timeouts/errors are skipped when other calls return candidates; the request only fails if every search call fails or no fallback candidate can be built.
-- `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false` skips the extra `detailImage2` call unless explicitly enabled.
-- The server keeps an in-memory KTO response cache: search 24h, detail 7d, DataLab 24h by default.
-- `src/api/wheregoApi.ts` times out recommendation requests after 45s. This keeps the wait bounded; timeout errors now lead to reward-gate retry instead of local fallback result display.
-
-Required Render env additions:
-
-- `WHEREGO_PUBLIC_DATA_PORTAL_SERVICE_KEY` or existing `DATA_GO_KR_SERVICE_KEY`
-- `KTO_KOR_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/KorService2`
-- `KTO_DATALAB_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/DataLabService`
-- `GEMINI_API_KEY` already used by jbg
-- `GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`
-- `GEMINI_WHEREGO_TIMEOUT_SECONDS=15`
-- `GEMINI_WHEREGO_MAX_OUTPUT_TOKENS=640`
-- `GEMINI_WHEREGO_HTTP_RETRIES=1`
-- `WHEREGO_KTO_SEARCH_MAX_CALLS=4`
-- `WHEREGO_KTO_SEARCH_ROWS=50`
-- `WHEREGO_KTO_SEARCH_PARALLELISM=3`
-- `WHEREGO_KTO_PER_INTENT_CANDIDATES=6`
-- `WHEREGO_KTO_SEARCH_TIMEOUT_SECONDS=7`
-- `WHEREGO_KTO_DATALAB_TIMEOUT_SECONDS=7`
-- `WHEREGO_KTO_DATALAB_WINDOWS=2`
-- `WHEREGO_KTO_DATALAB_LAG_DAYS=30`
-- `WHEREGO_KTO_DATALAB_LOOKBACK_DAYS=14`
-- `WHEREGO_KTO_DATALAB_ROWS=12000`
-- `WHEREGO_KTO_DATALAB_FAILURE_CACHE_SECONDS=300`
-- `WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=3`
-- `WHEREGO_GEMINI_CANDIDATE_LIMIT=7`
-- `WHEREGO_GEMINI_SCORE_WINDOW=24`
-- `WHEREGO_KTO_CACHE_ENABLED=true`
-- `WHEREGO_KTO_CACHE_MAX_ENTRIES=1024`
-- `WHEREGO_KTO_SEARCH_CACHE_SECONDS=86400`
-- `WHEREGO_KTO_DETAIL_CACHE_SECONDS=604800`
-- `WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400`
-- `WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false`
-- `WHEREGO_ANALYTICS_ENABLED=true`
-- `WHEREGO_ANALYTICS_HMAC_SECRET=<long-random-secret>`
-
-Latest question-source policy (2026-07-13 KST): the JBG server is the only runtime source for question copy, option labels, tags, search hints, and constraints. A 7-question set contains three unique source axes and four unique general themes; mutually exclusive theme families and source/general semantic conflicts cannot appear together. The client no longer stores prior question history or generates local fallback questions.
-
-Latest save verification (2026-07-12 KST): the client now obtains the Apps in Toss anonymous key, keeps a per-question-set session id, and sends both only to the Wherego API. The server rehashes the anonymous key, stores no exact coordinates, and retains answer metadata, candidate counts, the selected destination, Gemini reason, media/map availability, and latency for 90 days in the RLS-enabled `wherego_recommendation_logs` table. Success writes run after the API response; failure writes are captured synchronously so QC failure rates remain accurate. `backend.scripts.wherego_qc_report` checks failure/fallback/media/distance/latency/concentration issues, and Codex automation `qc` runs daily at 09:30 KST with an additional 7-day bias review on Mondays. The frontend bug that accepted remote questions only when there were eight was fixed to accept the current 3+4 question set. Question options now include cave/geology and temple/meditation, plus the source-axis binary `배우고 관람하기 / 신나게 놀기`; KTO intent mappings use `동굴`, `산사`, `테마파크`, and `루지`. Live KTO probes returned 10/20/10/9 first-page results respectively. Backend tests passed 48 cases, the runtime probe returned seven questions, TypeScript passed, and AIT build deploymentId is `019f55cd-b4e1-7a76-bd40-b840763dc74b`.
-
-Production save smoke (2026-07-12 KST): Render served question-bank version `2026-07-12+2026-07-12` with seven questions. A complete questions -> candidates -> recommend request produced `8 -> 7 -> 5` candidates, selected `노을캠핑장(서울)` with `gemini-3.1-flash-lite`, and reported 3201ms server total. The QC row stored answer counts `7 / 3 / 4`, Gemini curator, image present, and map present; the smoke row was deleted after verification. Vercel production deployment `dpl_AZ1p4nVd9TJif3c4BL5ZUxfn3LTW` is READY and aliased to `https://wherego-lake.vercel.app`.
-
-Latest save verification (2026-07-12 KST): the frontend now reads `/api/wherego/usage`, displays remaining AI recommendations on the intro screen, and opens a quota recovery screen when exhausted. Rewarded-ad `userEarnedReward` grants +1 through `/api/wherego/usage/reward`; contacts sharing uses module `1e6b212b-9093-4546-9991-99f478262910` and grants +3 once per day. The backend stores anonymous daily counters, idempotent grant IDs, and recommendation reservation states in RLS-enabled tables. Backend Wherego tests passed 51 cases, TypeScript passed, and the AIT build deploymentId was `019f563a-5b8e-7271-a1f4-120e83da8183`.
-
-Production usage smoke (2026-07-12 KST): Render health reached `jbg` commit `ff65b8a8a503645193bac5007cd1f68a5dc3f7f2`. `POST /api/wherego/usage` returned `limitEnabled=true`, base limit/remaining `3/3`, ad rewards `0`, share reward unused, and KST reset `2026-07-13T00:00:00+09:00`.
-
-Ad policy update verification (2026-07-13 KST): recommendations funded by base, rewarded-ad, or contacts-share credits all use the same result interstitial gate. The rewarded ad only adds recommendation credits. After a reward grant and ad dismissal, the app returns to intro with the updated count. TypeScript and AIT Android/iOS builds passed; deploymentId is `019f5778-7420-7555-ae22-aa499cda7567`.
-
-Reward completion UX (2026-07-13 KST): after the server confirms rewarded-ad +1 or contacts-share +3, the app returns directly to the intro screen and shows the grant message with the updated remaining count. Dismissed ads and failed grants stay on the quota screen.
-
-Back navigation UX (2026-07-13 KST): `useBackEvent` intercepts the Apps in Toss navigation/hardware back action on every app step. It always shows a native `계속하기 / 나가기` confirmation, keeps the current screen on continue, and calls `closeView` only after explicit exit confirmation.
-
-Back navigation build verification (2026-07-13 KST): TypeScript and AIT Android/iOS builds passed with the all-screen `useBackEvent` exit confirmation and explicit `closeView`; deploymentId is `019f577f-5b18-7ccc-90ee-78d318bd58b6`.
-
-Repeat-run failure diagnosis (2026-07-13 KST): the second run created a fresh session correctly, but the selected `고양시 + 10km 안쪽 + 자연/물가 + 주차 가까움` combination produced zero keyword candidates and logged `wherego_no_place_candidates`. The JBG backend now performs one `locationBasedList2` fallback only for zero-result requests with a maximum distance/time constraint, keeps the original distance filter, and caps the fallback radius at 20km. Backend tests passed 52 cases; production verification remains pending until the JBG change is saved/deployed.
-
-Repeat-run production verification (2026-07-13 KST): Render commit `516aa62870df019538c168b8f04304eda6133936` completed the same failed combination with candidate counts `1 -> 1 -> 1`, Gemini `gemini-3.1-flash-lite`, final place `장흥자생수목원`, and 5669ms server total. The chosen fallback candidate had estimated road distance 19.1km and no image, so nearby candidate diversity and fallback-image rate remain monitoring items. Smoke usage/QC rows were removed.
-
-Latest save verification (2026-07-13 KST): the intro gallery no longer relies on static JPEG module resolution. The three 480x480 baseline JPEGs are embedded as `data:image/jpeg;base64` sources in `src/assets/introPhotoData.ts`, which matches the Apps in Toss React Native image path and avoids the blank-photo behavior seen in the app test. `yarn typecheck`, `git diff --check`, and the Android/iOS AIT build passed with deploymentId `019f5a1b-d7d8-7ef7-a861-6003cf5b63ad`. The generated AIT contains all three data URIs. Real-device visual confirmation remains pending because ADB was disconnected.
-
-Recommendation latency update (2026-07-13 KST): QC showed Gemini final selection at about 1.9 seconds while the final KTO detail call reached 6.9 seconds. JBG now skips KTO detail entirely when the selected candidate already has title, address, coordinates, and a Type1 image. Incomplete candidates use only `detailCommon2` with a hard three-second cap and fall back to candidate metadata on failure; `detailIntro2` is no longer called. Backend Wherego tests passed 56 cases. After Render deploy, verify complete candidates report near-zero `detailMs`.
-
-Result promotion update (2026-07-13 KST): the result screen now automatically calls the non-game Apps in Toss `grantPromotionReward` SDK with amount 10. The screen displays immediate-payment, one-person/one-time, and early-termination notices and reports loading/success/already-granted/unsupported/error states. A successful reward key is stored under a promotion-code-specific Apps in Toss `Storage` key, while a session ref prevents duplicate calls during re-rendering. The `TEST_` code is not kept in release configuration. TypeScript, `git diff --check`, and Android/iOS AIT build passed with deploymentId `019f5b1c-f69c-7fae-9797-16cbb88a734d`. Real payment verification remains pending in a Toss app 5.232.0+ QR test. Local storage prevents normal repeat calls but cannot fully prevent app-data reset or multi-device abuse; strict production enforcement requires Toss login plus mTLS server-to-server promotion execution.
-
-Usage and IAP policy update (2026-07-14 KST): daily base recommendations remain three. A completed rewarded ad grants +1 up to three times per KST day, contacts sharing grants +3 once per day, and the consumable IAP product grants ten permanent paid credits. Daily credits are consumed before paid credits. Purchase login is requested only when the user taps the purchase CTA; a server-backed 24-hour Toss login session resolves the stable paid wallet, so reopening the app and logging in again restores remaining paid credits. The server verifies the Apps in Toss order over mTLS before granting, uses the order ID as the idempotency key, and reconciles verified refunds. Product name and price come from the SDK product query; the quota screen never hardcodes a price and remains usable when product lookup must be retried.
-
-Promotion duplicate guard update (2026-07-14 KST): result promotion execution now reserves `(anonymous user hash, promotion code)` through `/api/wherego/promotion/attempt` before opening the SDK confirmation flow. The Postgres guard complements local Apps in Toss Storage and the in-session ref, so a normal reinstall or rebuild cannot issue the same promotion twice for the same anonymous Apps in Toss identity.
-
-Server compatibility verification (2026-07-14 KST): 76 Wherego recommendation/usage/login/IAP/QC tests and 131 existing JBG HTTP/security/CORS/receipt regression tests passed, followed by Python bytecode compilation. The new functionality adds only `/api/wherego/*` routes and `wherego_*` tables via `CREATE TABLE IF NOT EXISTS`; it does not replace existing receipt routes or destructively migrate existing tables. Backend-first deployment is therefore the intended rollout order before uploading the new AIT client.
-
-Latest client build verification (2026-07-14 KST): terms static build, question probe syntax, TypeScript, and Android/iOS AIT builds passed with zero bundle errors and warnings. The generated `wherego.ait` is excluded from Git; deploymentId is `019f5f7e-dbeb-7a36-a155-f3b0f5a1f3dd`.
-
-Production server-first rollout (2026-07-14 KST): Render served backend commit `180f278fb020b2b37a42faf423ce13ff717406a8` with `ok=true` and Postgres storage. `/api/wherego/questions` returned seven questions with 3 source axes and 4 general questions. `/api/wherego/iap/products` returned HTTP 200 but `enabled=false` with zero products, so the production consumable SKU and the required mTLS/login environment configuration must be completed before the purchase QR test. Existing JBG service health remained normal throughout the deployment.
-
-Final save deployment verification (2026-07-14 KST): Render reached documentation-inclusive backend HEAD `7b28f54aff9dd77f4399e60101462020f79de370` with `ok=true` and Postgres. Vercel production deployment `dpl_BrqJWdVJLVPnFT4Z7eeUqbd2Vjcg` is READY and aliased to `https://wherego-lake.vercel.app`; `/`, `/terms/service`, and `/terms/privacy` all returned HTTP 200.
-
-Usage identity correction (2026-07-15 KST): Toss purchase login previously switched the daily quota identity from the guest device key to the logged-in key, which could make three base recommendations appear again. The login exchange now accepts the pre-login anonymous key and returns the conservatively linked usage snapshot. App startup also calls `/api/wherego/usage/link` for a stored login session. Only missing current-day base/ad/share consumption is copied up to policy limits; paid wallets remain attached only to the stable Toss login identity.
-
-Recommendation hard-filter correction (2026-07-15 KST): `pet_required` now maps to a hard `petFriendlyRequired` constraint. Candidate preparation verifies content IDs against cached KorService2 `detailPetTour2` data before Gemini, including prepared candidate-set reuse. Minimum distance is strict, and Gemini copy that contradicts near/long-distance answers is removed during normalization. The pet-tour list is cached for 24 hours by default and uses a bounded 7-second request timeout.
-
-Latest client build verification (2026-07-15 KST): the exhausted-quota screen presents the product image, SDK product name/description, actual Toss price, and purchase CTA in one purchase card, with ad/share recovery as secondary actions. The dedicated 1024x1024 product image is `assets/iap-product-10-credits.png`; local mTLS files are excluded through `mtls/`. TypeScript and Android/iOS AIT builds passed. The generated AIT remains excluded from Git; deploymentId is `019f644e-a961-7c5e-ade7-78f522da892b`.
-
-Production backend rollout (2026-07-15 KST): Render serves JBG commit `2d10f9ccf630f3cda461c8c177b3316ad06b0eca` with `ok=true`, Postgres storage, and no missing env. The production OpenAPI includes `/api/wherego/usage/link`, `/api/wherego/login/exchange`, and all IAP routes. `/api/wherego/iap/products` returns `enabled=true` with one registered ten-credit SKU. The remaining release step is uploading the latest AIT and completing the real purchase-login continuity test.
-
-Current quota policy (2026-07-15 KST): free recommendations are two per KST day. A completed rewarded ad grants +1 up to two times per KST day, contacts sharing remains +3 once per day, and purchased ten-credit passes remain permanent. The backend usage response is the source of truth; the client only uses matching two-credit fallback copy while that response loads.
-
-Latest production QC (2026-07-15 KST): the 24-hour report covered 10 recommendations with 100% success, no Gemini fallback, no missing image/map, no answer-shape or distance violations, and p95 total latency 2429ms. Destination concentration was 20% at the top place. Manual semantic review found one follow-up issue: a `대구 출발 + 제주/섬` answer set selected `대구수목원`, so explicit destination-region answers need a hard regional constraint rather than only search weighting.
-
-Quota policy build verification (2026-07-15 KST): all 85 JBG Wherego tests, frontend TypeScript, terms static build, and Android/iOS AIT bundles passed after changing the daily base/ad limits to two. The generated `wherego.ait` remains excluded from Git; deploymentId is `019f64bc-3f58-761e-9688-593431e23681`.
-
-Quota policy production rollout (2026-07-15 KST): Render serves JBG commit `c313bacda559f0a4a6b2b807f809c5485f2376df` with `ok=true`, Postgres, and no missing env. A production `/api/wherego/usage` smoke returned `baseDailyLimit=2`, `baseRemaining=2`, `adRewardsLimit=2`, and total `remaining=2` for a fresh anonymous identity.
-
-Promotion entry split (2026-07-15 KST): `intoss://wherego` is the standard app entry and does not execute or display the promotion. `intoss://wherego/promotion` is the benefit entry, starts with a dedicated Toss-benefit intro, and enables the existing result-time promotion grant and notice. The current reward amount is 50 won, and the Apps in Toss benefit placement must use the `/promotion` URL.
-
-Promotion code renewal (2026-07-15 KST): the release configuration now uses production code `01KXJHNBZ46JPHND9R3VH7S9TF`. Test code `TEST_01KXJHNBZ46JPHND9R3VH7S9TF` is documented only in `RUNBOOK.md` and must be inserted temporarily for a dedicated QR test so it never remains in a submitted AIT.
-
-Explicit destination-region correction (2026-07-15 KST): region groups are no longer hardcoded in Python. Each source-question option owns `regionPolicy`, `allowedLDongRegnCodes`, and `allowedRegionPrefixes`; the server interprets `strict` as KTO search plus pre-Gemini code/address filtering and `prefer` as search priority only. When a group has more codes than the KTO call budget, the selected intent combination deterministically rotates the starting code so repeated question combinations remain cacheable without permanently excluding the latter regions. QC hydrates legacy records by matching their question ID and answer label against the same current question JSON. `제주/섬` therefore searches code `50` and rejects the earlier `대구수목원` mismatch, while QC reports `regionViolationCount` and `destination_region_violation` automatically.
-
-Startup routing correction (2026-07-15 KST): route files are now thin wrappers. `pages/index.tsx` and `pages/promotion.tsx` both import `src/WheregoApp.tsx`; promotion no longer imports the root page module. This removes a page-loader initialization cycle that could leave the uploaded app unable to open. TypeScript and the Android Metro bundle pass after the split.
-
-Startup fix build verification (2026-07-15 KST): TypeScript passed, direct Android Metro bundle generation returned HTTP 200, and Android/iOS AIT builds completed after the route split. The generated `wherego.ait` remains excluded from Git; deploymentId is `019f6559-ce3b-7f25-bb91-24eca6249210`. Upload this build before retesting the root and promotion entries.
-
-Promotion amount production build (2026-07-15 KST): the result promotion now grants 50 won through production code `01KXJHNBZ46JPHND9R3VH7S9TF`. TypeScript and Android/iOS AIT builds passed with deploymentId `019f6584-0f70-7d0d-813b-6bf7f0c5d29b`. Archive inspection confirmed the production code and 50-won amount are present and the `TEST_` code is absent.
-
-## Operating Rules
-
-- For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
-- When the user says "저장", follow `SAVE_PROTOCOL.md`: refresh handoff/runbook state, verify narrowly, commit, and push unless explicitly told not to.
-- Keep generated build outputs out of Git.
-- Keep `.env`, API keys, `.ait`, `.vercel/`, `node_modules/`, and `dist/` out of Git.
-- Before finalizing asset or app UI work, visually inspect generated assets or screens.
+# 어디고 AI Handoff
+
+최종 갱신: 2026-07-15 KST
+
+## 목표
+
+`어디고`는 짧은 선택형 질문으로 국내 관광지를 1곳 추천하는 Apps in Toss 비게임 미니앱이다. 한국관광공사 관광정보와 지역별 방문자수 데이터를 서버에서 수집하고 Gemini가 압축 후보 중 최종 장소와 이유를 결정한다.
+
+## 저장소와 서비스
+
+- 앱/약관: `C:\Users\ESOL\Documents\wherego`, GitHub `gisaya/wherego`, 브랜치 `master`
+- API: `C:\Users\ESOL\Documents\jbg`, GitHub `gisaya/jbg`, 브랜치 `main`
+- 운영 API: `https://jbg.onrender.com`
+- 약관: `https://wherego-lake.vercel.app/terms/service`, `https://wherego-lake.vercel.app/terms/privacy`
+- 생성물 `*.ait`, 키, 인증서, `.env*`, 로컬 로그는 Git에 넣지 않는다.
+
+## 현재 제품 결정
+
+- 질문은 총 7개다. 원천 3개, 검색 영향이 큰 일반 3개, 약한 재미 질문 1개를 한 세트 안에서 중복 없이 섞는다.
+- 질문과 선택지의 단일 원본은 `jbg/apps/server/backend/app/resources/wherego/`다. 앱에는 로컬 질문 fallback이 없다.
+- 사용자는 현재 위치 또는 직접 선택한 출발 지역을 사용한다.
+- 후보 준비는 한국관광공사 KorService2와 DataLab을 사용하고 Gemini를 호출하지 않는다.
+- 서버가 유효성, 거리, 하드 제약, 동일 장소 군집화, 방문자수 신호를 적용해 5~7개로 압축한다.
+- Gemini 3.1 Flash-Lite는 압축 후보와 답변 메타데이터를 보고 최종 1개와 짧은 근거만 만든다.
+- 실제 길찾기 API는 사용하지 않는다. 거리는 직선거리 기반 도로거리/시간 추정치이며 지도 열기는 네이버지도 검색 링크를 사용한다.
+- 방문자수는 지역 단위 참고 신호다. 장소 단위 실시간 혼잡도로 표현하지 않는다.
+
+## 현재 앱 흐름
+
+1. `/` 또는 `/promotion` 진입
+2. 출발 기준 선택
+3. 서버 질문 7개 수신
+4. 카드 선택, 질문별 배너 광고
+5. 마지막 답변 후 무료 후보 준비
+6. 결과 전 전면광고 노출
+7. 광고 `show`/`impression` 이후 Gemini 추천 시작
+8. 필요 시 AI 로딩 화면
+9. 결과 카드, 저장, 네이버지도, 홈 복귀
+
+라우트 파일은 얇게 유지한다.
+
+- `pages/index.tsx`: 일반 진입 `/`
+- `pages/promotion.tsx`: 혜택 진입 `/promotion`
+- `src/WheregoApp.tsx`: 공용 앱 UI와 상태 흐름
+- `src/api/wheregoApi.ts`: 서버 API
+- `src/promotion/resultPromotion.ts`: 프로모션 SDK와 로컬 1회 방어
+
+## 사용량과 결제
+
+- 기본 추천: KST 기준 하루 2회
+- 리워드 광고: 완료 시 +1회, 하루 최대 2회
+- 친구 공유: 완료 시 +3회, 하루 1회
+- 인앱결제: 소모성 AI 추천 10회권, 일일 크레딧 뒤에 차감, 미사용 횟수는 만료 없음
+- 서버가 예약/확정/환불과 주문 멱등성을 관리한다.
+- 결제는 버튼 시점 Toss 로그인과 mTLS 주문 검증을 사용한다.
+
+## 광고와 프로모션
+
+- 배너 광고 ID: `ait.v2.live.67b07bf813d74267`
+- 결과 전 전면광고 ID: `ait.v2.live.69c443b05e6a42ea`
+- 횟수 충전 리워드 광고 ID: `ait.v2.live.7f9040b7cff746c5`
+- 친구 공유 리워드 모듈 ID: `1e6b212b-9093-4546-9991-99f478262910`
+- 일반 `/` 진입에서는 프로모션 UI와 SDK를 실행하지 않는다.
+- 혜택 `/promotion` 진입에서만 결과 화면 프로모션을 실행한다.
+- 운영 프로모션 코드: `01KXJHNBZ46JPHND9R3VH7S9TF`
+- 운영 지급액: 50원
+- 테스트 코드는 `RUNBOOK.md`에만 기록하며 출시 AIT에 넣지 않는다.
+- 지급 전 서버 중복 방지 예약이 실패하면 SDK를 호출하지 않는다. 안전하게 해제된 일시 오류만 결과 화면에서 재시도할 수 있다.
+
+## 결과 카드
+
+- 화면과 저장 이미지는 관광공사 대표 이미지를 우선 사용한다.
+- 저장은 `react-native-svg`를 1080x1350 PNG로 렌더링한 뒤 `saveBase64Data`를 호출한다.
+- 저장 버튼은 공유창을 열지 않는다.
+- 결과에는 관광지명, 성향 요약, 추천 이유, 위치, AI 선택 근거를 표시한다.
+
+## 서버 핵심 경계
+
+- `POST /api/wherego/questions`
+- `POST /api/wherego/candidates`
+- `POST /api/wherego/recommend`
+- `POST /api/wherego/usage`, `/usage/reward`, `/usage/link`
+- `POST /api/wherego/promotion/attempt`
+- `POST /api/wherego/iap/products`, `/iap/grant`, `/iap/reconcile`
+- `POST /api/wherego/login/exchange`, `/login/unlink`
+
+API 키와 Gemini 키는 Render 환경변수에만 둔다. 클라이언트에는 공개 가능한 ID와 API base URL만 포함한다.
+
+## 최근 변경
+
+- 일반 진입과 프로모션 진입을 분리하고 공용 UI를 `src/WheregoApp.tsx`로 이동해 페이지 초기화 순환을 제거했다.
+- 명시 지역 선택은 질문 JSON의 `regionPolicy`, 허용 지역 코드와 주소 prefix로 KTO 검색과 Gemini 후보를 함께 제한한다.
+- 운영 프로모션 지급액을 50원으로 변경했다.
+- 코드 리뷰에서 프로모션 서버 guard 장애 시 SDK를 계속 호출하던 fail-open 동작을 제거했다.
+- 문서 역할을 분리하고 과거 빌드 로그를 현재 문서에서 제거했다.
+
+## 현재 검증 상태
+
+- 프런트 TypeScript strict 검사 통과
+- 정적 약관 빌드와 질문 프로브 문법 검사 통과
+- 백엔드 Wherego 테스트 92개와 Python compileall 통과
+- 운영 질문 API는 7문항과 지역 메타데이터를 반환
+- Android/iOS AIT 빌드 0 errors 완료. Apps in Toss 프레임워크 source map 경고만 존재
+- 최신 AIT deploymentId: `019f6598-1cc4-74a8-afa3-06b13e9ad1c1`
+- AIT 내부 운영 프로모션 코드, 50원, 라이브 광고 ID를 확인했고 `TEST_` 코드는 없다.
+
+## 남은 위험
+
+- 프로모션, 광고, 인앱결제, PNG 저장은 실제 최신 Toss 앱 QR에서 최종 확인해야 한다.
+- 익명 키 기반 사용량/프로모션 방어는 일반 사용자 중복 방지용이다. 변조 클라이언트까지 강제하려면 Toss 로그인 기반 서버 지급이 필요하다.
+- 후보 0건 fallback과 추천 집중도는 일일 QC를 계속 본다.
+- 이동 시간은 추정치라 실제 내비게이션 시간과 다를 수 있다.
 
 ## Next Recommended Steps
 
-1. Upload the latest AIT and confirm both `intoss://wherego` and `intoss://wherego/promotion` open without a blank or error screen.
-2. Reopen the app with a stored Toss login session and confirm `/api/wherego/usage/link` keeps the same exhausted daily count instead of restoring the base three.
-3. Confirm the integrated purchase card shows the Console product image, description, and actual Toss price, then test app restart/login restore, duplicate-order retry, and refund reconciliation.
-4. Test a `pet_required` answer set and confirm every Gemini candidate and final destination is verified by `detailPetTour2`; also test strict minimum-distance filtering.
-5. Confirm the result promotion pays once, and revisiting the result or reinstalling the app is rejected by the server attempt guard.
-6. Run the complete device flow: server questions, banner/interstitial ads, Gemini loading, result rendering, PNG save without a share sheet, Naver Map open, and back-exit confirmation.
-7. Review daily and Monday QC reports after at least 10 successful production samples before changing recommendation thresholds.
-8. Register and QR-test both `intoss://wherego` and `intoss://wherego/promotion`; confirm only the benefit route shows and executes the 50-won promotion.
+1. 최신 운영 AIT를 업로드해 `/`와 `/promotion`을 각각 연다.
+2. `/promotion` 결과에서 50원 1회 지급, 재진입 무지급, guard 장애 시 미지급을 확인한다.
+3. 기본 2회, 광고 +1 최대 2회, 공유 +3, 구매 +10과 로그인 후 잔여 복원을 실기기에서 확인한다.
+4. PNG 저장, 네이버지도, 전면광고/배너, 뒤로가기 종료 확인을 전체 회귀한다.
+5. QC 표본이 10건 이상 쌓인 뒤 후보 0건, 지역/거리 위반, 목적지 집중도를 재평가한다.
+
+## 운영 규칙
+
+- 작업 시작은 `docs/README.md`와 이 파일부터 읽는다.
+- 사용자가 `저장`이라고 하면 `SAVE_PROTOCOL.md`에 따라 문서 갱신, 최소 검증, 커밋, 푸시를 진행한다.
+- 질문 문구 변경은 서버 리소스에서만 한다. 앱 AIT를 다시 만들 필요가 없다.
+- AIT는 출시 또는 네이티브 SDK 변경 때만 빌드한다. 일반 코드 검토는 TypeScript와 대상 테스트를 우선한다.

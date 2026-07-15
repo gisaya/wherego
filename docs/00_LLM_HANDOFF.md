@@ -1,188 +1,48 @@
-# LLM 이어받기 요약
+# LLM 이어받기
 
-최종 갱신: 2026-07-14 KST
+최종 갱신: 2026-07-15 KST
 
-## 제품
+## 먼저 읽을 문서
 
-`어디고`는 토스 앱 안에서 가볍게 여행 취향을 고르고, 국내 여행지 추천 결과를 바로 받는 Apps in Toss 미니앱입니다.
+1. 루트 `AI_HANDOFF.md`: 현재 제품 결정, 최근 변경, 위험, 다음 작업
+2. `docs/01_프로젝트_현황.md`: 사용자 기능과 출시 상태
+3. `docs/02_구조와_흐름.md`: 앱-서버-외부 API 흐름
+4. `RUNBOOK.md`: 검증, 빌드, 배포, 운영 명령
 
-핵심 흐름:
+Git 이력이 과거 변경과 빌드 기록을 보존한다. 현재 문서에는 최신 상태만 유지한다.
 
-- 여행 취향 질문에 답한다.
-- 답변을 바탕으로 여행 성향을 한 문장으로 정의한다.
-- 한국관광공사 관광정보 기반 후보 중 적합한 여행지를 추천한다.
-- 결과 카드에서 지도 앱으로 이동한다.
+## 프로젝트 경계
 
-## 현재 결정
+- 앱 저장소: `C:\Users\ESOL\Documents\wherego`, `gisaya/wherego`, `master`
+- 서버 저장소: `C:\Users\ESOL\Documents\jbg`, `gisaya/jbg`, `main`
+- 운영 API: `https://jbg.onrender.com`
+- 약관: `https://wherego-lake.vercel.app/terms/service`, `https://wherego-lake.vercel.app/terms/privacy`
+- Vercel은 약관 정적 페이지 전용이다.
+- 질문과 선택지의 런타임 단일 원본은 JBG의 `apps/server/backend/app/resources/wherego/`다.
 
-- 앱 이름은 `어디고`.
-- MVP에서는 TMAP 혼잡도 API를 쓰지 않는다. 비용이 있는 혼잡도/교통 기능은 후순위 고도화로 둔다.
-- 초기 데이터 소스는 한국관광공사 국문 관광정보 서비스_GW API가 적합하다.
-- 지역 혼잡도는 한국관광공사 빅데이터 지역별 방문자수_GW API를 보조 신호로 쓴다.
-- 공공데이터포털 개인 API 인증키와 한국관광공사 API 엔드포인트는 로컬 `.env.local`에 저장했다. 원문 키는 문서나 Git에 남기지 않는다.
-- AI는 Render 서버의 Gemini Flash-Lite를 최종 큐레이터로 사용한다. 클라이언트 선택지 메타데이터를 서버가 검색 계획으로 바꾸고, 관광공사/DataLab 후보를 점수 조건에 따라 5~7개로 압축한 뒤, 전면광고 실제 노출 후 Gemini가 최종 1개 장소와 추천 카피를 고른다.
-- AI/API 키는 클라이언트에 넣지 않는다.
-- 실제 Apps in Toss 앱 구현은 Granite React Native 기준이다. 메인 앱은 TDS Provider로 감싸고 TDS `Text`/`Button`을 사용한다. 선택/지역 카드는 React Native `Pressable` 기반 고정 크기 카드다. 제출 전 실기기 시각 검수는 아직 필요하다.
-- 질문은 필수 3개 + 일반 4개, 총 7개 구조로 간다. 일반 질문은 `crowd`를 우선하고 `mobility`/`accessibility` 중 1개, 목적지 유형 질문 1개, 겹치지 않는 추가 태그 그룹을 포함한다. 중복 방지는 이전 세트가 아니라 현재 한 세트 안에서 적용한다.
-- 위치 필터는 현재 위치 또는 사용자가 선택한 출발지를 기준으로 한다. MVP에서는 직선거리 x 1.35, 평균 45km/h, 15분 주행시간 버퍼, 10km 거리 버퍼로 이동 조건을 추정한다.
-- 거리/지역 제약은 `max*`뿐 아니라 `min*`, `regionScope`, `regionPolicy`, `allowedLDongRegnCodes`, `allowedRegionPrefixes`, `stayType`까지 서버가 해석한다.
+## 현재 핵심 상태
 
-## 현재 구현 상태
+- 일반 진입은 `/`, 혜택 진입은 `/promotion`이다.
+- 질문은 원천 3개 + 핵심 일반 3개 + 재미 일반 1개, 총 7개다.
+- 서버가 한국관광공사 KorService2/DataLab 후보를 준비하고 5~7개로 압축한다.
+- Gemini 3.1 Flash-Lite는 압축 후보에서 최종 1개와 짧은 근거만 만든다.
+- 기본 추천 2회/일, 리워드 광고 +1 최대 2회/일, 공유 +3 하루 1회, 구매 10회권을 사용한다.
+- 결과 전 전면광고는 무료·보상 횟수에 노출하고 유료 횟수에는 생략한다.
+- `/promotion` 결과에서 운영 코드로 토스 포인트 50원을 1인 1회 지급한다.
+- 프로모션 서버 중복 방지 예약이 실패하면 SDK를 호출하지 않는 fail-closed 정책이다.
 
-- 앱 자산:
-  - `assets/logo.png`
-  - `assets/thumbnail.png`
-  - `public/assets/logo.png` (로컬/목업 정적 페이지용 복사본)
-- 앱인토스/Granite 앱 구조:
-  - `package.json`
-  - `granite.config.ts`
-  - `index.ts`
-  - `require.context.ts`
-  - `pages/index.tsx`
-  - `pages/promotion.tsx`
-  - `src/WheregoApp.tsx`
-  - `pages/_404.tsx`
-  - `src/_app.tsx`
-  - `src/router.gen.ts`
-  - `src/types/assets.d.ts`
-  - `scripts/ait-build.ps1`
-  - `.yarn/releases`, `.yarn/patches`
-- 약관/개인정보 정적 페이지:
-  - `public/index.html`
-  - `public/terms/service/index.html`
-  - `public/terms/privacy/index.html`
-- Vercel 배포:
-  - `https://wherego-lake.vercel.app`
-  - `https://wherego-lake.vercel.app/terms/service`
-  - `https://wherego-lake.vercel.app/terms/privacy`
-  - GitHub 자동 연결은 실패했고 현재는 CLI 수동 배포 상태.
-- 서버/API:
-  - 기존 뭐샀지 Render 서버 `https://jbg.onrender.com`을 재사용한다.
-  - `C:\Users\ESOL\Documents\jbg\apps\server`에 `POST /api/wherego/questions`, `POST /api/wherego/candidates`, `POST /api/wherego/recommend` 라우트를 추가했다.
-  - 서버는 선택지 메타데이터(tags/searchHints/constraints)로 검색 계획을 만들고, `/api/wherego/candidates`에서 한국관광공사 국문 관광정보 API 후보를 수집한다. 좌표/주소/종료 행사 필터, 동일 장소 군집화, 의도별 상위 6개 제한 뒤 DataLab 방문자수 신호를 붙여 재점수하고 점수 조건에 따라 5~7개로 압축한다. 이 단계는 Gemini를 쓰지 않는다.
-  - Gemini(`GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite`)는 추천 횟수 출처와 관계없이 결과 전면광고 `show`/`impression` 뒤 `/api/wherego/recommend`에서 압축 후보와 메타데이터를 보고 최종 1개 장소와 이유를 고른다. 리워드 광고는 추천 횟수 충전 용도이고, 충전한 횟수를 사용할 때도 결과 전면광고는 노출한다.
-  - `/api/wherego/recommend`는 준비된 `candidateSet`이 있으면 관광공사 검색을 반복하지 않고, 없으면 기존 all-in-one fallback으로 검색부터 수행한다.
-  - `/api/wherego/usage`, `/api/wherego/usage/reward`가 KST 일일 추천 횟수를 관리한다. 기본 2회, 리워드 광고 +1회(하루 최대 2회), 친구 공유 +3회(하루 1회)이며 후보 준비 때 예약하고 성공 때 확정한다. 실패 또는 30분 미완료 예약은 환불하고 세션/지급 ID 재전송은 멱등 처리한다.
-  - 일일 횟수를 모두 쓰면 소모성 인앱결제 10회권을 구매할 수 있다. 구매 버튼에서만 토스 로그인을 요청하고, 서버의 24시간 로그인 세션과 영구 paid wallet로 앱 재실행 뒤에도 다시 로그인하면 남은 유료 횟수를 복원한다. 서버는 mTLS 주문 조회로 결제 완료를 확인한 뒤 주문 ID 기준 한 번만 지급하고, 확인된 환불은 회수한다.
-  - 결과 프로모션은 로컬 Storage와 세션 ref 외에 서버 `/api/wherego/promotion/attempt`의 익명 사용자 해시+프로모션 코드 원자적 예약으로 중복 실행을 막는다.
-  - 광고 또는 공유 보상 지급이 서버에서 확정되면 첫 화면으로 자동 복귀하고 추가된 횟수와 갱신된 잔여 횟수를 보여준다. 광고 중도 종료나 지급 실패는 보상 화면에 남긴다.
-  - 단일 라우트 내부 상태 전환 앱이므로 `useBackEvent`로 모든 화면의 뒤로가기를 가로챈다. 항상 `계속하기 / 나가기` 확인창을 띄우고, 계속하기는 현재 화면을 유지하며 명시적으로 나가기를 선택할 때만 `closeView`를 호출한다.
-  - 공유 리워드 모듈 ID `1e6b212b-9093-4546-9991-99f478262910`을 `src/config.ts`에 반영했다. 토스 앱 5.223.0 이상에서 하루 1회 +3회 지급 화면을 연다.
-  - 답변을 장소 검색 의도 3개로 정규화하고 법정동 시도 코드, 콘텐츠 유형, 관광공사 대/중/소분류를 붙인다. 세 검색을 동시에 실행해 호출당 최대 50행을 모두 평가하며, 필터 통과 후보가 5개 미만일 때만 네 번째 보완 호출을 사용한다. `nationwide` 검색은 지역 코드 없이 호출한다. 최종 장소의 common/intro 상세도 병렬 조회한다.
-  - 최종 선택 1개에만 상세 API를 조회하고, 검색/상세/DataLab 응답은 서버 메모리 캐시로 재사용한다.
-  - 일부 관광공사 검색 호출이 타임아웃되어도 다른 호출에서 후보가 있으면 계속 진행한다.
-  - 키워드 후보가 0개이고 최대 거리/시간 제한이 있는 요청은 마지막 검색 호출 슬롯을 `locationBasedList2` 근거리 보완에 사용한다. 기존 거리 필터, 최대 20km 반경, 전체 최대 4회 호출 상한은 유지한다.
-  - 어디고 클라이언트는 `src/api/wheregoApi.ts`에서 이 API를 호출하고 45초 지연/실패 시 결과 화면으로 넘어가지 않는다. 결과 게이트에 남아 `추천 다시 시도`를 보여준다.
-- Vercel 정적 빌드:
-  - `scripts/build-vercel-terms.cjs`
-  - `vercel.json`
-- Git remote:
-  - `https://github.com/gisaya/wherego.git`
-- 질문/추천 실험 파일:
-  - 런타임 단일 원본: `C:\Users\ESOL\Documents\jbg\apps\server\backend\app\resources\wherego\source-question-blueprint.json`
-  - 런타임 단일 원본: `C:\Users\ESOL\Documents\jbg\apps\server\backend\app\resources\wherego\general-question-bank.json`
-  - `data/` 아래 복사본은 외부 검토용 과거 자료이며 앱에서 import하지 않는다.
-  - `scripts/build-general-question-bank.cjs`
-  - `scripts/probe-question-bank-result.cjs`
-- 질문풀 현재 구조:
-  - 원천질문: `movement_scope` 6개, `party_constraints` 7개, `destination_intent` 5개 변형
-  - 일반질문: 14개 태그 그룹, 총 420문항, 그룹당 원천 선택지 12개
-  - 최신 추가 태그 그룹: `outdoor_stay` / `캠핑/피크닉`
-  - 카피 검토용 JSON: `docs/wherego-copy-review.json`
-- 질문 플로우 목업:
-  - `public/mockups/question-flow/index.html`
-  - 위치 기준 선택, 원천 3개 + 일반 4개 랜덤 질문, 광고 게이트, 결과 카드까지 포함한다.
-  - 이미지 없이 카드만 사용한다.
-  - 2지선다는 큰 카드 2장, 4지선다는 2x2 카드 4장으로 보여준다.
-- 실제 앱 화면 구현:
-  - `src/WheregoApp.tsx`
-  - `pages/index.tsx`, `pages/promotion.tsx`는 일반/혜택 진입용 얇은 라우트다.
-  - 현재 위치 또는 지역 선택 fallback
-  - `지역 직접 선택` 버튼은 TDS Button 대신 커스텀 `Pressable`을 써서 토스 화면에서 한글이 잘리지 않게 했다.
-  - 현재 위치 권한은 첫 진입 즉시가 아니라 `현재 위치로 추천` 버튼을 누른 뒤에만 요청
-  - 질문 7개 랜덤 생성
-  - 질문 중 Apps in Toss 배너 광고
-  - 결과 전 Apps in Toss 전면광고 게이트
-  - 결과 카드의 네이버지도 열기 버튼
-  - 전면광고 그룹 ID: `ait.v2.live.69c443b05e6a42ea`
-  - 배너 광고 그룹 ID: `ait.v2.live.67b07bf813d74267`
-  - 배너가 없는 첫 화면에서 `loadFullScreenAd`를 미리 호출하고, 질문 흐름을 시작할 때 로드된 광고를 취소하지 않는다. 앞선 로드가 실패하거나 타임아웃된 경우에만 광고 게이트에서 다시 로드한다. `showFullScreenAd`의 `show`/`impression` 이후 Gemini 추천을 시작하고, 이벤트가 생략된 환경에서는 `dismissed`를 한 번만 fallback으로 사용한다. 출시 소스에는 라이브 광고 그룹 ID만 두고 15초 로드 타임아웃과 재시도를 제공한다.
-  - 질문 화면 하단 배너는 `InlineAd`로 렌더한다.
-  - `granite.config.ts`의 `brand.icon`은 사용자 제공 Toss static 로고 URL `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`를 사용한다.
-  - 첫 화면은 상단 로고 없이 한국관광공사 기반 추천 문구와 시작 버튼을 보여준다. 문구 블록은 화면 위쪽에 붙지 않도록 중앙 쪽으로 내렸다.
-  - 결과 화면 상단 `어디고 / 추천 완료` 헤더는 숨긴다. 결과 카드 저장/공유 중심 화면으로 보이게 하기 위한 의도적 처리다.
-  - 질문 카드는 선택 직후 선택 상태와 1초 로딩을 보여준 뒤 다음 질문이나 광고 안내 화면으로 이동한다.
-  - 마지막 질문 답변 직후 무료 공공데이터 후보 준비(`/api/wherego/candidates`)를 먼저 시작해 화면 전환과 광고 대기 시간에 겹친다. Gemini 최종 추천(`/api/wherego/recommend`)은 전면광고 `show`/`impression` 이후에만 호출한다.
-  - Gemini 최종 선택은 `gemini-3.1-flash-lite`, `thinkingLevel=minimal`, 출력 640토큰, 최대 1회 재시도, 15초 타임아웃을 사용한다. 응답 `source.model`과 `source.timingsMs`로 실제 모델/단계별 지연을 확인한다.
-  - DataLab은 관광지 검색과 동시에 약 30일 지연 구간의 14일 데이터를 조회한다. 최근 7일 평균과 직전 7일 평균을 비교하고, 데이터가 비었을 때만 이전 구간을 한 번 더 확인한다. 실패 결과는 5분 캐시한다.
-  - KTO 이미지는 `cpyrhtDivCd=Type1`일 때만 결과 카드 합성에 사용하고 `사진 · 한국관광공사` 출처를 표시한다. Type3 이미지는 장소 추천에는 사용할 수 있지만 합성 카드 이미지에서는 제외한다.
-  - Gemini는 전면광고가 실제 표시된 `show`/`impression` 시점부터 실행해 광고 노출 시간과 분석 시간을 겹친다. 광고가 닫힌 뒤에도 응답이 남아 있으면 전용 AI 로딩 화면을 보여준다. 이 화면은 `광고 확인 완료`, 스피너, `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택` 단계를 표시한다.
-  - AI 분석 화면과 결과 화면 맨 아래에 각각 배너 광고를 표시한다. 전면광고와 숨은 배너가 동시에 잡히지 않도록 `dismissed` 이후에만 해당 배너를 마운트한다.
-  - 추천 API 실패 시 임시/demo 결과를 열지 않는다. 결과 게이트에서 `추천 다시 시도` 버튼을 보여준다.
-  - 출발지 선택 뒤 서버 `POST /api/wherego/questions`에서 질문 세트를 받아온다. 질문·선택지 원본은 서버에만 두며, 서버 실패나 잘못된 3+4 구성에는 앱이 임의 질문으로 진행하지 않고 출발 화면에서 재시도를 안내한다.
-  - 질문 세트 로딩 화면은 `질문지를 준비하고 있어요.` 문구를 사용한다. 선택지 번호는 긴 문구에 눌리지 않도록 우상단 고정 원형 배지로 렌더링한다.
-  - 매 질문 세트는 원천 `destination_intent` 외에도 모든 선택지가 실제 관광지 검색 의도로 연결되는 일반 질문을 최소 1개 포함한다.
-  - 선택 화면은 두 번째 보조문구를 숨기고 출발 기준, eyebrow, 질문 제목, 선택 카드만 보여준다.
-  - 선택 카드의 작은 보조문구는 한 줄 첫 조각만 보여준다. 서버 caption이나 검색 힌트가 `A · B` 형태여도 화면에는 첫 조각만 보여 middle-dot이 남지 않게 한다.
-  - `카드 저장하기`는 숨겨진 `react-native-svg` 결과 카드를 `toDataURL`로 캡처한 뒤 Apps in Toss `saveBase64Data`로 1080x1350 PNG 결과 카드를 저장한다. Android `5.218.0`, iOS `5.216.0` 미만에서는 저장 미지원 메시지만 보여주며 공유창은 열지 않는다.
-  - 저장용 SVG는 Arial 고정 폰트를 제거했고, 화면 밖이 아니라 투명 상태로 화면 안에 렌더해 PNG 저장 깨짐 위험을 줄였다.
-  - 저장용 PNG 카드는 화면 안쪽으로 더 좁게 중앙 배치했고, 추천 이유/AI 선택 근거 줄 수를 늘렸으며, 위치 박스의 라벨과 주소 세로 정렬을 다시 맞췄다. 맨 아래 작은 출처/답변 기준 문구는 제거했다.
-  - 전면광고 게이트는 상단 헤더/진행 바를 숨기고, 관광정보 후보 준비와 추천 분석 상태를 로딩 스피너로 보여준다.
-- 최근 검증:
-  - 2026-07-08 21:57 KST: Vercel 정적 약관 빌드 성공.
-  - 2026-07-08 22:05 KST: `.env.local` Git 제외 확인, 커밋 대상 인증키 패턴 검사 통과, Vercel 정적 약관 빌드 성공.
-  - 2026-07-08 22:16 KST: Vercel production 배포 성공, `/`, `/terms/service`, `/terms/privacy` 모두 HTTP 200 확인.
-  - 2026-07-09 KST: `scripts/probe-question-bank-result.cjs`로 국문 관광정보 API, 지역별 방문자수 API, 위치/왕복시간 필터, 주차 확인 필터까지 성공 확인.
-  - 2026-07-09 KST: 질문지 보완 후 생성기/추천 프로브 문법 검사 통과, 질문풀 구조 검증 통과, 실제 API 프로브 성공.
-  - 2026-07-09 KST: 질문 카드 목업에서 2지선다/4지선다, 배너 광고 영역, 리워드 게이트, 결과 카드 흐름 확인.
-  - 2026-07-09 KST: `yarn install`, `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 생성 확인. 최신 deploymentId는 `019f4475-b925-7a22-bca3-fed52822aee1`. 산출물은 Git 제외.
-  - 2026-07-09 KST 저장 검증: `yarn typecheck`, `yarn build` 성공. 추천 API client, 리워드 광고 ID `ait.v2.live.7f9040b7cff746c5`, 15초 fallback timeout, 첫 화면 문구 변경 확인. 최신 build deploymentId는 `019f456c-799d-7d93-94d3-fd6ba89e22e5`.
-  - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `3b7a8b6844e9e32ea47db6da9d04ab23387850b8`, `/api/wherego/recommend` HTTP 200, `source.planner=gemini`, 추천 3개, 첫 추천 `국립중앙박물관 전통염료식물원`.
-  - 2026-07-09 KST 저장 검증: Wherego `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45b7-4889-72c6-ac16-3d27c8c1336b`이며 Git 제외. jbg Wherego route 테스트 13개 성공, `py_compile` 성공. 실제 관광공사 랜덤 조합 테스트에서 원천 3개 + 일반 5개 답변으로 후보 수집 후 5개 이하 압축 확인. 전국 검색은 long-distance 후보를 허용하고, 단일 검색 타임아웃은 건너뛰도록 보강했다.
-  - 2026-07-09 KST push 후 Render smoke 성공: `jbg` health commit `47013953a6b4ceaac5fa0927ba08941a0d376b11`, `/api/wherego/recommend` HTTP 200, `source.planner=metadata`, `source.curator=gemini`, 추천 1개, 첫 추천 `서울어린이대공원`, 네이버 지도 링크 존재.
-  - 2026-07-09 KST Apps in Toss 가이드 재검토: MCP transport가 닫혀 공식 개발자센터 문서를 직접 확인했다. 비게임 TDS 적용, 위치 권한 요청 시점, 배너/리워드 광고 배치, 빌드/배포, 브랜드 아이콘 요구사항을 재점검했다. TDS 적용과 버튼 이후 위치 요청은 코드에 반영했고, Vercel은 약관 URL 전용으로 유지한다. 남은 출시 리스크는 `brand.icon`의 콘솔 로고 URL 확정과 실기기 Toss 앱 검수다.
-  - 2026-07-09 KST 저장 검증: Vercel 약관 정적 빌드, `yarn typecheck`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f45e3-a0de-7e80-a3f8-464868942345`이며 Git 제외.
-  - 2026-07-09 KST 저장 검증: 결과 화면 헤더 제거, 질문 카드 2열 고정, 리워드 게이트 로딩 표시, 초기 SVG 카드 저장 기능 구현. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4666-aafa-7a02-b955-c802dffc027d`이며 Git 제외. 목업 브라우저 테스트에서 결과 헤더가 숨겨졌고 legacy SVG 카드 저장을 확인했다.
-  - 2026-07-09 KST 저장 오류 수정 검증: 카드 저장을 SVG 파일 저장에서 `react-native-svg` `toDataURL` 기반 PNG 저장으로 변경했다. `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4675-4c16-7bf2-b6a2-caef2741f1f7`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: 첫 화면 문구 블록을 앱과 목업 모두 중앙 쪽으로 내렸다. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4916-8162-7022-8180-1e354788acc6`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: 선택 카드 전환 로딩을 1초로 조정하고, 광고 전 화면 상단 헤더/진행 바 제거와 광고 CTA 시점 추천 분석 시작 흐름을 반영했다. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f492e-81c6-7044-986f-2f3028a34528`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: 지역 직접 선택 버튼/지역 카드 텍스트 클리핑 수정, 추천 실패 시 결과 fallback 차단, `추천 다시 시도` 흐름, 카드 저장 공유 fallback 제거, 저장용 SVG 폰트/렌더링 수정 반영. Render smoke는 HTTP 200, `source.curator=gemini`, 추천 `서울어린이대공원`, 이미지 URL 존재. 약관 정적 빌드, `scripts/probe-question-bank-result.cjs --check`, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f494b-cb34-72b1-a1f3-1ee8f64da56c`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: `jbg` 백엔드 질문 생성 endpoint `POST /api/wherego/questions` 추가, 앱의 서버 질문 세트 우선 호출/fallback, 질문지 생성 로딩 화면, TDS Button loading, 선택지 번호 고정 배지와 긴 문구 제한 반영. `jbg` Wherego route unittest 16개 성공, `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a16-6e2b-7383-a0b6-6d42ff134754`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: 추천 흐름을 무료 후보 준비(`/api/wherego/candidates`)와 Gemini 최종 선택(`/api/wherego/recommend`)으로 분리했다. 앱은 리워드 광고 CTA에서 KTO/DataLab 후보 준비를 시작하고, 광고 보상 완료 뒤에만 Gemini를 호출한다. 광고 완료 후에는 별도 AI 로딩 화면을 보여준다. `jbg` Wherego route unittest 18개, `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a38-eefa-7f99-a0b0-217c6cb4363b`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: 선택 화면 보조문구를 제거하고 저장용 PNG 카드의 가로 폭, 추천 이유/AI 선택 근거 줄 수, 위치 행 세로 정렬을 조정했다. `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a54-006b-7c33-9188-b575b14278ef`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: 선택 카드의 작은 보조문구를 한 줄 첫 조각으로 정리해 middle-dot이 남지 않게 했고, 저장용 PNG 카드 하단의 작은 출처/답변 기준 문구를 제거했다. `wherego` `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a6c-74da-7641-9d84-451de40c32f3`이며 Git 제외.
-  - 2026-07-10 KST 저장 검증: 일반 질문은행을 14개 태그 그룹 / 420문항으로 확장하고 `캠핑/피크닉` 질문군을 추가했다. 질문카드 자동생성 문구에서 `형님`, 내부 기획어, 콜론식 어색한 문장을 제거했고, 외부 AI 검토용 `docs/wherego-copy-review.json`을 만들었다. `jbg` Gemini 결과카드 프롬프트는 짧은 한국어와 짧은 근거 2~3개를 요구하도록 조정했다. `jbg` Wherego route unittest 20개, `wherego` 위험 문구 scan 0건, terms build, `yarn typecheck`, `git diff --check`, `yarn build` 성공. 앱인토스 산출물 `wherego.ait` 최신 deploymentId는 `019f4a9d-4aa5-7dd9-a5b1-80d223a40738`이며 Git 제외.
-  - 2026-07-12 KST 저장 검증: 질문 세트마다 목적지 유형을 직접 가르는 일반 질문을 최소 1개 보장하고 선택지 메타데이터를 관광공사 대/중/소분류 검색 조건까지 연결했다. 관광지 검색은 호출당 최대 50개를 모두 평가한 뒤 유효성 필터, 동일 장소 군집화, 의도별 최대 6개 제한을 거치며, DataLab 혼잡도를 반영한 뒤 Gemini 후보 5개로 압축한다. 실제 고양시 조합에서 `64 -> 13 -> 5` 후보 축소와 약 1.0초 후보 준비를 확인했다. `jbg` Wherego route unittest 41개, Python 컴파일, `wherego` TypeScript 검사, `git diff --check`, AIT build가 성공했다. 앱인토스 산출물 `wherego.ait` deploymentId는 `019f540b-ac97-7bf5-b5b8-df99a1057e95`이며 Git 제외.
-  - 2026-07-12 KST 저장 검증: 새 분류 필터에 맞춰 질문 선택지 메타데이터를 재점검했다. 호수/강변공원은 도시공원 `VE03`, 한옥마을은 민속마을 `HS010600`, 전통시장은 `SH06`, 문화거리는 `VE040100`으로 연결하고 `활기찬 핫플`은 `전통시장/문화거리/축제` 검색 의도를 사용한다. 서버와 앱 fallback 원천 질문풀을 함께 수정했으며 런타임 목적지 질문 122개에서 매핑 누락과 무분류 의도 모두 0건이었다. `jbg` Wherego route unittest 42개와 Python 컴파일, `wherego` TypeScript 검사와 AIT build가 성공했다. 앱인토스 산출물 `wherego.ait` deploymentId는 `019f549b-f407-7e79-815a-76adc369d386`이며 Git 제외.
-  - 2026-07-12 KST 저장 검증: 앱인토스 익명 키를 서버에서 재해시하고 7개 답변, 후보 압축 수, 최종 추천, AI 근거, 이미지/지도 여부, 지연을 90일 익명 QC 로그로 저장한다. 정확한 좌표는 저장하지 않으며 DB RLS를 활성화했다. `qc` 자동화는 매일 09:30 KST 실행하고 월요일에는 7일 편향 검사를 추가한다. 서버 질문 채택 조건의 8문항 오류를 3+4 구조로 수정했다. 풍경의 동굴/지질, 문화의 사찰/명상, 원천질문의 배움/놀이 선택지를 추가하고 `동굴/산사/테마파크/루지` 검색 인텐트를 연결했다. 실제 KTO 첫 페이지는 각각 10/20/10/9건이었다. `jbg` Wherego/QC unittest 48개, 7문항 probe, TypeScript, AIT build가 성공했고 deploymentId는 `019f55cd-b4e1-7a76-bd40-b840763dc74b`이다.
-  - 2026-07-12 KST 프로덕션 저장 검증: Render에서 질문은행 `2026-07-12+2026-07-12`, 7문항을 확인했다. 전체 요청은 후보 `8 -> 7 -> 5`, Gemini 3.1 Flash Lite, 3201ms였고 `노을캠핑장(서울)`을 추천했다. QC DB는 `7/3/4`, Gemini, 이미지/지도 존재로 저장됐으며 smoke 레코드는 삭제했다. Vercel production `dpl_AZ1p4nVd9TJif3c4BL5ZUxfn3LTW`가 READY이고 `https://wherego-lake.vercel.app`에 연결됐다.
-  - 2026-07-13 KST 질문 중복 정책 정정: 중복 방지 범위는 이전 세트가 아니라 현재 7문항 세트 내부다. 서버는 3개 원천축과 4개 일반 테마를 각각 한 번만 선택하고, 상호배타 테마 및 원천질문과 의미가 겹치는 일반 테마를 함께 내보내지 않는다. 앱 번들 질문은행과 로컬 생성 fallback은 제거해 이후 질문·선택지 변경은 서버 배포만으로 반영한다. 5,000세트 중 질문/테마 중복 0건, Wherego 테스트 54개, TypeScript, AIT build가 통과했고 deploymentId는 `019f59d5-3dc8-713c-bfcf-ff2569863aeb`이다.
-  - 2026-07-13 KST 첫 화면 개편: 한국관광공사 데이터 기반 AI 추천을 전면에 두고, 국내 바다·숲길·한옥 문화공간을 담은 실사형 정적 사진 3장을 첫 화면 갤러리에 추가했다. 사진은 각각 720x720 JPEG로 앱 번들에 포함해 외부 네트워크 없이 표시한다. `yarn typecheck`, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f59f9-8854-7a53-ba01-938d4bafb3cb`이다.
-  - 2026-07-13 KST 첫 화면 사진 호환성 보완: 앱 테스트에서 정적 JPEG 모듈이 빈 영역으로 보이는 문제를 피하려고 3개 사진을 480x480 baseline JPEG Base64 data URI로 번들에 직접 포함했다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5a1b-d7d8-7ef7-a861-6003cf5b63ad`이다. AIT 번들에 data URI 3개가 포함된 것을 확인했으며 실기기 화면 확인은 남아 있다.
-  - 2026-07-13 KST 추천 지연 보완: 운영 성공 5건에서 Gemini 선택은 중앙값 1867ms였고 KTO 최종 상세는 최대 6903ms였다. JBG는 최종 후보 메타데이터와 Type1 이미지가 완전하면 상세 조회를 생략하고, 부족할 때만 `detailCommon2`를 최대 3초 호출한 뒤 후보 데이터로 fallback한다. `detailIntro2`는 제거했고 백엔드 Wherego 테스트 56개가 통과했다. Render 배포 후 `detailMs`를 재확인한다.
-  - 2026-07-13 KST 결과 프로모션 운영 전환: 결과 화면 진입 시 비게임 `grantPromotionReward`로 토스 포인트 10원을 자동 지급한다. 프로모션 코드별 Apps in Toss 저장소와 추천 세션 ref로 일반적인 중복 호출을 막고, 즉시 지급·1인 1회·사전 중단 가능 문구와 상태 UI를 추가했다. 출시 설정에는 `TEST_` 코드가 남아 있지 않다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5b1c-f69c-7fae-9797-16cbb88a734d`이다. 토스앱 5.232.0+ QR에서 실제 1회 지급과 재진입 무지급을 확인해야 하며, 앱 데이터 초기화·다중 기기까지 막으려면 토스 로그인+mTLS 서버 지급이 필요하다.
-  - 2026-07-14 KST 사용량/IAP 보완: 광고 충전은 하루 최대 3회로 낮췄고, 일일 크레딧 뒤에만 차감되는 영구 유료 10회권을 추가했다. 구매 시점 로그인, 서버 세션 복원, SDK 상품 조회, mTLS 주문 검증, 주문 멱등 지급, 환불 회수와 프로모션 서버 중복 예약을 구현했다. Wherego 76개와 기존 JBG 131개 회귀 테스트 및 Python 컴파일이 통과했다.
-  - 2026-07-15 KST 횟수 정책 변경: 기본 추천 2회/일, 광고 +1 최대 2회/일로 조정했다. 공유 +3 하루 1회와 유료 10회권은 유지한다. JBG Wherego 85개 테스트, TypeScript, Android/iOS AIT 빌드가 통과했고 deploymentId는 `019f64bc-3f58-761e-9688-593431e23681`이다.
-  - 2026-07-15 KST 프로모션 진입 분리: 일반 `intoss://wherego`는 프로모션 문구·SDK를 사용하지 않는다. 혜택용 `intoss://wherego/promotion`만 전용 첫 화면을 보여주고 추천 결과에서 현재 50원 지급을 실행한다. 앱인토스 혜택 등록 URL은 반드시 `/promotion` 경로를 사용한다.
-  - 2026-07-15 KST 프로모션 코드 갱신: 출시 설정은 새 운영 코드 `01KXJHNBZ46JPHND9R3VH7S9TF`를 사용한다. 테스트 코드 `TEST_01KXJHNBZ46JPHND9R3VH7S9TF`는 RUNBOOK에만 기록하며, 전용 QR 테스트 빌드에서만 일시 교체한 뒤 운영 코드로 복구한다.
-  - 2026-07-15 KST 명시 지역 보완: 지역 묶음을 Python에 하드코딩하지 않고 서버 질문 JSON의 `regionPolicy`, `allowedLDongRegnCodes`, `allowedRegionPrefixes`로 관리한다. 현재 네 지역 선택지는 `strict`라서 KTO 검색과 Gemini 전 후보를 함께 제한하며, `prefer` 정책은 검색 우선순위만 바꾼다. 대구 출발에서 `제주/섬`을 선택해도 제주 코드 `50`만 검색하고 비제주 후보는 Gemini 전에 제거한다.
-  - 2026-07-15 KST 앱 시작 오류 보완: `pages/promotion.tsx`가 루트 페이지 모듈을 직접 불러 페이지 자동 로더 초기화 순환을 만들 수 있던 구조를 제거했다. 실제 UI는 `src/WheregoApp.tsx`로 이동하고 두 페이지는 얇은 라우트만 담당한다. TypeScript, Android Metro 번들 HTTP 200, Android/iOS AIT 빌드가 통과했고 deploymentId는 `019f6559-ce3b-7f25-bb91-24eca6249210`이다.
-  - 2026-07-15 KST 프로모션 50원 운영 빌드: 운영 코드 `01KXJHNBZ46JPHND9R3VH7S9TF`의 지급액을 50원으로 변경했다. TypeScript와 Android/iOS AIT 빌드가 통과했고 deploymentId는 `019f6584-0f70-7d0d-813b-6bf7f0c5d29b`이다. AIT 내부에 운영 코드와 50원 설정이 있고 `TEST_` 코드가 없는 것을 확인했다.
-  - 2026-07-14 KST 저장 검증: 약관 정적 빌드, 질문 프로브 문법, TypeScript, Android/iOS AIT 빌드가 오류·경고 없이 통과했다. `wherego.ait` deploymentId는 `019f5f7e-dbeb-7a36-a155-f3b0f5a1f3dd`이며 산출물은 Git에서 제외한다.
-  - 2026-07-14 KST 서버 선배포 확인: Render 커밋 `180f278fb020b2b37a42faf423ce13ff717406a8`에서 health/Postgres와 7문항 원천3+일반4 응답이 정상이었다. IAP 상품 API는 HTTP 200이지만 `enabled=false`, 상품 0개라서 콘솔 SKU와 Render mTLS/로그인 환경변수 구성을 마친 뒤 구매 QR 테스트를 진행한다.
-  - 2026-07-14 KST 최종 배포 확인: Render는 최종 문서 커밋 `7b28f54aff9dd77f4399e60101462020f79de370`에서 정상이고, Vercel production `dpl_BrqJWdVJLVPnFT4Z7eeUqbd2Vjcg`가 READY다. `https://wherego-lake.vercel.app`의 루트·서비스 약관·개인정보 처리방침은 모두 HTTP 200이다.
+## 수정 원칙
 
-## 운영 규칙
+- 질문 카피와 메타데이터는 앱이 아니라 서버 JSON에서 수정한다.
+- API 키, 인증서, 사용자 원문, 익명 사용자 식별값, `.env*`를 문서나 Git에 넣지 않는다.
+- `.ait`, `.vercel/output`, `node_modules`, 빌드 캐시를 커밋하지 않는다.
+- 사용자가 `저장`이라고 하면 `SAVE_PROTOCOL.md`에 따라 문서 갱신, 최소 검증, 커밋, 푸시까지 수행한다.
+- 앱 코드 또는 네이티브 SDK 설정이 바뀐 저장에서만 AIT를 다시 만든다.
 
-- 문서는 `docs/README.md` 기준으로 현재 문서만 따라간다.
-- `저장` 요청은 `SAVE_PROTOCOL.md` 기준으로 handoff 갱신, 검증, commit, push까지 포함한다.
-- `.env`, API 키, `.vercel/`, `node_modules/`, `dist/`, `.ait`는 커밋하지 않는다.
-- 생성 자산은 실제 눈으로 확인한 뒤 프로젝트에 저장한다.
+## Next Recommended Steps
 
-## 남은 우선순위
-
-1. Render에 소모성 10회권 SKU, 토스 로그인 설정, mTLS 인증서를 넣고 상품 조회 endpoint를 확인한다.
-2. 최신 AIT를 QR 테스트해 구매 로그인, +10 지급, 재로그인 복원, 중복 주문, 환불 회수를 확인한다.
-3. 기본 2회, 광고 +1 하루 최대 2회, 공유 +3 하루 1회, 유료 횟수 후순위 차감을 실기기에서 확인한다.
-4. 결과 프로모션이 최초 1회만 지급되고 재진입·재설치에도 서버 guard가 막는지 확인한다.
-5. PNG 저장, 네이버지도, 광고, 뒤로가기, 로고/썸네일까지 전체 실기기 회귀 검수한다.
+1. 최신 AIT에서 일반/혜택 진입을 각각 QR 테스트한다.
+2. 프로모션 최초 지급, 재진입 차단, guard 장애 시 미지급을 확인한다.
+3. 광고·공유·구매 횟수와 로그인 후 유료 잔여 복원을 확인한다.
+4. 카드 PNG 저장, 지도 열기, 광고, 뒤로가기 종료 확인을 실기기에서 회귀한다.
+5. 일일 QC의 후보 0건, 거리·지역 위반, Gemini fallback, 목적지 집중도를 계속 확인한다.

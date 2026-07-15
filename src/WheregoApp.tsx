@@ -493,6 +493,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
   const [resultMessage, setResultMessage] = useState('');
   const [resultPromotion, setResultPromotion] = useState<ResultPromotionOutcome>({ status: 'idle' });
+  const [promotionRetryNonce, setPromotionRetryNonce] = useState(0);
   const currentQuestion = questionSet[questionIndex];
   const progress = questionSet.length > 0 ? (questionIndex + 1) / questionSet.length : 0;
   const result = getResult(origin, recommendation);
@@ -692,14 +693,14 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
       .catch((error) => {
         console.error('[wherego:result-promotion] failed', error);
         if (!cancelled) {
-          setResultPromotion({ status: 'error' });
+          setResultPromotion({ status: 'error', errorCode: 'UNEXPECTED', retryable: false });
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [entryMode, recommendation, step]);
+  }, [entryMode, promotionRetryNonce, recommendation, step]);
 
   useEffect(() => {
     if (!waitingForLocation) {
@@ -1284,6 +1285,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     setRecommendationStatus('idle');
     setResultMessage('');
     setResultPromotion({ status: 'idle' });
+    setPromotionRetryNonce(0);
     setQuotaRewardMessage('');
     setIapMessage('');
     setIsIapPurchasing(false);
@@ -1603,6 +1605,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     setRecommendationStatus('idle');
     setResultMessage('');
     setResultPromotion({ status: 'idle' });
+    setPromotionRetryNonce(0);
 
     const fallbackSessionId = recommendationSessionIdRef.current;
     let nextQuestionSet: { questions: Question[]; sessionId: string };
@@ -1835,6 +1838,10 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
               <>
                 <ResultScreen
                   message={resultMessage}
+                  onPromotionRetry={() => {
+                    promotionAttemptedSessionRef.current = null;
+                    setPromotionRetryNonce((value) => value + 1);
+                  }}
                   promotion={entryMode === 'promotion' ? resultPromotion : null}
                   result={result}
                   onHome={resetToIntro}
@@ -2524,6 +2531,7 @@ function ResultScreen({
   message,
   onHome,
   onMap,
+  onPromotionRetry,
   onSave,
   promotion,
   result,
@@ -2531,6 +2539,7 @@ function ResultScreen({
   message: string;
   onHome: () => void;
   onMap: () => void;
+  onPromotionRetry: () => void;
   onSave: () => void;
   promotion: ResultPromotionOutcome | null;
   result: DemoResult;
@@ -2539,7 +2548,7 @@ function ResultScreen({
 
   return (
     <View style={styles.resultScreen}>
-      <ResultPromotionNotice outcome={promotion} />
+      <ResultPromotionNotice onRetry={onPromotionRetry} outcome={promotion} />
       <View style={styles.resultCard}>
         <View style={styles.resultArt}>
           {result.imageUrl ? (
@@ -2575,7 +2584,13 @@ function ResultScreen({
   );
 }
 
-function ResultPromotionNotice({ outcome }: { outcome: ResultPromotionOutcome | null }) {
+function ResultPromotionNotice({
+  onRetry,
+  outcome,
+}: {
+  onRetry: () => void;
+  outcome: ResultPromotionOutcome | null;
+}) {
   if (outcome == null || outcome.status === 'alreadyGranted') {
     return null;
   }
@@ -2601,6 +2616,13 @@ function ResultPromotionNotice({ outcome }: { outcome: ResultPromotionOutcome | 
       {!isTestPromotion ? (
         <Text style={styles.resultPromotionCaption}>본 프로모션은 사전 고지 없이 중단될 수 있어요.</Text>
       ) : null}
+      {outcome.status === 'error' && outcome.retryable ? (
+        <SecondaryButton
+          label="다시 확인하기"
+          onPress={onRetry}
+          viewStyle={styles.resultPromotionRetryButton}
+        />
+      ) : null}
     </View>
   );
 }
@@ -2617,6 +2639,23 @@ function resultPromotionStatusText(outcome: ResultPromotionOutcome) {
     case 'unsupported':
       return '토스 앱 5.232.0 이상에서 혜택을 받을 수 있어요.';
     case 'error':
+      return resultPromotionErrorText(outcome.errorCode);
+  }
+}
+
+function resultPromotionErrorText(errorCode: string | undefined) {
+  switch (errorCode) {
+    case 'GUARD_UNAVAILABLE':
+      return '중복 지급 여부를 확인하지 못했어요.';
+    case '4100':
+      return '프로모션 정보를 찾지 못했어요.';
+    case '4109':
+      return '현재 진행 중인 프로모션이 아니에요.';
+    case '4110':
+      return '일시적인 오류가 발생했어요. 다시 확인해주세요.';
+    case '4112':
+      return '프로모션 예산이 모두 사용됐어요.';
+    default:
       return '토스 포인트를 지급하지 못했어요.';
   }
 }
@@ -4134,6 +4173,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 15,
     marginTop: 2,
+  },
+  resultPromotionRetryButton: {
+    marginTop: 10,
   },
   resultCard: {
     ...cardBase,

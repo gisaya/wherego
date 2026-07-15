@@ -7,7 +7,7 @@ import {
 
 export type ResultPromotionOutcome =
   | { status: 'idle' | 'loading' | 'success' | 'alreadyGranted' | 'unsupported' }
-  | { status: 'error'; errorCode?: string };
+  | { status: 'error'; errorCode?: string; retryable: boolean };
 
 type ResultPromotionGuard = {
   reserve: () => Promise<boolean>;
@@ -39,16 +39,26 @@ async function grantResultViewPromotionOnce(
         return { status: 'alreadyGranted' };
       }
     } catch (error) {
-      console.warn('[wherego:result-promotion] server guard unavailable', error);
+      console.error('[wherego:result-promotion] server guard unavailable', error);
+      await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
+      return { status: 'error', errorCode: 'GUARD_UNAVAILABLE', retryable: true };
     }
   }
 
-  const result = await grantPromotionReward({
-    params: {
-      amount: WHEREGO_RESULT_PROMOTION_AMOUNT,
-      promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
-    },
-  });
+  let result;
+  try {
+    result = await grantPromotionReward({
+      params: {
+        amount: WHEREGO_RESULT_PROMOTION_AMOUNT,
+        promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
+      },
+    });
+  } catch (error) {
+    // The SDK may have reached Toss before rejecting. Keep both guards reserved to
+    // avoid a duplicate payment from an unsafe automatic retry.
+    console.error('[wherego:result-promotion] sdk call rejected', error);
+    return { status: 'error', errorCode: 'SDK_REJECTED', retryable: false };
+  }
 
   if (result == null) {
     await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
@@ -58,13 +68,17 @@ async function grantResultViewPromotionOnce(
   if (result === 'ERROR') {
     await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
     await resolveGuard(guard, false);
-    return { status: 'error' };
+    return { status: 'error', retryable: true };
   }
   if ('errorCode' in result) {
     console.warn('[wherego:result-promotion] rejected', { errorCode: result.errorCode });
     await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
     await resolveGuard(guard, false);
-    return { status: 'error', errorCode: result.errorCode };
+    return {
+      status: 'error',
+      errorCode: result.errorCode,
+      retryable: result.errorCode === '4110',
+    };
   }
 
   await Storage.setItem(RESULT_PROMOTION_STORAGE_KEY, result.key);

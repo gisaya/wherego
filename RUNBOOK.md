@@ -1,527 +1,172 @@
 # Wherego Runbook
 
-## Project
+최종 갱신: 2026-07-15 KST
 
-Workspace:
-
-```powershell
-C:\Users\ESOL\Documents\wherego
-```
-
-Remote:
+## 경로와 런타임
 
 ```powershell
-https://github.com/gisaya/wherego.git
+$wherego = 'C:\Users\ESOL\Documents\wherego'
+$jbg = 'C:\Users\ESOL\Documents\jbg'
+$node = 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'
 ```
 
-## Documentation
+- 앱 Git: `https://github.com/gisaya/wherego.git`, `master`
+- 서버 Git: `https://github.com/gisaya/jbg.git`, `main`
+- 운영 API: `https://jbg.onrender.com`
+- 약관: `https://wherego-lake.vercel.app/terms/service`, `https://wherego-lake.vercel.app/terms/privacy`
+- 로컬 비밀값은 `.env.local` 또는 JBG의 비추적 환경 파일에만 둔다.
 
-Start with:
+## 앱 검증
 
-```text
-docs/README.md
+```powershell
+Set-Location $wherego
+& $node .yarn\releases\yarn-4.9.1.cjs typecheck
+& $node scripts\build-vercel-terms.cjs
+& $node --check scripts\probe-question-bank-result.cjs
+git diff --check
 ```
 
-Follow the current docs linked there. Keep updates short, and do not store API keys, long logs, or user data in docs.
+의존성이 없을 때만 설치한다.
 
-## Environment
-
-Local API credentials are stored in:
-
-```text
-.env.local
+```powershell
+& $node .yarn\releases\yarn-4.9.1.cjs install
 ```
 
-Committed example:
+## AIT 빌드
 
-```text
-.env.example
+앱 코드, 라우트, 네이티브 SDK 또는 Granite 설정이 바뀐 출시 저장에서 한 번 실행한다. 질문 JSON과 서버 로직만 바뀌면 만들지 않는다.
+
+```powershell
+Set-Location $wherego
+powershell -ExecutionPolicy Bypass -File scripts\ait-build.ps1
 ```
 
-Current environment variables:
+- 생성물: `wherego.ait`
+- Android/iOS와 React Native 호환 번들을 함께 만들기 때문에 시간이 걸린다.
+- 별도 Metro 번들과 AIT 빌드를 중복 실행하지 않는다.
+- `wherego.ait`, `.granite`, `.swc`, `.codex-shims`, `node_modules`, `.vercel/output`은 Git 제외다.
+
+출시 전 AIT에서 아래를 확인한다.
+
+- 운영 프로모션 코드 `01KXJHNBZ46JPHND9R3VH7S9TF`
+- 프로모션 지급액 `50`
+- `TEST_` 문자열 없음
+- 라이브 광고 ID만 포함
+
+## 서버 검증
+
+```powershell
+Set-Location $jbg
+$env:PYTHONPATH='apps/server'
+python -m unittest discover -s apps/server/backend/tests -p 'test_wherego*.py'
+python -m compileall -q apps/server/backend/app apps/server/backend/scripts
+```
+
+운영 배포 후:
+
+```powershell
+Invoke-RestMethod 'https://jbg.onrender.com/api/health'
+Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/usage' -ContentType 'application/json' -Body '{"anonymousKey":"smoke-runbook"}'
+```
+
+실사용 QC:
+
+```powershell
+$env:PYTHONPATH='apps/server'
+python -m backend.scripts.wherego_qc_report --hours 24 --limit 5000 --json
+python -m backend.scripts.wherego_qc_report --hours 168 --limit 10000 --json
+```
+
+원시 JSON에는 사용자 식별 정보가 포함될 수 있으므로 공유하거나 문서에 붙이지 않는다.
+
+## 운영 설정
+
+클라이언트 공개 설정:
 
 ```text
-PUBLIC_DATA_PORTAL_SERVICE_KEY
-KTO_KOR_SERVICE_DOC_URL
+API_BASE_URL=https://jbg.onrender.com
+banner=ait.v2.live.67b07bf813d74267
+result interstitial=ait.v2.live.69c443b05e6a42ea
+quota rewarded ad=ait.v2.live.7f9040b7cff746c5
+share reward module=1e6b212b-9093-4546-9991-99f478262910
+promotion=01KXJHNBZ46JPHND9R3VH7S9TF / 50 won
+```
+
+Render 필수 계열:
+
+```text
+WHEREGO_PUBLIC_DATA_PORTAL_SERVICE_KEY
 KTO_KOR_SERVICE_ENDPOINT
-KTO_DATALAB_SERVICE_DOC_URL
 KTO_DATALAB_SERVICE_ENDPOINT
-```
-
-Never commit `.env.local` or paste the raw key into docs.
-
-## Terms Page Build
-
-Vercel is used only for Wherego terms/privacy URLs. Do not use Vercel as the production API server or as the Apps in Toss logo/thumbnail hosting dependency.
-
-Normal `node` may not be on PATH in PowerShell. Use the bundled Codex Node when needed:
-
-```powershell
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts/build-vercel-terms.cjs
-```
-
-Expected output:
-
-```text
-.vercel/output/static/index.html
-.vercel/output/static/terms/service/index.html
-.vercel/output/static/terms/privacy/index.html
-```
-
-## Apps in Toss Build
-
-The app uses the Granite React Native stack copied from the local `뭐샀지`/`toss_tomato_public` pattern. Yarn 4 is committed under `.yarn/releases`, with Windows compatibility patches under `.yarn/patches`.
-
-Install dependencies:
-
-```powershell
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs install
-```
-
-Typecheck:
-
-```powershell
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs typecheck
-```
-
-Build the Apps in Toss artifact:
-
-```powershell
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs build
-```
-
-Expected local artifact:
-
-```text
-wherego.ait
-```
-
-`wherego.ait`, `node_modules/`, `.granite/`, `.swc/`, `.codex-shims/`, and `dist/` are local outputs and must not be committed.
-
-Main app files:
-
-```text
-granite.config.ts
-pages/index.tsx
-pages/promotion.tsx
-src/WheregoApp.tsx
-src/_app.tsx
-scripts/ait-build.ps1
-```
-
-Submission-sensitive config:
-
-- `granite.config.ts` uses Apps in Toss `geolocation` permission and navigation-bar back/home buttons.
-- `brand.icon` uses the Toss static logo URL: `https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png`.
-- Before launch submission, confirm in Apps in Toss Console/device preview that the navigation logo and console logo/thumbnail match the intended assets.
-- The main UI uses `@toss/tds-react-native` through `TDSProvider`, TDS `Text`, and TDS `Button`. Selection and region cards use React Native `Pressable` with stable card dimensions.
-- Location permission is requested only after the user taps the current-location CTA; users can start with region selection without granting location.
-- The direct-region button is a custom `Pressable` rather than a TDS button so Korean text does not clip in the Toss surface.
-- Question-card selection shows the selected card and a 1s loading state before advancing.
-- Free public-data candidate preparation starts immediately after the final answer so it overlaps the transition/ad gate. Gemini recommendation analysis starts only after the interstitial fires `show` or `impression`, with `dismissed` as a one-time fallback.
-- Recommendation errors stay on the reward gate and show `추천 다시 시도`; do not open local demo results after API failure.
-- The final result screen hides the top app header. This is intentional so the result card and actions are the focus.
-- `카드 저장하기` uses `react-native-svg` `toDataURL` plus Apps in Toss `saveBase64Data` to save a generated PNG result card. The minimum checked support is Android `5.218.0` and iOS `5.216.0`; older app versions show a save-not-supported message.
-- The app does not call the Apps in Toss `share` API from the save button. If a system sheet appears while saving, treat it as the native `saveBase64Data` file-save flow; the current framework API has no option to suppress that sheet.
-- The saved card format is PNG only. The save button must not open the share sheet. Run real-device save/gallery checks before launch.
-
-Rewarded ad:
-
-```text
-production interstitial ad group ID: ait.v2.live.69c443b05e6a42ea
-production rewarded ad group ID: ait.v2.live.7f9040b7cff746c5
-production banner ad group ID: ait.v2.live.67b07bf813d74267
-contacts share-reward module ID: 1e6b212b-9093-4546-9991-99f478262910
-```
-
-`src/WheregoApp.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts on the banner-free intro screen and the loaded ad is preserved across origin/question transitions; the ad gate loads again only if the earlier request failed or timed out. `showFullScreenAd` runs on the ad CTA, and `show`/`impression` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
-- The full-screen-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `show`/`impression`; `dismissed` is a fallback if the native display event was omitted.
-- Every free, rewarded-ad, and contacts-share recommendation uses the result interstitial gate. A recommendation funded by a paid AI recommendation pass skips the result interstitial.
-- Daily usage is KST-based: base 2, rewarded ad +1 up to 2/day, contacts share +3 once/day. Paid recommendation passes do not expire at midnight. Candidate preparation reserves a credit; failures refund it; abandoned reservations expire after 30 minutes.
-- Rewarded-ad credits are granted only on `userEarnedReward`. Contacts sharing requires Toss app 5.223.0+.
-- After `/api/wherego/usage/reward` confirms the grant, return to the intro screen and show the updated remaining count. Do not navigate away on ad dismissal or grant failure.
-- `useBackEvent` must remain registered in the shared app component used by both entry routes. Back from every step shows an exit confirmation, `계속하기` keeps the current screen, and only `나가기` calls `closeView`.
-- Interstitial loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:interstitial-ad]` prefix and include `attempt` and `elapsedMs`. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
-- Gemini starts on the interstitial `show`/`impression` event while the full-screen ad is visible. After `dismissed`, the app shows a dedicated AI loading panel with spinner and staged text only while Gemini is still pending.
-- The AI loading screen and result screen each render their own bottom `InlineAd`. These banners mount only after the full-screen ad is dismissed and use separate keys so the two screens do not share a stale banner instance.
-
-During questions, `src/WheregoApp.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
-
-## In-App Purchase
-
-Wherego sells a consumable `AI 여행지 추천 10회 이용권`. The app always renders the product name, description, icon, and final price returned by `IAP.getProductItemList()`; do not hardcode the displayed price in the client.
-
-Console setup:
-
-```text
-product type: consumable
-product name: AI 여행지 추천 10회 이용권
-benefit: 10 AI destination recommendations
-supply price: 900 won
-expected customer price: 990 won including VAT (confirm the Console calculation)
-product image: assets/iap-product-10-credits.png (1024x1024 PNG)
-```
-
-Render setup after Console issues the SKU and mTLS client certificate:
-
-```text
-WHEREGO_IAP_10_CREDIT_SKU=<console-sku>
-WHEREGO_LOGIN_IDENTITY_SECRET=<random-secret-at-least-32-characters>
-WHEREGO_LOGIN_SESSION_TTL_HOURS=24
-WHEREGO_LOGIN_UNLINK_BASIC_AUTH=<unlink-callback-secret>
-APPS_IN_TOSS_MTLS_CERT_PEM=<multiline-client-certificate-pem>
-APPS_IN_TOSS_MTLS_KEY_PEM=<multiline-private-key-pem>
-APPS_IN_TOSS_MTLS_KEY_PASSWORD=<optional-private-key-password>
-```
-
-The exhausted-quota screen always shows one integrated 10-credit purchase card containing the SDK product image, name, description, final price, and primary purchase CTA. Until the SDK product lookup succeeds it shows a neutral retry/loading state without a hardcoded price. The product can be viewed before login, but a successful product lookup is required before tapping purchase invokes the official `appLogin()` flow. The client exchanges the one-time authorization code with Render, which keeps only a hashed app session and the app-scoped Toss `userKey`; no name, phone, email, or CI scope is requested. The app session is kept in native Storage for up to 24 hours. During the first login exchange, and again when restoring an existing login session, the client supplies its pre-login anonymous key. Render conservatively links the current KST day's already-consumed base/ad/share usage to the login identity so login cannot make three daily recommendations reappear; paid wallets are never merged from a guest identity. The client calls `processProductGrant`, the Render server resolves that login session, sends `x-toss-user-key` to the Apps in Toss order-status API, and only then atomically adds 10 credits. `orderId` is unique, so retries cannot grant twice. App startup restores `getPendingOrders()`, completes granted orders with `completeProductGrant()`, and independently verifies `REFUNDED` orders before removing their credits.
-
-Console Toss-login setup uses no optional personal-information scope. Register these URLs:
-
-```text
-service terms: https://wherego-lake.vercel.app/terms/service
-privacy policy: https://wherego-lake.vercel.app/terms/privacy
-unlink callback: POST https://jbg.onrender.com/api/wherego/login/unlink
-```
-
-Required sandbox checks:
-
-1. Successful payment grants exactly 10 credits and returns to the intro screen.
-2. Payment success plus server grant failure leaves a pending order; reopening the app restores it exactly once.
-3. User cancellation and network errors do not grant credits.
-4. A refunded order removes the original 10 credits, including after some credits were used.
-5. The last paid credit still skips the result interstitial.
-
-Ads guideline notes:
-
-- Keep the banner outside the intro screen and inside the question flow.
-- Keep the banner wrapper at 100% width and 96px height.
-- Do not decorate or alter the ad creative beyond the allowed wrapper layout.
-- Before submission, scan the release source and AIT artifact to confirm that only live ad group IDs remain.
-
-Result promotion:
-
-```text
-test promotion code: TEST_01KXJHNBZ46JPHND9R3VH7S9TF
-production promotion code: 01KXJHNBZ46JPHND9R3VH7S9TF
-reward amount: 50 won
-minimum Toss app version: 5.232.0
-general entry: intoss://wherego
-benefit entry: intoss://wherego/promotion
-```
-
-- The general entry keeps the standard AI destination intro and never calls the promotion SDK or renders promotion copy.
-- The benefit entry opens a dedicated `토스 혜택 전용` intro. Only this route calls `grantPromotionReward` when a successful recommendation result first opens.
-- Register `intoss://wherego/promotion` as the Apps in Toss benefit/promotion entry URL; do not register the root URL for that placement.
-- `src/promotion/resultPromotion.ts` contains the shared non-game promotion grant and duplicate-guard implementation.
-- A promotion-code-specific `Storage` value, an in-session ref, and `/api/wherego/promotion/attempt` prevent normal duplicate calls. The server atomically reserves `(anonymous user hash, promotion code)` before the SDK opens Toss's confirmation screen.
-- The result screen must retain the immediate-payment, one-person/one-time, and possible-early-termination notices.
-- Validate production only through an uploaded AIT and Toss app QR test; the sandbox cannot complete promotion testing.
-- Never keep the `TEST_` code in a release build. For a dedicated QR test, temporarily replace the production code in `src/config.ts`, build the test AIT, then restore the production code before saving or submitting.
-- Confirm the first result returns success and Toss shows the payment toast/history. Reopening or rerendering the result must not create a second grant.
-- The anonymous-key server guard survives app-data reset and normal rebuilds, but the client SDK flow is not a tamper-proof payment boundary. For strict monetary abuse prevention, use Toss login and the mTLS server-to-server promotion APIs before increasing campaign exposure or budget.
-
-## Recommendation API
-
-Wherego uses the existing `뭐샀지` Render FastAPI service:
-
-```text
-https://jbg.onrender.com
-```
-
-Client files:
-
-```text
-src/config.ts
-src/api/wheregoApi.ts
-src/WheregoApp.tsx
-pages/index.tsx
-pages/promotion.tsx
-```
-
-Server files in `C:\Users\ESOL\Documents\jbg`:
-
-```text
-apps/server/backend/app/interfaces/http/routes/wherego.py
-apps/server/backend/tests/test_wherego_recommendation.py
-apps/server/env/prod.example
-apps/server/env/local.example
-```
-
-Server endpoint:
-
-```text
-POST /api/wherego/questions
-POST /api/wherego/candidates
-POST /api/wherego/recommend
-POST /api/wherego/usage
-POST /api/wherego/usage/reward
-POST /api/wherego/usage/link
-POST /api/wherego/iap/products
-POST /api/wherego/iap/grant
-POST /api/wherego/iap/reconcile
-POST /api/wherego/login/exchange
-POST /api/wherego/login/unlink
-```
-
-Required Render env:
-
-```text
-WHEREGO_PUBLIC_DATA_PORTAL_SERVICE_KEY=<public-data-key>
-KTO_KOR_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/KorService2
-KTO_DATALAB_SERVICE_ENDPOINT=https://apis.data.go.kr/B551011/DataLabService
-GEMINI_API_KEY=<existing-jbg-gemini-key>
+GEMINI_API_KEY
 GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite
-GEMINI_WHEREGO_TIMEOUT_SECONDS=15
-GEMINI_WHEREGO_MAX_OUTPUT_TOKENS=640
-GEMINI_WHEREGO_HTTP_RETRIES=1
 WHEREGO_USAGE_LIMIT_ENABLED=true
-WHEREGO_IAP_10_CREDIT_SKU=<apps-in-toss-consumable-sku>
-APPS_IN_TOSS_MTLS_CERT_PEM=<multiline-client-certificate-pem>
-APPS_IN_TOSS_MTLS_KEY_PEM=<multiline-private-key-pem>
-APPS_IN_TOSS_MTLS_KEY_PASSWORD=<optional-private-key-password>
-WHEREGO_KTO_SEARCH_MAX_CALLS=4
-WHEREGO_KTO_SEARCH_ROWS=50
-WHEREGO_KTO_SEARCH_PARALLELISM=3
-WHEREGO_KTO_SEARCH_TIMEOUT_SECONDS=7
-WHEREGO_KTO_DATALAB_TIMEOUT_SECONDS=7
-WHEREGO_KTO_DATALAB_WINDOWS=2
-WHEREGO_KTO_DATALAB_LAG_DAYS=30
-WHEREGO_KTO_DATALAB_LOOKBACK_DAYS=14
-WHEREGO_KTO_DATALAB_ROWS=12000
-WHEREGO_KTO_DATALAB_FAILURE_CACHE_SECONDS=300
-WHEREGO_KTO_DETAIL_TIMEOUT_SECONDS=3
-WHEREGO_GEMINI_CANDIDATE_LIMIT=7
-WHEREGO_GEMINI_SCORE_WINDOW=24
-WHEREGO_KTO_CACHE_ENABLED=true
-WHEREGO_KTO_CACHE_MAX_ENTRIES=1024
-WHEREGO_KTO_SEARCH_CACHE_SECONDS=86400
-WHEREGO_KTO_DETAIL_CACHE_SECONDS=604800
-WHEREGO_KTO_DATALAB_CACHE_SECONDS=86400
-WHEREGO_KTO_DETAIL_IMAGE_ENABLED=false
-```
-
-Wherego recommendation QC also requires:
-
-```text
 WHEREGO_ANALYTICS_ENABLED=true
-WHEREGO_ANALYTICS_HMAC_SECRET=<long-random-secret>
+WHEREGO_ANALYTICS_HMAC_SECRET
+WHEREGO_IAP_10_CREDIT_SKU
+WHEREGO_LOGIN_IDENTITY_SECRET
+WHEREGO_LOGIN_UNLINK_BASIC_AUTH
+APPS_IN_TOSS_MTLS_CERT_PEM
+APPS_IN_TOSS_MTLS_KEY_PEM
+APPS_IN_TOSS_MTLS_KEY_PASSWORD
 ```
 
-The anonymous key is rehashed server-side, exact coordinates are not stored, and QC rows are retained for 90 days. Run reports from `C:\Users\ESOL\Documents\jbg`:
+조정 가능한 검색·지연·캐시 값은 JBG `apps/server/env/prod.example`을 단일 기준으로 삼는다. 실제 값이나 인증서를 이 문서에 복사하지 않는다.
+
+## 진입과 SDK 확인
+
+- 일반: `intoss://wherego`
+- 혜택: `intoss://wherego/promotion`
+- 프로모션 테스트 코드는 `TEST_01KXJHNBZ46JPHND9R3VH7S9TF`다. 전용 테스트 AIT에만 잠시 넣고 저장·출시 전 운영 코드로 복구한다.
+- 프로모션 서버 guard 예약 실패 시 SDK를 호출하지 않는다.
+- SDK 호출의 결과가 불명확한 rejection은 중복 위험 때문에 자동 재시도하지 않는다.
+- 명확히 해제 가능한 일시 오류만 결과 화면의 `다시 확인하기`를 노출한다.
+
+실기기 필수 시나리오:
+
+1. `/`에는 혜택 UI와 프로모션 SDK 호출이 없다.
+2. `/promotion` 최초 성공 결과에만 50원이 지급된다.
+3. 재진입, 결과 재렌더, 같은 사용자 재설치는 중복 지급되지 않는다.
+4. 기본 2회, 광고 +1 최대 2회, 공유 +3 하루 1회가 맞다.
+5. 구매 +10, 재시작 복원, 중복 주문, 환불 회수가 맞다.
+6. 결과 PNG 저장은 공유 API를 호출하지 않고 지도 버튼은 네이버지도를 연다.
+7. 모든 단계의 뒤로가기는 종료 확인창을 거친다.
+
+## 상품과 로그인
+
+- 상품: 소모성 `AI 여행지 추천 10회 이용권`
+- 화면 가격은 `IAP.getProductItemList()` 응답을 사용하고 하드코딩하지 않는다.
+- 로그인은 구매 시점에만 요청한다.
+- 서버가 Toss 주문 상태를 mTLS로 확인한 뒤 주문 ID 기준 한 번만 +10을 지급한다.
+- 상세 등록값은 `docs/IAP_PRODUCT_REGISTRATION.md`를 따른다.
+
+## 로컬 Android
+
+필요할 때만 Granite 개발 서버를 켠다.
 
 ```powershell
-$env:PYTHONPATH='apps/server'
-python -m backend.scripts.wherego_qc_report --hours 24
-python -m backend.scripts.wherego_qc_report --hours 168 --json
-```
-
-Quota/runtime behavior:
-
-- Search is capped by `WHEREGO_KTO_SEARCH_MAX_CALLS` per request.
-- The backend maps answers to three canonical destination intents, legal-district region codes, and intent-specific KTO content types. All three searches run concurrently with up to 50 rows each; a fourth call is used only when fewer than five candidates survive filtering.
-- KTO images are composited into saved cards only when `cpyrhtDivCd` allows modification (`Type1`), and the card displays the Korea Tourism Organization attribution.
-- DataLab checks one 14-day window about 30 days behind today and checks one earlier window only when the first is empty. Empty/error results are cached briefly so a DataLab outage does not repeat the same scan for every candidate.
-- Gemini final selection uses `thinkingLevel=minimal`, a compact JSON schema, 640 output tokens, and at most one retry. Check `source.model` and `source.timingsMs` before attributing total latency to Gemini.
-- The server builds the search plan from selected-answer metadata, not from a first Gemini planning call.
-- For `nationwide` scope, search calls omit `areaCode` so the call budget is spent across keywords.
-- `POST /api/wherego/candidates` evaluates all fetched KTO rows, filters invalid/expired results, clusters sub-facilities, caps the pool at 6 per intent, attaches DataLab crowd signals, then compresses to five through seven score-qualified, intent-diverse candidates and returns `aiUsed=false`.
-- If keyword candidates are empty and the user selected a maximum distance/time, the server spends the final call-budget slot on `locationBasedList2`. It keeps the original distance filter, caps the fallback radius at 20km, and never exceeds `WHEREGO_KTO_SEARCH_MAX_CALLS`.
-- `POST /api/wherego/recommend` accepts the prepared candidate set and reuses it so KTO search is not repeated. If no candidate set is supplied, it keeps the older all-in-one fallback path.
-- Gemini receives the thin candidate list plus merged tags/search hints/constraints and selects one final place only after the full-screen ad starts showing; failed or omitted ad events use the bounded fallback path.
-- The final selected place skips KTO detail calls when candidate metadata already has title, address, coordinates, and a Type1 image. Otherwise only `detailCommon2` runs with a hard three-second cap; failures fall back to candidate metadata and `detailIntro2` is not called.
-- A single KTO search timeout is skipped if other search calls return candidates.
-- `detailImage2` is disabled by default; use search/detail common image fields first.
-- KTO search responses are cached in server memory for 24 hours, detail responses for 7 days, and DataLab visitor rows for 24 hours.
-- The Apps in Toss client waits up to 45 seconds for the recommendation API. Timeout or API errors keep the user on the reward gate with `추천 다시 시도`; local demo data should not appear as the normal result after failure.
-
-Server route smoke checks:
-
-```powershell
-cd C:\Users\ESOL\Documents\jbg
-$env:PYTHONPATH='apps/server'
-python -m unittest apps.server.backend.tests.test_wherego_recommendation
-@'
-from backend.app.interfaces.http.app import app
-print(sorted(route.path for route in app.routes if 'wherego' in getattr(route, 'path', '')))
-'@ | python -
-```
-
-Render smoke check after `jbg` deploy:
-
-```powershell
-$body = @{
-  origin = @{ type='selected_region'; label='서울/수도권'; description='서울·경기·인천'; lat=37.5665; lng=126.978; areaCodes=@('1','31','2') }
-  answers = @(
-    @{ questionId='move_time_binary_01'; questionType='source'; question='오늘은 가볍게 갈까요, 멀리 제대로 갈까요?'; answer='가볍게 근교로'; caption='왕복 2시간 안쪽' },
-    @{ questionId='party_companion_01'; questionType='source'; question='누구랑 가는 여행이에요?'; answer='아이와 가족끼리'; caption='안전한 동선' },
-    @{ questionId='intent_landscape_01'; questionType='source'; question='오늘 끌리는 풍경은 어느 쪽이에요?'; answer='숲과 수목원'; caption='그늘과 산책' }
-  )
-  limit = 3
-} | ConvertTo-Json -Depth 8
-Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/recommend' -ContentType 'application/json' -Body $body -TimeoutSec 90
-```
-
-Expected: HTTP 200, `recommendedPlaces` has exactly one item, `source.planner` is `metadata`, and `source.curator` is `gemini` when the Gemini model env is valid. A recent successful smoke returned `서울어린이대공원` with an image URL. If `source.curator` returns `rules`, check `GEMINI_WHEREGO_MODEL` and the Gemini API key first. For the production app flow, call `/api/wherego/candidates` first and pass the returned `candidateSet` into `/api/wherego/recommend`; the direct `/recommend` smoke remains as a fallback-path check.
-
-## Question Bank And API Probe
-
-Validate script syntax:
-
-```powershell
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' --check scripts/probe-question-bank-result.cjs
-```
-
-Validate the server-owned question-bank shape:
-
-```powershell
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' -e "const fs=require('fs'); const bank=JSON.parse(fs.readFileSync('../jbg/apps/server/backend/app/resources/wherego/general-question-bank.json','utf8')); const counts=bank.tagGroups.map(g=>g.questions.length); const sourceCounts=bank.tagGroups.map(g=>new Set(g.questions.flatMap(q=>q.options.map(o=>o.sourceId))).size); console.log(JSON.stringify({tagGroups:bank.tagGroups.length,total:counts.reduce((a,b)=>a+b,0),min:Math.min(...counts),max:Math.max(...counts),sourceOptionMin:Math.min(...sourceCounts),sourceOptionMax:Math.max(...sourceCounts),requiredTagGroups:bank.runtimeSelection.requiredTagGroups,oneOfTagGroups:bank.runtimeSelection.oneOfTagGroups}));"
-```
-
-Run the real KTO API probe with a stable date override:
-
-```powershell
-$env:WHEREGO_PROBE_TODAY='2026-07-09'
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts/probe-question-bank-result.cjs
-Remove-Item Env:\WHEREGO_PROBE_TODAY
-```
-
-Optional origin override for the probe:
-
-```powershell
-$env:WHEREGO_CURRENT_LAT='37.5665'
-$env:WHEREGO_CURRENT_LNG='126.978'
-$env:WHEREGO_CURRENT_LABEL='서울시청 테스트 위치'
-$env:WHEREGO_SEARCH_AREA_CODES='1,31,2'
-```
-
-Optional required-answer override for the probe:
-
-```powershell
-$env:WHEREGO_REQUIRED_MOVE_ID='move_city_01'
-$env:WHEREGO_REQUIRED_MOVE_OPTION='D'
-$env:WHEREGO_REQUIRED_PARTY_ID='party_companion_binary_01'
-$env:WHEREGO_REQUIRED_PARTY_OPTION='B'
-$env:WHEREGO_REQUIRED_INTENT_ID='intent_nature_city_binary_01'
-$env:WHEREGO_REQUIRED_INTENT_OPTION='A'
-```
-
-## Question Flow Mockup
-
-Open the current card-only question-flow mockup:
-
-```text
-public/mockups/question-flow/index.html
-```
-
-The mockup uses:
-
-- current-location or selected-region origin choice
-- custom direct-region button and taller region cards to avoid Korean text clipping
-- required 3 source questions plus 4 general questions (`crowd`, mobility/accessibility, destination-specific, one additional group)
-- random general questions always include `crowd` and one of `mobility`/`accessibility`
-- two large cards for `select_2`, a 2x2 card grid for `select_4`
-- selected cards show a 1s loading state before the next question or full-screen-ad gate
-- fixed bottom banner ad during questions
-- full-screen-ad gate before the result card
-- recommendation loading appears after the full-screen-ad CTA while candidate preparation and final AI selection run
-- result card with tourism info, PNG card-download button, Naver Map open button, and home reset. The mock save flow downloads PNG only and does not open share.
-- result screen hides the top `어디고 / 추천 완료` header
-- live app requests the question set from `POST /api/wherego/questions` after origin selection; question copy and metadata are server-only, and the app stays on the origin screen with a retry message if the server is unavailable or returns an invalid 3+4 set
-- origin selection shows a question-set loading screen before the first question, keeps it for at least 2 seconds, and shows the banner ad during this loading screen
-- banner ads remount on `question-set-loading` and each `question-${questionIndex}` screen
-- option numbers are fixed circular badges so long Korean labels do not push or clip the number
-
-## Copy Review
-
-Use this JSON when another AI or a copy reviewer needs to inspect card wording without seeing credentials or implementation noise:
-
-```text
-docs/wherego-copy-review.json
-```
-
-It includes source-question cards, generated general-question cards, option label/caption previews, banned/risky expressions, and result-card Gemini copy constraints. Runtime changes belong in the JBG server resource files; update this review artifact separately when external copy review is needed.
-
-
-## Local Android Dev
-
-`yarn dev` runs on Metro/Granite port `8081`. For wireless Android testing:
-
-```powershell
-adb connect <device-ip>:<adb-port>
+Set-Location $wherego
+& $node .yarn\releases\yarn-4.9.1.cjs dev
+adb connect <device-ip>:<port>
 adb reverse tcp:8081 tcp:8081
-adb shell am start -a android.intent.action.VIEW -d "intoss://wherego"
+adb shell am start -a android.intent.action.VIEW -d 'intoss://wherego'
 ```
 
-React Native `0.84.0` uses newer Flow/TS-style syntax that Granite `1.0.20`/Metro dev could not parse on Windows. Keep the Yarn patches for `@granite-js/mpack`, `metro-react-native-babel-transformer`, and `react-native`; they are required for local sandbox bundling. The verified local bundle URL is:
+테스트가 끝나면 개발 서버를 종료한다. 배포 AIT 검증에는 로컬 Granite 서버가 필요하지 않다.
 
-```text
-http://127.0.0.1:8081/index.bundle?platform=android&dev=true&minify=false
-```
+## 저장
 
-Expected check: HTTP 200. If the phone screenshot is black, wake/unlock the device; this is not a bundle failure.
-
-## Deployment
-
-Vercel project link file:
-
-```text
-.vercel/project.json
-```
-
-Current Vercel project:
-
-```text
-joyai/wherego
-```
-
-Production alias:
-
-```text
-https://wherego-lake.vercel.app
-```
-
-Vercel scope:
-
-```text
-terms/privacy static pages only
-```
-
-Do not rely on Vercel for:
-
-```text
-Apps in Toss API server
-Apps in Toss brand icon
-Apps in Toss thumbnail
-```
-
-Submission URLs:
-
-```text
-https://wherego-lake.vercel.app/terms/service
-https://wherego-lake.vercel.app/terms/privacy
-```
-
-Note: the first CLI deploy created the Vercel project and deployed production, but GitHub repository auto-link failed. Connect GitHub auto-deploy from Vercel settings or use manual CLI deploys.
-
-## Save
-
-When the user says "저장", follow `SAVE_PROTOCOL.md`.
-
-Minimum checklist:
+사용자가 `저장`이라고 하면 `SAVE_PROTOCOL.md`를 따른다.
 
 ```powershell
 git status --short
 git diff --stat
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts/build-vercel-terms.cjs
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' --check scripts/probe-question-bank-result.cjs
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs typecheck
-& 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs build
+git diff --check
 git branch --show-current
 git remote -v
-git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/03_검증.md docs/06_운영.md pages/index.tsx pages/promotion.tsx src/WheregoApp.tsx src/api/wheregoApi.ts src/config.ts
-git commit -m "Save wherego handoff state"
-git push origin <branch>
+git add <검토한 파일만>
+git commit -m '<변경을 설명하는 메시지>'
+git push origin <현재 브랜치>
 ```
 
-Do not commit credentials, local caches, generated bundles, or `.vercel/output`.
+문서에는 최신 AIT deploymentId 하나와 최종 검증 결과만 남긴다. 비밀값, 생성물, 캐시, 원시 QC 데이터는 커밋하지 않는다.
