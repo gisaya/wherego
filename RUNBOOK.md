@@ -1,6 +1,6 @@
 # Wherego Runbook
 
-최종 갱신: 2026-07-15 KST
+최종 갱신: 2026-07-16 KST
 
 ## 경로와 런타임
 
@@ -76,9 +76,12 @@ Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/usage'
 
 ```powershell
 $env:PYTHONPATH='apps/server'
+python -m backend.scripts.wherego_qc_report --hours 6 --limit 5000 --json
 python -m backend.scripts.wherego_qc_report --hours 24 --limit 5000 --json
 python -m backend.scripts.wherego_qc_report --hours 168 --limit 10000 --json
 ```
+
+자동화는 6시간 리포트를 먼저 실행하고 표본이 10건 미만일 때만 24시간을 추가한다. 168시간 리포트는 월요일 첫 실행에서만 사용한다.
 
 원시 JSON에는 사용자 식별 정보가 포함될 수 있으므로 공유하거나 문서에 붙이지 않는다.
 
