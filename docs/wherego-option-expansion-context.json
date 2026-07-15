@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-12",
+  "version": "2026-07-15",
   "appName": "어디고",
   "purpose": "다른 AI가 현재 질문은행과 겹치지 않는 여행지 추천용 선택지 후보를 제안하도록 제공하는 검토 컨텍스트",
   "productPrinciple": "성격 테스트가 아니라 실제로 갈 관광지를 좁히는 질문이어야 한다.",
@@ -12,14 +12,7 @@
     "sourceQuestions": 3,
     "generalQuestions": 4,
     "sourceAxisRule": "movement_scope, party_constraints, destination_intent 축에서 각각 1개를 무작위 출제한다.",
-    "generalRule": "일반질문 실행 시 crowd 1개, mobility/accessibility 중 1개, 목적지 유형을 직접 가르는 질문 1개를 포함한다. 나머지 1개는 다른 tagGroup에서 뽑되 상호배타 테마와 선택된 원천질문 주제는 함께 출제하지 않는다.",
-    "requiredTagGroups": [
-      "crowd"
-    ],
-    "oneOfTagGroups": [
-      "mobility",
-      "accessibility"
-    ],
+    "generalRule": "일반질문 실행 시 crowd/mobility/accessibility 중 1개를 6:2:2 가중치로 선택하고, 서로 겹치지 않는 목적지 유형 질문 2개와 flavor 질문 1개를 포함한다. flavor는 검색과 하드 필터를 바꾸지 않고 비슷한 후보와 결과 문구에만 약하게 반영한다.",
     "mutuallyExclusiveTagGroups": [
       [
         "mobility",
@@ -100,6 +93,8 @@
     "allowedExistingConstraintKeys": [
       "activityLevel",
       "activityPreference",
+      "allowedLDongRegnCodes",
+      "allowedRegionPrefixes",
       "barrierFreeRequired",
       "constraintLevel",
       "contentPreference",
@@ -125,7 +120,7 @@
       "preferBabyFacility",
       "preferCrowd",
       "preferFlatWalk",
-      "preferredRegionGroup",
+      "regionPolicy",
       "regionScope",
       "restroomRequired",
       "slopeOk",
@@ -484,8 +479,8 @@
         {
           "id": "move_city_02",
           "type": "select_4",
-          "mode": "region_preference",
-          "question": "방향을 고른다면 어디 쪽이에요?",
+          "mode": "destination_region",
+          "question": "이번에는 어느 지역으로 갈까요?",
           "options": [
             {
               "key": "A",
@@ -495,7 +490,17 @@
                 "city_or_suburban"
               ],
               "constraints": {
-                "preferredRegionGroup": "capital_area"
+                "regionPolicy": "strict",
+                "allowedLDongRegnCodes": [
+                  "11",
+                  "41",
+                  "28"
+                ],
+                "allowedRegionPrefixes": [
+                  "서울",
+                  "경기",
+                  "인천"
+                ]
               },
               "searchHints": [
                 "서울",
@@ -512,7 +517,23 @@
                 "nature_drive"
               ],
               "constraints": {
-                "preferredRegionGroup": "central_area"
+                "regionPolicy": "strict",
+                "allowedLDongRegnCodes": [
+                  "51",
+                  "43",
+                  "44",
+                  "30",
+                  "36"
+                ],
+                "allowedRegionPrefixes": [
+                  "강원",
+                  "충북",
+                  "충청북",
+                  "충남",
+                  "충청남",
+                  "대전",
+                  "세종"
+                ]
               },
               "searchHints": [
                 "강원",
@@ -529,7 +550,31 @@
                 "food_culture"
               ],
               "constraints": {
-                "preferredRegionGroup": "southern_area"
+                "regionPolicy": "strict",
+                "allowedLDongRegnCodes": [
+                  "52",
+                  "46",
+                  "29",
+                  "47",
+                  "27",
+                  "48",
+                  "26",
+                  "31"
+                ],
+                "allowedRegionPrefixes": [
+                  "전북",
+                  "전라북",
+                  "전남",
+                  "전라남",
+                  "광주",
+                  "경북",
+                  "경상북",
+                  "대구",
+                  "경남",
+                  "경상남",
+                  "부산",
+                  "울산"
+                ]
               },
               "searchHints": [
                 "전라",
@@ -546,7 +591,13 @@
                 "special_trip"
               ],
               "constraints": {
-                "preferredRegionGroup": "island"
+                "regionPolicy": "strict",
+                "allowedLDongRegnCodes": [
+                  "50"
+                ],
+                "allowedRegionPrefixes": [
+                  "제주"
+                ]
               },
               "searchHints": [
                 "제주",

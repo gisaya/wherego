@@ -375,9 +375,9 @@
         {
           "id": "move_city_02",
           "type": "select_4",
-          "mode": "region_preference",
+          "mode": "destination_region",
           "eyebrow": "이동 범위",
-          "question": "방향을 고른다면 어디 쪽이에요?",
+          "question": "이번에는 어느 지역으로 갈까요?",
           "options": [
             {
               "key": "A",

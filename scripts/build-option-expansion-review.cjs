@@ -2,8 +2,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const sourcePath = path.join(root, 'data', 'source-question-blueprint.json');
-const generalPath = path.join(root, 'data', 'general-question-bank.json');
+const serverResourceRoot = process.env.WHEREGO_SERVER_RESOURCE_DIR
+  ? path.resolve(process.env.WHEREGO_SERVER_RESOURCE_DIR)
+  : path.resolve(root, '..', 'jbg', 'apps', 'server', 'backend', 'app', 'resources', 'wherego');
+const sourcePath = path.join(serverResourceRoot, 'source-question-blueprint.json');
+const generalPath = path.join(serverResourceRoot, 'general-question-bank.json');
 const outputPath = path.join(root, 'docs', 'wherego-option-expansion-context.json');
 
 const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
@@ -63,7 +66,7 @@ for (const group of general.tagGroups || []) {
 }
 
 const context = {
-  version: '2026-07-12',
+  version: source.version,
   appName: '어디고',
   purpose: '다른 AI가 현재 질문은행과 겹치지 않는 여행지 추천용 선택지 후보를 제안하도록 제공하는 검토 컨텍스트',
   productPrinciple: '성격 테스트가 아니라 실제로 갈 관광지를 좁히는 질문이어야 한다.',

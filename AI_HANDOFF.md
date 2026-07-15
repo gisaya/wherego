@@ -38,15 +38,17 @@ Granite/Apps in Toss build scaffold was added from the `뭐샀지` (`toss_tomato
 - `src/router.gen.ts`
 - `src/types/assets.d.ts`
 - `pages/index.tsx`
+- `pages/promotion.tsx`
+- `src/WheregoApp.tsx`
 - `pages/_404.tsx`
 - `scripts/ait-build.ps1`
 - `babel.config.js`, `tsconfig.json`, `react-native.config.js`
 
-Current app flow in `pages/index.tsx`:
+Current app flow in `src/WheregoApp.tsx`:
 
 - intro screen with 한국관광공사 관광정보 기반 copy and a start CTA; the top app logo is intentionally omitted from the first viewport, and the text block is lowered toward the vertical center instead of hugging the top
 - origin choice: current location via `useGeolocation` only after the user taps the current-location CTA, or direct region selection fallback. The direct region button is a custom `Pressable` to avoid clipped Korean text in Toss.
-- question flow: 3 required source questions plus 5 random general questions
+- question flow: 3 required source questions plus 4 random general questions
 - question-card taps now show the selected card and a short 1s loading state before advancing
 - Apps in Toss inline banner ad during questions
 - full-screen interstitial gate before result using Apps in Toss integrated ads; free public-data candidate preparation starts immediately after the final answer, while Gemini recommendation analysis starts only after `show`/`impression` (with `dismissed` fallback)
@@ -59,14 +61,14 @@ Full-screen ad:
 - production banner ad group ID: `ait.v2.live.67b07bf813d74267`
 - production rewarded ad group ID: `ait.v2.live.7f9040b7cff746c5`
 - contacts share-reward module ID: `1e6b212b-9093-4546-9991-99f478262910`
-- `pages/index.tsx` preloads the interstitial ad from the intro screen, before question banners mount, and preserves that loaded ad through origin/question transitions. The ad gate retries only when the earlier preload failed or timed out. The checked-in source uses only the live interstitial/banner IDs. A 15-second load timeout, retry state, synchronous error handling, and `[wherego:interstitial-ad]` lifecycle logs with `attempt`/`elapsedMs` prevent an indefinite loading state and expose real SDK latency. The CTA prepares free public-data candidates, `showFullScreenAd` displays the ad, and Gemini starts once on `show`/`impression`, with `dismissed` as a fallback.
-- Gemini starts behind the full-screen ad on `show`/`impression`, so KTO candidate completion and AI generation overlap the ad display time. After `dismissed`, `pages/index.tsx` shows a dedicated AI loading panel if the result is still pending. The panel shows `광고 확인 완료`, a spinner, and the steps `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택`.
-- `pages/index.tsx` renders the question-screen banner with `InlineAd`.
+- `src/WheregoApp.tsx` preloads the interstitial ad from the intro screen, before question banners mount, and preserves that loaded ad through origin/question transitions. The ad gate retries only when the earlier preload failed or timed out. The checked-in source uses only the live interstitial/banner IDs. A 15-second load timeout, retry state, synchronous error handling, and `[wherego:interstitial-ad]` lifecycle logs with `attempt`/`elapsedMs` prevent an indefinite loading state and expose real SDK latency. The CTA prepares free public-data candidates, `showFullScreenAd` displays the ad, and Gemini starts once on `show`/`impression`, with `dismissed` as a fallback.
+- Gemini starts behind the full-screen ad on `show`/`impression`, so KTO candidate completion and AI generation overlap the ad display time. After `dismissed`, `src/WheregoApp.tsx` shows a dedicated AI loading panel if the result is still pending. The panel shows `광고 확인 완료`, a spinner, and the steps `관광정보 후보 확인 / 방문자수 신호 비교 / AI 최종 장소 선택`.
+- `src/WheregoApp.tsx` renders the question-screen banner with `InlineAd`.
 - Non-Toss/local unsupported environments fall back to a development preview result path.
 
 Card save:
 
-- `pages/index.tsx` renders a hidden `react-native-svg` result card, captures it with `toDataURL`, and uses Apps in Toss `saveBase64Data` to save a 1080x1350 PNG result-card image.
+- `src/WheregoApp.tsx` renders a hidden `react-native-svg` result card, captures it with `toDataURL`, and uses Apps in Toss `saveBase64Data` to save a 1080x1350 PNG result-card image.
 - Minimum checked app support is Android `5.218.0` and iOS `5.216.0`. Older Toss app versions show a save-not-supported message; the app no longer opens the Apps in Toss `share` fallback from the save button.
 - The save output is PNG only. The hidden SVG card uses the system font instead of forcing Arial, and is kept transparently mounted in-bounds to reduce malformed image output risk. The current saved card uses a narrower centered card, a taller real KTO hero photo, a compact centered location row, extra line capacity for recommendation reason/AI selection copy, and no small bottom source note. Before submission, test on real Toss devices because `saveBase64Data` depends on native Toss app support.
 
@@ -176,7 +178,7 @@ Contact/privacy owner currently matches the `뭐샀지` documents:
 ## Current Question/API Work
 
 - Runtime question copy and metadata are server-only. The canonical files are `C:\Users\ESOL\Documents\jbg\apps\server\backend\app\resources\wherego\source-question-blueprint.json` and `general-question-bank.json`.
-- `data/source-question-blueprint.json` and `data/general-question-bank.json` remain historical review fixtures only; `pages/index.tsx` does not import or fall back to them.
+- `data/source-question-blueprint.json` and `data/general-question-bank.json` remain historical review fixtures only; `src/WheregoApp.tsx` does not import or fall back to them.
 - `docs/wherego-copy-review.json`: copy-only JSON for external AI review. It includes source-question copy, generated general-question copy, option label/caption previews, banned/risky expressions, and result-card Gemini copy rules. It intentionally excludes API keys and local credentials.
 - `data/question-bank-normalized.json`: normalized copy of the downloaded Gemini question candidate file.
 - `data/question-bank-additions.json`: curated additional question candidates and policy notes.
@@ -299,7 +301,7 @@ Latest save verification (2026-07-13 KST): the intro gallery no longer relies on
 
 Recommendation latency update (2026-07-13 KST): QC showed Gemini final selection at about 1.9 seconds while the final KTO detail call reached 6.9 seconds. JBG now skips KTO detail entirely when the selected candidate already has title, address, coordinates, and a Type1 image. Incomplete candidates use only `detailCommon2` with a hard three-second cap and fall back to candidate metadata on failure; `detailIntro2` is no longer called. Backend Wherego tests passed 56 cases. After Render deploy, verify complete candidates report near-zero `detailMs`.
 
-Result promotion update (2026-07-13 KST): the result screen now automatically calls the non-game Apps in Toss `grantPromotionReward` SDK with production promotion code `01KXDEWCPRY1FH6A4DEWB8282P` and amount 10. The screen displays immediate-payment, one-person/one-time, and early-termination notices and reports loading/success/already-granted/unsupported/error states. A successful reward key is stored under a promotion-code-specific Apps in Toss `Storage` key, while a session ref prevents duplicate calls during re-rendering. The earlier `TEST_` code is no longer present in release configuration. TypeScript, `git diff --check`, and Android/iOS AIT build passed with deploymentId `019f5b1c-f69c-7fae-9797-16cbb88a734d`. Real payment verification remains pending in a Toss app 5.232.0+ QR test. Local storage prevents normal repeat calls but cannot fully prevent app-data reset or multi-device abuse; strict production enforcement requires Toss login plus mTLS server-to-server promotion execution.
+Result promotion update (2026-07-13 KST): the result screen now automatically calls the non-game Apps in Toss `grantPromotionReward` SDK with amount 10. The screen displays immediate-payment, one-person/one-time, and early-termination notices and reports loading/success/already-granted/unsupported/error states. A successful reward key is stored under a promotion-code-specific Apps in Toss `Storage` key, while a session ref prevents duplicate calls during re-rendering. The `TEST_` code is not kept in release configuration. TypeScript, `git diff --check`, and Android/iOS AIT build passed with deploymentId `019f5b1c-f69c-7fae-9797-16cbb88a734d`. Real payment verification remains pending in a Toss app 5.232.0+ QR test. Local storage prevents normal repeat calls but cannot fully prevent app-data reset or multi-device abuse; strict production enforcement requires Toss login plus mTLS server-to-server promotion execution.
 
 Usage and IAP policy update (2026-07-14 KST): daily base recommendations remain three. A completed rewarded ad grants +1 up to three times per KST day, contacts sharing grants +3 once per day, and the consumable IAP product grants ten permanent paid credits. Daily credits are consumed before paid credits. Purchase login is requested only when the user taps the purchase CTA; a server-backed 24-hour Toss login session resolves the stable paid wallet, so reopening the app and logging in again restores remaining paid credits. The server verifies the Apps in Toss order over mTLS before granting, uses the order ID as the idempotency key, and reconciles verified refunds. Product name and price come from the SDK product query; the quota screen never hardcodes a price and remains usable when product lookup must be retried.
 
@@ -329,6 +331,16 @@ Quota policy build verification (2026-07-15 KST): all 85 JBG Wherego tests, fron
 
 Quota policy production rollout (2026-07-15 KST): Render serves JBG commit `c313bacda559f0a4a6b2b807f809c5485f2376df` with `ok=true`, Postgres, and no missing env. A production `/api/wherego/usage` smoke returned `baseDailyLimit=2`, `baseRemaining=2`, `adRewardsLimit=2`, and total `remaining=2` for a fresh anonymous identity.
 
+Promotion entry split (2026-07-15 KST): `intoss://wherego` is the standard app entry and does not execute or display the 10-won promotion. `intoss://wherego/promotion` is the benefit entry, starts with a dedicated Toss-benefit intro, and enables the existing result-time promotion grant and notice. The Apps in Toss benefit placement must use the `/promotion` URL.
+
+Promotion code renewal (2026-07-15 KST): the release configuration now uses production code `01KXJHNBZ46JPHND9R3VH7S9TF`. Test code `TEST_01KXJHNBZ46JPHND9R3VH7S9TF` is documented only in `RUNBOOK.md` and must be inserted temporarily for a dedicated QR test so it never remains in a submitted AIT.
+
+Explicit destination-region correction (2026-07-15 KST): region groups are no longer hardcoded in Python. Each source-question option owns `regionPolicy`, `allowedLDongRegnCodes`, and `allowedRegionPrefixes`; the server interprets `strict` as KTO search plus pre-Gemini code/address filtering and `prefer` as search priority only. When a group has more codes than the KTO call budget, the selected intent combination deterministically rotates the starting code so repeated question combinations remain cacheable without permanently excluding the latter regions. QC hydrates legacy records by matching their question ID and answer label against the same current question JSON. `제주/섬` therefore searches code `50` and rejects the earlier `대구수목원` mismatch, while QC reports `regionViolationCount` and `destination_region_violation` automatically.
+
+Startup routing correction (2026-07-15 KST): route files are now thin wrappers. `pages/index.tsx` and `pages/promotion.tsx` both import `src/WheregoApp.tsx`; promotion no longer imports the root page module. This removes a page-loader initialization cycle that could leave the uploaded app unable to open. TypeScript and the Android Metro bundle pass after the split.
+
+Startup fix build verification (2026-07-15 KST): TypeScript passed, direct Android Metro bundle generation returned HTTP 200, and Android/iOS AIT builds completed after the route split. The generated `wherego.ait` remains excluded from Git; deploymentId is `019f6559-ce3b-7f25-bb91-24eca6249210`. Upload this build before retesting the root and promotion entries.
+
 ## Operating Rules
 
 - For context efficiency, read `docs/README.md` first, then follow the listed current docs. Do not start from archive-style or generated output scans.
@@ -339,11 +351,11 @@ Quota policy production rollout (2026-07-15 KST): Render serves JBG commit `c313
 
 ## Next Recommended Steps
 
-1. Upload the latest AIT and relaunch the QR test: an exhausted guest must remain at zero after purchase login, then increase by exactly 10 only after a completed purchase.
+1. Upload the latest AIT and confirm both `intoss://wherego` and `intoss://wherego/promotion` open without a blank or error screen.
 2. Reopen the app with a stored Toss login session and confirm `/api/wherego/usage/link` keeps the same exhausted daily count instead of restoring the base three.
 3. Confirm the integrated purchase card shows the Console product image, description, and actual Toss price, then test app restart/login restore, duplicate-order retry, and refund reconciliation.
 4. Test a `pet_required` answer set and confirm every Gemini candidate and final destination is verified by `detailPetTour2`; also test strict minimum-distance filtering.
 5. Confirm the result promotion pays once, and revisiting the result or reinstalling the app is rejected by the server attempt guard.
 6. Run the complete device flow: server questions, banner/interstitial ads, Gemini loading, result rendering, PNG save without a share sheet, Naver Map open, and back-exit confirmation.
 7. Review daily and Monday QC reports after at least 10 successful production samples before changing recommendation thresholds.
-8. Add a hard target-region constraint for explicit choices such as `제주/섬`, then replay the QC sample that incorrectly selected a place in the origin region.
+8. Register and QR-test both `intoss://wherego` and `intoss://wherego/promotion`; confirm only the benefit route shows and executes the 10-won promotion.

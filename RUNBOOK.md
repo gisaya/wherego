@@ -103,6 +103,8 @@ Main app files:
 ```text
 granite.config.ts
 pages/index.tsx
+pages/promotion.tsx
+src/WheregoApp.tsx
 src/_app.tsx
 scripts/ait-build.ps1
 ```
@@ -132,18 +134,18 @@ production banner ad group ID: ait.v2.live.67b07bf813d74267
 contacts share-reward module ID: 1e6b212b-9093-4546-9991-99f478262910
 ```
 
-`pages/index.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts on the banner-free intro screen and the loaded ad is preserved across origin/question transitions; the ad gate loads again only if the earlier request failed or timed out. `showFullScreenAd` runs on the ad CTA, and `show`/`impression` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
+`src/WheregoApp.tsx` uses the Apps in Toss integrated ad API. `loadFullScreenAd` starts on the banner-free intro screen and the loaded ad is preserved across origin/question transitions; the ad gate loads again only if the earlier request failed or timed out. `showFullScreenAd` runs on the ad CTA, and `show`/`impression` plus successful Gemini recommendation completion opens the result screen. The release source uses only the live ad group IDs below.
 - The full-screen-ad CTA starts only `POST /api/wherego/candidates`, which uses free KTO/DataLab calls. Gemini is called later through `POST /api/wherego/recommend` only after `show`/`impression`; `dismissed` is a fallback if the native display event was omitted.
 - Every free, rewarded-ad, and contacts-share recommendation uses the result interstitial gate. A recommendation funded by a paid AI recommendation pass skips the result interstitial.
 - Daily usage is KST-based: base 2, rewarded ad +1 up to 2/day, contacts share +3 once/day. Paid recommendation passes do not expire at midnight. Candidate preparation reserves a credit; failures refund it; abandoned reservations expire after 30 minutes.
 - Rewarded-ad credits are granted only on `userEarnedReward`. Contacts sharing requires Toss app 5.223.0+.
 - After `/api/wherego/usage/reward` confirms the grant, return to the intro screen and show the updated remaining count. Do not navigate away on ad dismissal or grant failure.
-- `useBackEvent` must remain registered on the single-route app. Back from every step shows an exit confirmation, `계속하기` keeps the current screen, and only `나가기` calls `closeView`.
+- `useBackEvent` must remain registered in the shared app component used by both entry routes. Back from every step shows an exit confirmation, `계속하기` keeps the current screen, and only `나가기` calls `closeView`.
 - Interstitial loading has a 15-second timeout and retry state. Lifecycle logs use the `[wherego:interstitial-ad]` prefix and include `attempt` and `elapsedMs`. If an Android test stalls, inspect these logs for `load requested`, `loaded`, timeout/error, and `show event` in order.
 - Gemini starts on the interstitial `show`/`impression` event while the full-screen ad is visible. After `dismissed`, the app shows a dedicated AI loading panel with spinner and staged text only while Gemini is still pending.
 - The AI loading screen and result screen each render their own bottom `InlineAd`. These banners mount only after the full-screen ad is dismissed and use separate keys so the two screens do not share a stale banner instance.
 
-During questions, `pages/index.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
+During questions, `src/WheregoApp.tsx` renders Apps in Toss `InlineAd` with the production banner ad group ID.
 
 ## In-App Purchase
 
@@ -200,15 +202,22 @@ Ads guideline notes:
 Result promotion:
 
 ```text
-production promotion code: 01KXDEWCPRY1FH6A4DEWB8282P
+test promotion code: TEST_01KXJHNBZ46JPHND9R3VH7S9TF
+production promotion code: 01KXJHNBZ46JPHND9R3VH7S9TF
 reward amount: 10 won
 minimum Toss app version: 5.232.0
+general entry: intoss://wherego
+benefit entry: intoss://wherego/promotion
 ```
 
-- `src/promotion/resultPromotion.ts` calls non-game `grantPromotionReward` when a successful recommendation result first opens.
+- The general entry keeps the standard AI destination intro and never calls the promotion SDK or renders promotion copy.
+- The benefit entry opens a dedicated `토스 혜택 전용` intro. Only this route calls `grantPromotionReward` when a successful recommendation result first opens.
+- Register `intoss://wherego/promotion` as the Apps in Toss benefit/promotion entry URL; do not register the root URL for that placement.
+- `src/promotion/resultPromotion.ts` contains the shared non-game promotion grant and duplicate-guard implementation.
 - A promotion-code-specific `Storage` value, an in-session ref, and `/api/wherego/promotion/attempt` prevent normal duplicate calls. The server atomically reserves `(anonymous user hash, promotion code)` before the SDK opens Toss's confirmation screen.
 - The result screen must retain the immediate-payment, one-person/one-time, and possible-early-termination notices.
 - Validate production only through an uploaded AIT and Toss app QR test; the sandbox cannot complete promotion testing.
+- Never keep the `TEST_` code in a release build. For a dedicated QR test, temporarily replace the production code in `src/config.ts`, build the test AIT, then restore the production code before saving or submitting.
 - Confirm the first result returns success and Toss shows the payment toast/history. Reopening or rerendering the result must not create a second grant.
 - The anonymous-key server guard survives app-data reset and normal rebuilds, but the client SDK flow is not a tamper-proof payment boundary. For strict monetary abuse prevention, use Toss login and the mTLS server-to-server promotion APIs before increasing campaign exposure or budget.
 
@@ -225,7 +234,9 @@ Client files:
 ```text
 src/config.ts
 src/api/wheregoApi.ts
+src/WheregoApp.tsx
 pages/index.tsx
+pages/promotion.tsx
 ```
 
 Server files in `C:\Users\ESOL\Documents\jbg`:
@@ -508,7 +519,7 @@ git diff --stat
 & 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' .yarn\releases\yarn-4.9.1.cjs build
 git branch --show-current
 git remote -v
-git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/03_검증.md docs/06_운영.md pages/index.tsx src/api/wheregoApi.ts src/config.ts
+git add AI_HANDOFF.md RUNBOOK.md docs/00_LLM_HANDOFF.md docs/03_검증.md docs/06_운영.md pages/index.tsx pages/promotion.tsx src/WheregoApp.tsx src/api/wheregoApi.ts src/config.ts
 git commit -m "Save wherego handoff state"
 git push origin <branch>
 ```

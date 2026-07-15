@@ -25,7 +25,7 @@
 - 실제 Apps in Toss 앱 구현은 Granite React Native 기준이다. 메인 앱은 TDS Provider로 감싸고 TDS `Text`/`Button`을 사용한다. 선택/지역 카드는 React Native `Pressable` 기반 고정 크기 카드다. 제출 전 실기기 시각 검수는 아직 필요하다.
 - 질문은 필수 3개 + 일반 4개, 총 7개 구조로 간다. 일반 질문은 `crowd`를 우선하고 `mobility`/`accessibility` 중 1개, 목적지 유형 질문 1개, 겹치지 않는 추가 태그 그룹을 포함한다. 중복 방지는 이전 세트가 아니라 현재 한 세트 안에서 적용한다.
 - 위치 필터는 현재 위치 또는 사용자가 선택한 출발지를 기준으로 한다. MVP에서는 직선거리 x 1.35, 평균 45km/h, 15분 주행시간 버퍼, 10km 거리 버퍼로 이동 조건을 추정한다.
-- 거리/지역 제약은 `max*`뿐 아니라 `min*`, `regionScope`, `preferredRegionGroup`, `stayType`까지 추천 프로브에서 해석한다.
+- 거리/지역 제약은 `max*`뿐 아니라 `min*`, `regionScope`, `regionPolicy`, `allowedLDongRegnCodes`, `allowedRegionPrefixes`, `stayType`까지 서버가 해석한다.
 
 ## 현재 구현 상태
 
@@ -39,6 +39,8 @@
   - `index.ts`
   - `require.context.ts`
   - `pages/index.tsx`
+  - `pages/promotion.tsx`
+  - `src/WheregoApp.tsx`
   - `pages/_404.tsx`
   - `src/_app.tsx`
   - `src/router.gen.ts`
@@ -92,8 +94,9 @@
   - 위치 기준 선택, 원천 3개 + 일반 4개 랜덤 질문, 광고 게이트, 결과 카드까지 포함한다.
   - 이미지 없이 카드만 사용한다.
   - 2지선다는 큰 카드 2장, 4지선다는 2x2 카드 4장으로 보여준다.
-- 첫 Granite 앱 화면:
-  - `pages/index.tsx`
+- 실제 앱 화면 구현:
+  - `src/WheregoApp.tsx`
+  - `pages/index.tsx`, `pages/promotion.tsx`는 일반/혜택 진입용 얇은 라우트다.
   - 현재 위치 또는 지역 선택 fallback
   - `지역 직접 선택` 버튼은 TDS Button 대신 커스텀 `Pressable`을 써서 토스 화면에서 한글이 잘리지 않게 했다.
   - 현재 위치 권한은 첫 진입 즉시가 아니라 `현재 위치로 추천` 버튼을 누른 뒤에만 요청
@@ -157,9 +160,13 @@
   - 2026-07-13 KST 첫 화면 개편: 한국관광공사 데이터 기반 AI 추천을 전면에 두고, 국내 바다·숲길·한옥 문화공간을 담은 실사형 정적 사진 3장을 첫 화면 갤러리에 추가했다. 사진은 각각 720x720 JPEG로 앱 번들에 포함해 외부 네트워크 없이 표시한다. `yarn typecheck`, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f59f9-8854-7a53-ba01-938d4bafb3cb`이다.
   - 2026-07-13 KST 첫 화면 사진 호환성 보완: 앱 테스트에서 정적 JPEG 모듈이 빈 영역으로 보이는 문제를 피하려고 3개 사진을 480x480 baseline JPEG Base64 data URI로 번들에 직접 포함했다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5a1b-d7d8-7ef7-a861-6003cf5b63ad`이다. AIT 번들에 data URI 3개가 포함된 것을 확인했으며 실기기 화면 확인은 남아 있다.
   - 2026-07-13 KST 추천 지연 보완: 운영 성공 5건에서 Gemini 선택은 중앙값 1867ms였고 KTO 최종 상세는 최대 6903ms였다. JBG는 최종 후보 메타데이터와 Type1 이미지가 완전하면 상세 조회를 생략하고, 부족할 때만 `detailCommon2`를 최대 3초 호출한 뒤 후보 데이터로 fallback한다. `detailIntro2`는 제거했고 백엔드 Wherego 테스트 56개가 통과했다. Render 배포 후 `detailMs`를 재확인한다.
-  - 2026-07-13 KST 결과 프로모션 운영 전환: 결과 화면 진입 시 비게임 `grantPromotionReward`로 토스 포인트 10원을 자동 지급하도록 운영 코드 `01KXDEWCPRY1FH6A4DEWB8282P`를 연결했다. 프로모션 코드별 Apps in Toss 저장소와 추천 세션 ref로 일반적인 중복 호출을 막고, 즉시 지급·1인 1회·사전 중단 가능 문구와 상태 UI를 추가했다. 출시 설정에는 `TEST_` 코드가 남아 있지 않다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5b1c-f69c-7fae-9797-16cbb88a734d`이다. 토스앱 5.232.0+ QR에서 실제 1회 지급과 재진입 무지급을 확인해야 하며, 앱 데이터 초기화·다중 기기까지 막으려면 토스 로그인+mTLS 서버 지급이 필요하다.
+  - 2026-07-13 KST 결과 프로모션 운영 전환: 결과 화면 진입 시 비게임 `grantPromotionReward`로 토스 포인트 10원을 자동 지급한다. 프로모션 코드별 Apps in Toss 저장소와 추천 세션 ref로 일반적인 중복 호출을 막고, 즉시 지급·1인 1회·사전 중단 가능 문구와 상태 UI를 추가했다. 출시 설정에는 `TEST_` 코드가 남아 있지 않다. TypeScript, `git diff --check`, AIT Android/iOS build가 통과했고 deploymentId는 `019f5b1c-f69c-7fae-9797-16cbb88a734d`이다. 토스앱 5.232.0+ QR에서 실제 1회 지급과 재진입 무지급을 확인해야 하며, 앱 데이터 초기화·다중 기기까지 막으려면 토스 로그인+mTLS 서버 지급이 필요하다.
   - 2026-07-14 KST 사용량/IAP 보완: 광고 충전은 하루 최대 3회로 낮췄고, 일일 크레딧 뒤에만 차감되는 영구 유료 10회권을 추가했다. 구매 시점 로그인, 서버 세션 복원, SDK 상품 조회, mTLS 주문 검증, 주문 멱등 지급, 환불 회수와 프로모션 서버 중복 예약을 구현했다. Wherego 76개와 기존 JBG 131개 회귀 테스트 및 Python 컴파일이 통과했다.
   - 2026-07-15 KST 횟수 정책 변경: 기본 추천 2회/일, 광고 +1 최대 2회/일로 조정했다. 공유 +3 하루 1회와 유료 10회권은 유지한다. JBG Wherego 85개 테스트, TypeScript, Android/iOS AIT 빌드가 통과했고 deploymentId는 `019f64bc-3f58-761e-9688-593431e23681`이다.
+  - 2026-07-15 KST 프로모션 진입 분리: 일반 `intoss://wherego`는 프로모션 문구·SDK를 사용하지 않는다. 혜택용 `intoss://wherego/promotion`만 전용 첫 화면을 보여주고 추천 결과에서 10원 지급을 실행한다. 앱인토스 혜택 등록 URL은 반드시 `/promotion` 경로를 사용한다.
+  - 2026-07-15 KST 프로모션 코드 갱신: 출시 설정은 새 운영 코드 `01KXJHNBZ46JPHND9R3VH7S9TF`를 사용한다. 테스트 코드 `TEST_01KXJHNBZ46JPHND9R3VH7S9TF`는 RUNBOOK에만 기록하며, 전용 QR 테스트 빌드에서만 일시 교체한 뒤 운영 코드로 복구한다.
+  - 2026-07-15 KST 명시 지역 보완: 지역 묶음을 Python에 하드코딩하지 않고 서버 질문 JSON의 `regionPolicy`, `allowedLDongRegnCodes`, `allowedRegionPrefixes`로 관리한다. 현재 네 지역 선택지는 `strict`라서 KTO 검색과 Gemini 전 후보를 함께 제한하며, `prefer` 정책은 검색 우선순위만 바꾼다. 대구 출발에서 `제주/섬`을 선택해도 제주 코드 `50`만 검색하고 비제주 후보는 Gemini 전에 제거한다.
+  - 2026-07-15 KST 앱 시작 오류 보완: `pages/promotion.tsx`가 루트 페이지 모듈을 직접 불러 페이지 자동 로더 초기화 순환을 만들 수 있던 구조를 제거했다. 실제 UI는 `src/WheregoApp.tsx`로 이동하고 두 페이지는 얇은 라우트만 담당한다. TypeScript, Android Metro 번들 HTTP 200, Android/iOS AIT 빌드가 통과했고 deploymentId는 `019f6559-ce3b-7f25-bb91-24eca6249210`이다.
   - 2026-07-14 KST 저장 검증: 약관 정적 빌드, 질문 프로브 문법, TypeScript, Android/iOS AIT 빌드가 오류·경고 없이 통과했다. `wherego.ait` deploymentId는 `019f5f7e-dbeb-7a36-a155-f3b0f5a1f3dd`이며 산출물은 Git에서 제외한다.
   - 2026-07-14 KST 서버 선배포 확인: Render 커밋 `180f278fb020b2b37a42faf423ce13ff717406a8`에서 health/Postgres와 7문항 원천3+일반4 응답이 정상이었다. IAP 상품 API는 HTTP 200이지만 `enabled=false`, 상품 0개라서 콘솔 SKU와 Render mTLS/로그인 환경변수 구성을 마친 뒤 구매 QR 테스트를 진행한다.
   - 2026-07-14 KST 최종 배포 확인: Render는 최종 문서 커밋 `7b28f54aff9dd77f4399e60101462020f79de370`에서 정상이고, Vercel production `dpl_BrqJWdVJLVPnFT4Z7eeUqbd2Vjcg`가 READY다. `https://wherego-lake.vercel.app`의 루트·서비스 약관·개인정보 처리방침은 모두 HTTP 200이다.
