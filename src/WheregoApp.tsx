@@ -1904,8 +1904,11 @@ function IntroScreen({
   onStart: () => void;
   usage: WheregoUsage | null;
 }) {
+  const quotaExhausted = usage?.limitEnabled === true && usage.remaining <= 0;
   const usageLabel = usage?.limitEnabled
-    ? usagePaidCredits(usage) > 0
+    ? quotaExhausted
+      ? '추천 횟수를 모두 사용했어요'
+      : usagePaidCredits(usage) > 0
       ? `오늘 무료 ${usageDailyRemaining(usage)}회 · 이용권 ${usagePaidCredits(usage)}회`
       : `오늘 ${usageDailyRemaining(usage)}번 더 찾을 수 있어요`
     : loading
@@ -1943,7 +1946,7 @@ function IntroScreen({
       <View style={styles.introActions}>
         <PrimaryButton
           disabled={loading}
-          label={loading ? 'AI 추천 준비 중' : 'AI 추천 시작하기'}
+          label={loading ? 'AI 추천 준비 중' : quotaExhausted ? '이용권 충전하기' : 'AI 추천 시작하기'}
           loading={loading}
           onPress={onStart}
         />
@@ -1963,8 +1966,11 @@ function PromotionIntroScreen({
   onStart: () => void;
   usage: WheregoUsage | null;
 }) {
+  const quotaExhausted = usage?.limitEnabled === true && usage.remaining <= 0;
   const usageLabel = usage?.limitEnabled
-    ? usagePaidCredits(usage) > 0
+    ? quotaExhausted
+      ? '추천 횟수를 모두 사용했어요'
+      : usagePaidCredits(usage) > 0
       ? `오늘 무료 ${usageDailyRemaining(usage)}회 · 이용권 ${usagePaidCredits(usage)}회`
       : `오늘 ${usageDailyRemaining(usage)}번 더 찾을 수 있어요`
     : loading
@@ -2011,7 +2017,9 @@ function PromotionIntroScreen({
       <View style={styles.introActions}>
         <PrimaryButton
           disabled={loading}
-          label={loading ? '혜택 참여 준비 중' : '혜택 받고 추천 시작하기'}
+          label={
+            loading ? '혜택 참여 준비 중' : quotaExhausted ? '이용권 충전하기' : '혜택 받고 추천 시작하기'
+          }
           loading={loading}
           onPress={onStart}
         />
