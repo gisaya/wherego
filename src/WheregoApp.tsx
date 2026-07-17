@@ -504,6 +504,12 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
   const supportsShareReward =
     Boolean(WHEREGO_SHARE_REWARD_MODULE_ID) &&
     isMinVersionSupported({ android: '5.223.0', ios: '5.223.0' });
+  const isIntroQuotaExhausted =
+    step === 'intro' && usage?.limitEnabled === true && usage.remaining <= 0;
+  const shouldPrepareQuotaRecharge = step === 'quota' || isIntroQuotaExhausted;
+  const introMessage = isIntroQuotaExhausted
+    ? quotaRewardMessage || iapMessage || usageMessage
+    : usageMessage;
   const shouldShowBannerAd =
     step === 'question' ||
     (step === 'origin' && isQuestionSetLoading) ||
@@ -605,14 +611,14 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
   }, [hasRewardAccess, willUsePaidCredit]);
 
   useEffect(() => {
-    if (step !== 'quota' || quotaAdLoadedRef.current || quotaAdStatus !== 'idle') {
+    if (!shouldPrepareQuotaRecharge || quotaAdLoadedRef.current || quotaAdStatus !== 'idle') {
       return;
     }
     loadQuotaRewardAd();
-  }, [quotaAdStatus, step]);
+  }, [quotaAdStatus, shouldPrepareQuotaRecharge]);
 
   useEffect(() => {
-    if (step === 'quota') {
+    if (shouldPrepareQuotaRecharge) {
       clearRewardAdLoadTimer();
       clearRewardAdShowTimer();
       rewardAdUnregisterRef.current?.();
@@ -627,7 +633,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     quotaAdUnregisterRef.current = null;
     quotaAdLoadedRef.current = false;
     setQuotaAdStatus('idle');
-  }, [step]);
+  }, [shouldPrepareQuotaRecharge]);
 
   useEffect(() => {
     if (step !== 'quota' || iapLoadAttemptedRef.current || isIapLoading) {
@@ -1066,10 +1072,14 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
       return;
     }
     if (usage?.limitEnabled && usage.remaining <= 0) {
-      setStep('quota');
+      openQuota();
       return;
     }
     setStep('origin');
+  }
+
+  function openQuota() {
+    setStep('quota');
   }
 
   function showExitConfirmation() {
@@ -1447,7 +1457,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
         if (error instanceof WheregoApiError && error.code === 'wherego_daily_limit_reached') {
           quotaExceededRef.current = true;
           setUsageMessage(error.message);
-          setStep('quota');
+          openQuota();
         }
         return null;
       });
@@ -1730,7 +1740,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
       }
       if (error instanceof WheregoApiError && error.code === 'wherego_daily_limit_reached') {
         setUsageMessage(error.message);
-        setStep('quota');
+        openQuota();
         return;
       }
       setRewardAdMessage(`추천을 완료하지 못했어요. ${toErrorMessage(error)}`);
@@ -1771,16 +1781,30 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
             {step === 'intro' ? (
               entryMode === 'promotion' ? (
                 <PromotionIntroScreen
+                  adStatus={quotaAdStatus}
+                  granting={isRewardGranting}
+                  iapLoading={isIapLoading}
+                  iapPurchasing={isIapPurchasing}
                   loading={isUsageLoading}
-                  message={usageMessage}
+                  message={introMessage}
+                  onPurchase={purchaseIapProduct}
+                  onRechargeWithAd={showQuotaRewardAd}
                   onStart={startFromIntro}
+                  tossLoginLoading={isTossLoginLoading}
                   usage={usage}
                 />
               ) : (
                 <IntroScreen
+                  adStatus={quotaAdStatus}
+                  granting={isRewardGranting}
+                  iapLoading={isIapLoading}
+                  iapPurchasing={isIapPurchasing}
                   loading={isUsageLoading}
-                  message={usageMessage}
+                  message={introMessage}
+                  onPurchase={purchaseIapProduct}
+                  onRechargeWithAd={showQuotaRewardAd}
                   onStart={startFromIntro}
+                  tossLoginLoading={isTossLoginLoading}
                   usage={usage}
                 />
               )
@@ -1893,18 +1917,57 @@ function Header({ counter }: { counter: string }) {
   );
 }
 
+function rechargeAdButtonLabel(
+  status: RewardAdStatus,
+  limitReached: boolean,
+  granting: boolean,
+) {
+  if (limitReached) return '오늘 광고 충전 완료';
+  if (granting) return '추천 횟수 반영 중';
+  if (status === 'unsupported') return '토스 앱에서 광고 충전';
+  if (status === 'idle' || status === 'loading') return '광고 준비 중';
+  if (status === 'showing') return '광고 시청 중';
+  if (status === 'error') return '광고 다시 준비하기';
+  return '광고 보고 1회 받기';
+}
+
 function IntroScreen({
+  adStatus,
+  granting,
+  iapLoading,
+  iapPurchasing,
   loading,
   message,
+  onPurchase,
+  onRechargeWithAd,
   onStart,
+  tossLoginLoading,
   usage,
 }: {
+  adStatus: RewardAdStatus;
+  granting: boolean;
+  iapLoading: boolean;
+  iapPurchasing: boolean;
   loading: boolean;
   message: string;
+  onPurchase: () => void;
+  onRechargeWithAd: () => void;
   onStart: () => void;
+  tossLoginLoading: boolean;
   usage: WheregoUsage | null;
 }) {
   const quotaExhausted = usage?.limitEnabled === true && usage.remaining <= 0;
+  const adLimitReached = usage != null && usage.adRewardsUsed >= usage.adRewardsLimit;
+  const adBusy = adStatus === 'idle' || adStatus === 'loading' || adStatus === 'showing' || granting;
+  const purchaseBusy = iapLoading || iapPurchasing || tossLoginLoading || granting;
+  const adButtonLabel = rechargeAdButtonLabel(adStatus, adLimitReached, granting);
+  const purchaseButtonLabel = iapPurchasing
+    ? '결제 확인 중'
+    : tossLoginLoading
+      ? '토스 로그인 중'
+      : iapLoading
+        ? '이용권 준비 중'
+        : '10회 이용권 구매하기';
   const usageLabel = usage?.limitEnabled
     ? quotaExhausted
       ? '추천 횟수를 모두 사용했어요'
@@ -1944,29 +2007,71 @@ function IntroScreen({
         {message ? <Text style={styles.usageMessage}>{message}</Text> : null}
       </View>
       <View style={styles.introActions}>
-        <PrimaryButton
-          disabled={loading}
-          label={loading ? 'AI 추천 준비 중' : quotaExhausted ? '이용권 충전하기' : 'AI 추천 시작하기'}
-          loading={loading}
-          onPress={onStart}
-        />
+        {quotaExhausted ? (
+          <>
+            <PrimaryButton
+              disabled={adLimitReached || adStatus === 'unsupported' || adBusy}
+              label={adButtonLabel}
+              loading={adBusy}
+              onPress={onRechargeWithAd}
+            />
+            <SecondaryButton
+              disabled={purchaseBusy}
+              label={purchaseButtonLabel}
+              loading={purchaseBusy}
+              onPress={onPurchase}
+            />
+          </>
+        ) : (
+          <PrimaryButton
+            disabled={loading}
+            label={loading ? 'AI 추천 준비 중' : 'AI 추천 시작하기'}
+            loading={loading}
+            onPress={onStart}
+          />
+        )}
       </View>
     </View>
   );
 }
 
 function PromotionIntroScreen({
+  adStatus,
+  granting,
+  iapLoading,
+  iapPurchasing,
   loading,
   message,
+  onPurchase,
+  onRechargeWithAd,
   onStart,
+  tossLoginLoading,
   usage,
 }: {
+  adStatus: RewardAdStatus;
+  granting: boolean;
+  iapLoading: boolean;
+  iapPurchasing: boolean;
   loading: boolean;
   message: string;
+  onPurchase: () => void;
+  onRechargeWithAd: () => void;
   onStart: () => void;
+  tossLoginLoading: boolean;
   usage: WheregoUsage | null;
 }) {
   const quotaExhausted = usage?.limitEnabled === true && usage.remaining <= 0;
+  const adLimitReached = usage != null && usage.adRewardsUsed >= usage.adRewardsLimit;
+  const adBusy = adStatus === 'idle' || adStatus === 'loading' || adStatus === 'showing' || granting;
+  const purchaseBusy = iapLoading || iapPurchasing || tossLoginLoading || granting;
+  const adButtonLabel = rechargeAdButtonLabel(adStatus, adLimitReached, granting);
+  const purchaseButtonLabel = iapPurchasing
+    ? '결제 확인 중'
+    : tossLoginLoading
+      ? '토스 로그인 중'
+      : iapLoading
+        ? '이용권 준비 중'
+        : '10회 이용권 구매하기';
   const usageLabel = usage?.limitEnabled
     ? quotaExhausted
       ? '추천 횟수를 모두 사용했어요'
@@ -2015,14 +2120,29 @@ function PromotionIntroScreen({
         {message ? <Text style={styles.usageMessage}>{message}</Text> : null}
       </View>
       <View style={styles.introActions}>
-        <PrimaryButton
-          disabled={loading}
-          label={
-            loading ? '혜택 참여 준비 중' : quotaExhausted ? '이용권 충전하기' : '혜택 받고 추천 시작하기'
-          }
-          loading={loading}
-          onPress={onStart}
-        />
+        {quotaExhausted ? (
+          <>
+            <PrimaryButton
+              disabled={adLimitReached || adStatus === 'unsupported' || adBusy}
+              label={adButtonLabel}
+              loading={adBusy}
+              onPress={onRechargeWithAd}
+            />
+            <SecondaryButton
+              disabled={purchaseBusy}
+              label={purchaseButtonLabel}
+              loading={purchaseBusy}
+              onPress={onPurchase}
+            />
+          </>
+        ) : (
+          <PrimaryButton
+            disabled={loading}
+            label={loading ? '혜택 참여 준비 중' : '혜택 받고 추천 시작하기'}
+            loading={loading}
+            onPress={onStart}
+          />
+        )}
       </View>
     </View>
   );
@@ -2470,18 +2590,18 @@ function RewardGate({
       ? 'AI가 맞춤 여행지를 고르고 있어요.'
       : paidCreditNext
         ? '광고 없이 맞춤 여행지를 추천해드려요.'
-        : '광고를 보면 맞춤 여행지를 추천해드려요.';
+        : '짧은 광고 후 맞춤 여행지를 추천해드려요.';
   const copy = isRecommendationError
     ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
     : isRecommendationDone
-    ? '광고가 끝나면 추천 카드와 지도 연결을 바로 열어드릴게요.'
+    ? '짧은 광고가 끝나면 추천 카드와 지도 연결을 바로 열어드릴게요.'
     : isAdLoading
       ? '광고를 불러오는 동안에도 버튼은 유지됩니다. 준비가 끝나면 바로 시청할 수 있어요.'
     : hasStartedRecommendation
       ? '한국관광공사 관광정보와 방문자수 데이터를 비교해 결과 카드를 만들고 있어요.'
       : paidCreditNext
         ? '보유한 AI 추천 이용권 1회를 사용해 바로 추천 카드를 만들어요.'
-        : '전면 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
+        : '짧은 광고를 확인하면 AI가 관광정보와 방문자수 데이터를 비교해 추천 카드를 만들어요.';
 
   return (
     <View style={styles.centerScreen}>
@@ -2494,7 +2614,7 @@ function RewardGate({
             <ActivityIndicator color="#2B84FC" size="small" />
             <Text style={styles.loadingText}>
               {isAdLoading
-                ? '전면 광고를 준비하고 있어요.'
+                ? '짧은 광고를 준비하고 있어요.'
                 : 'AI가 관광정보와 방문자수 데이터를 비교하고 있어요.'}
             </Text>
           </View>
@@ -3684,6 +3804,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   introActions: {
+    gap: 10,
     marginTop: 24,
     paddingTop: 0,
   },
