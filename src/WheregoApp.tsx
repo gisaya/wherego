@@ -158,7 +158,8 @@ type DemoResult = {
   imageAttribution?: string;
   source?: 'kto' | 'gemini';
   ktoVerified?: boolean;
-  imagePlaceholderTheme?: ResultImagePlaceholderTheme;
+  imagePlaceholderTheme?: 'coast' | 'nature' | 'culture' | 'outdoor';
+  imagePlaceholderThemeV2?: ResultImagePlaceholderTheme;
   mapLink?: string;
   isFallback?: boolean;
 };
@@ -3355,13 +3356,18 @@ function resultFromRecommendation(
     source: place.source,
     ktoVerified: place.ktoVerified,
     imagePlaceholderTheme: place.imagePlaceholderTheme,
+    imagePlaceholderThemeV2: place.imagePlaceholderThemeV2,
     isFallback: false,
     mapLink: place.mapLink,
   };
 }
 
 function resultPlaceholderImage(result: DemoResult) {
-  return RESULT_PLACEHOLDER_IMAGES[result.imagePlaceholderTheme || inferResultPlaceholderTheme(result)];
+  const explicitV2 = result.imagePlaceholderThemeV2;
+  return (
+    (explicitV2 == null ? undefined : RESULT_PLACEHOLDER_IMAGES[explicitV2]) ||
+    RESULT_PLACEHOLDER_IMAGES[inferResultPlaceholderTheme(result)]
+  );
 }
 
 function resultPlaceholderNotice(result: DemoResult) {
@@ -3399,7 +3405,7 @@ function inferResultPlaceholderTheme(result: DemoResult): ResultImagePlaceholder
   if (/전시|문화|역사|도시|전망대|건축/.test(text)) {
     return 'culture';
   }
-  return 'nature';
+  return result.imagePlaceholderTheme || 'nature';
 }
 
 function travelText(place: WheregoRecommendedPlace) {

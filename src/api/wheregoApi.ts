@@ -109,7 +109,8 @@ export type WheregoRecommendedPlace = {
   imageAttribution?: string;
   source?: 'kto' | 'gemini';
   ktoVerified?: boolean;
-  imagePlaceholderTheme?:
+  imagePlaceholderTheme?: 'coast' | 'nature' | 'culture' | 'outdoor';
+  imagePlaceholderThemeV2?:
     | 'coast'
     | 'nature'
     | 'culture'
