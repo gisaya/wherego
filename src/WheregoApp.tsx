@@ -2538,7 +2538,7 @@ function OptionCard({
 
   return (
     <Pressable
-      accessibilityLabel={[`${number}번 선택지`, option.label, option.caption].filter(Boolean).join(', ')}
+      accessibilityLabel={`${number}번 선택지, ${option.label}`}
       accessibilityRole="button"
       disabled={disabled}
       style={({ pressed }) => [
@@ -2561,11 +2561,6 @@ function OptionCard({
         <Text adjustsFontSizeToFit minimumFontScale={0.86} numberOfLines={2} style={styles.optionLabel}>
           {option.label}
         </Text>
-        {option.caption ? (
-          <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.optionCaption}>
-            {option.caption}
-          </Text>
-        ) : null}
       </View>
     </Pressable>
   );
@@ -4319,16 +4314,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '800',
     lineHeight: 24,
-    textAlign: 'center',
-  },
-  optionCaption: {
-    color: '#6B7684',
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: '800',
-    includeFontPadding: false,
-    lineHeight: 17,
-    marginTop: 8,
     textAlign: 'center',
   },
   questionLoadingBox: {
