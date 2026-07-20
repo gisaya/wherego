@@ -29,7 +29,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Image as SvgImage, Rect, Text as SvgText } from 'react-native-svg';
 
 import {
   fetchWheregoQuestionSet,
@@ -156,11 +156,22 @@ type DemoResult = {
   overview?: string;
   imageUrl?: string;
   imageAttribution?: string;
+  source?: 'kto' | 'gemini';
+  ktoVerified?: boolean;
+  imagePlaceholderTheme?: ResultImagePlaceholderTheme;
   mapLink?: string;
   isFallback?: boolean;
 };
 
+type ResultImagePlaceholderTheme = 'coast' | 'nature' | 'culture' | 'outdoor';
+
 const LOGO_IMAGE = require('../assets/logo.png') as number;
+const RESULT_PLACEHOLDER_IMAGES: Record<ResultImagePlaceholderTheme, number> = {
+  coast: require('../assets/fallback-coast.jpg') as number,
+  nature: require('../assets/fallback-nature.jpg') as number,
+  culture: require('../assets/fallback-culture.jpg') as number,
+  outdoor: require('../assets/fallback-outdoor.jpg') as number,
+};
 const regionOptions: Origin[] = [
   {
     type: 'selected_region',
@@ -506,9 +517,11 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     isMinVersionSupported({ android: '5.223.0', ios: '5.223.0' });
   const isIntroQuotaExhausted =
     step === 'intro' && usage?.limitEnabled === true && usage.remaining <= 0;
-  const shouldPrepareQuotaRecharge = step === 'quota' || isIntroQuotaExhausted;
-  const introMessage = isIntroQuotaExhausted
-    ? quotaRewardMessage || iapMessage || usageMessage
+  const isIntroBaseQuotaExhausted =
+    step === 'intro' && usage?.limitEnabled === true && usageBaseRemaining(usage) <= 0;
+  const shouldPrepareQuotaRecharge = step === 'quota' || isIntroBaseQuotaExhausted;
+  const introMessage = isIntroBaseQuotaExhausted
+    ? quotaRewardMessage || (isIntroQuotaExhausted ? iapMessage : usageMessage)
     : usageMessage;
   const shouldShowBannerAd =
     step === 'question' ||
@@ -588,7 +601,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
       !hasRewardAccess &&
       !willUsePaidCredit &&
       usage?.remaining !== 0 &&
-      (step === 'intro' || step === 'origin' || step === 'rewardGate');
+      (step === 'origin' || step === 'rewardGate');
 
     if (!shouldPreloadRewardAd || rewardAdLoadRequestedRef.current || isRewardAdLoaded) {
       return;
@@ -1921,6 +1934,7 @@ function rechargeAdButtonLabel(
   status: RewardAdStatus,
   limitReached: boolean,
   granting: boolean,
+  hasCredit = false,
 ) {
   if (limitReached) return '오늘 광고 충전 완료';
   if (granting) return '추천 횟수 반영 중';
@@ -1928,7 +1942,7 @@ function rechargeAdButtonLabel(
   if (status === 'idle' || status === 'loading') return '광고 준비 중';
   if (status === 'showing') return '광고 시청 중';
   if (status === 'error') return '광고 다시 준비하기';
-  return '광고 보고 1회 받기';
+  return hasCredit ? '광고 보고 1회 더 받기' : '광고 보고 1회 받기';
 }
 
 function IntroScreen({
@@ -1957,10 +1971,11 @@ function IntroScreen({
   usage: WheregoUsage | null;
 }) {
   const quotaExhausted = usage?.limitEnabled === true && usage.remaining <= 0;
+  const baseQuotaExhausted = usage?.limitEnabled === true && usageBaseRemaining(usage) <= 0;
   const adLimitReached = usage != null && usage.adRewardsUsed >= usage.adRewardsLimit;
   const adBusy = adStatus === 'idle' || adStatus === 'loading' || adStatus === 'showing' || granting;
   const purchaseBusy = iapLoading || iapPurchasing || tossLoginLoading || granting;
-  const adButtonLabel = rechargeAdButtonLabel(adStatus, adLimitReached, granting);
+  const adButtonLabel = rechargeAdButtonLabel(adStatus, adLimitReached, granting, !quotaExhausted);
   const purchaseButtonLabel = iapPurchasing
     ? '결제 확인 중'
     : tossLoginLoading
@@ -2023,12 +2038,22 @@ function IntroScreen({
             />
           </>
         ) : (
-          <PrimaryButton
-            disabled={loading}
-            label={loading ? 'AI 추천 준비 중' : 'AI 추천 시작하기'}
-            loading={loading}
-            onPress={onStart}
-          />
+          <>
+            <PrimaryButton
+              disabled={loading}
+              label={loading ? 'AI 추천 준비 중' : 'AI 추천 시작하기'}
+              loading={loading}
+              onPress={onStart}
+            />
+            {baseQuotaExhausted ? (
+              <SecondaryButton
+                disabled={adLimitReached || adStatus === 'unsupported' || adBusy}
+                label={adButtonLabel}
+                loading={adBusy}
+                onPress={onRechargeWithAd}
+              />
+            ) : null}
+          </>
         )}
       </View>
     </View>
@@ -2061,10 +2086,11 @@ function PromotionIntroScreen({
   usage: WheregoUsage | null;
 }) {
   const quotaExhausted = usage?.limitEnabled === true && usage.remaining <= 0;
+  const baseQuotaExhausted = usage?.limitEnabled === true && usageBaseRemaining(usage) <= 0;
   const adLimitReached = usage != null && usage.adRewardsUsed >= usage.adRewardsLimit;
   const adBusy = adStatus === 'idle' || adStatus === 'loading' || adStatus === 'showing' || granting;
   const purchaseBusy = iapLoading || iapPurchasing || tossLoginLoading || granting;
-  const adButtonLabel = rechargeAdButtonLabel(adStatus, adLimitReached, granting);
+  const adButtonLabel = rechargeAdButtonLabel(adStatus, adLimitReached, granting, !quotaExhausted);
   const purchaseButtonLabel = iapPurchasing
     ? '결제 확인 중'
     : tossLoginLoading
@@ -2136,12 +2162,22 @@ function PromotionIntroScreen({
             />
           </>
         ) : (
-          <PrimaryButton
-            disabled={loading}
-            label={loading ? '혜택 참여 준비 중' : '혜택 받고 추천 시작하기'}
-            loading={loading}
-            onPress={onStart}
-          />
+          <>
+            <PrimaryButton
+              disabled={loading}
+              label={loading ? '혜택 참여 준비 중' : '혜택 받고 추천 시작하기'}
+              loading={loading}
+              onPress={onStart}
+            />
+            {baseQuotaExhausted ? (
+              <SecondaryButton
+                disabled={adLimitReached || adStatus === 'unsupported' || adBusy}
+                label={adButtonLabel}
+                loading={adBusy}
+                onPress={onRechargeWithAd}
+              />
+            ) : null}
+          </>
         )}
       </View>
     </View>
@@ -2693,10 +2729,13 @@ function ResultScreen({
           {result.imageUrl ? (
             <Image source={{ uri: result.imageUrl }} style={styles.resultImage} />
           ) : (
-            <>
-              <View style={styles.sun} />
-              <View style={styles.hill} />
-            </>
+            <View style={styles.resultImagePlaceholder}>
+              <Image source={resultPlaceholderImage(result)} style={styles.resultPlaceholderImage} />
+              <View style={styles.resultImagePlaceholderNotice}>
+                <Image source={LOGO_IMAGE} style={styles.resultImagePlaceholderLogo} />
+                <Text style={styles.resultImagePlaceholderText}>{resultPlaceholderNotice(result)}</Text>
+              </View>
+            </View>
           )}
         </View>
         {result.imageUrl && result.imageAttribution ? (
@@ -2805,19 +2844,20 @@ const ResultCardPngSource = React.forwardRef<
     result: DemoResult;
   }
 >(function ResultCardPngSource({ result }, ref) {
-  const hasHeroImage = Boolean(result.imageUrl);
+  const hasOfficialHeroImage = Boolean(result.imageUrl);
+  const heroImageUri = result.imageUrl || Image.resolveAssetSource(resultPlaceholderImage(result)).uri;
+  const placeholderNotice = resultPlaceholderNotice(result);
   const placeLines = svgTextLines(result.place, 13, 2);
   const personaLines = svgTextLines(result.persona, 19, 2);
   const reasonLines = svgTextLines(result.reason, 25, 5);
   const locationLines = svgTextLines(resultLocationText(result), 25, 2);
   const factorLines = svgTextLines(resultCardFactorText(result), 30, 5);
-  const heroTitleColor = hasHeroImage ? '#FFFFFF' : '#1E63D6';
-  const heroPlaceColor = hasHeroImage ? '#FFFFFF' : '#191F28';
+  const heroTitleColor = '#FFFFFF';
+  const heroPlaceColor = '#FFFFFF';
   const cardX = 135;
   const cardY = 64;
   const cardWidth = 810;
   const cardHeight = 1222;
-  const cardRight = cardX + cardWidth;
   const contentX = cardX + 48;
   const contentWidth = cardWidth - 96;
   const locationTextY = locationLines.length > 1 ? 890 : 909;
@@ -2839,35 +2879,32 @@ const ResultCardPngSource = React.forwardRef<
         <Rect fill="#FFFFFF" height={cardHeight} rx={48} width={cardWidth} x={cardX} y={cardY} />
         <Rect fill="none" height={cardHeight} rx={48} stroke="#E5E8EB" strokeWidth={2} width={cardWidth} x={cardX} y={cardY} />
         <G clipPath="url(#wherego-result-hero-clip)">
-          {result.imageUrl ? (
+          <SvgImage
+            height={RESULT_CARD_HERO_HEIGHT}
+            href={{ uri: heroImageUri }}
+            preserveAspectRatio="xMidYMid slice"
+            width={cardWidth}
+            x={cardX}
+            y={cardY}
+          />
+          <Rect fill="#000000" height={RESULT_CARD_HERO_HEIGHT} opacity={0.28} width={cardWidth} x={cardX} y={cardY} />
+          {!hasOfficialHeroImage ? (
             <>
-              <SvgImage
-                height={RESULT_CARD_HERO_HEIGHT}
-                href={{ uri: result.imageUrl }}
-                preserveAspectRatio="xMidYMid slice"
-                width={cardWidth}
-                x={cardX}
-                y={cardY}
-              />
-              <Rect fill="#000000" height={RESULT_CARD_HERO_HEIGHT} opacity={0.28} width={cardWidth} x={cardX} y={cardY} />
+              <Rect fill="#000000" height={38} opacity={0.58} rx={12} width={310} x={contentX} y={456} />
+              <SvgText
+                fill="#FFFFFF"
+                fontFamily={RESULT_CARD_FONT_FAMILY}
+                fontSize={18}
+                fontWeight="700"
+                x={contentX + 16}
+                y={482}
+              >
+                {placeholderNotice}
+              </SvgText>
             </>
-          ) : (
-            <>
-              <Rect fill="#EAF3FF" height={RESULT_CARD_HERO_HEIGHT} width={cardWidth} x={cardX} y={cardY} />
-              <Circle cx={830} cy={225} fill="#FFE1A3" r={92} />
-              <Path
-                d={`M${cardX} 456 C210 348 327 410 438 342 C592 258 746 388 ${cardRight} 276 L${cardRight} 524 L${cardX} 524 Z`}
-                fill="#B9E6CF"
-              />
-              <Path
-                d={`M${cardX} 496 C232 402 352 454 500 406 C640 358 766 454 ${cardRight} 372 L${cardRight} 524 L${cardX} 524 Z`}
-                fill="#86D1F2"
-                opacity={0.72}
-              />
-            </>
-          )}
+          ) : null}
         </G>
-        {hasHeroImage && result.imageAttribution ? (
+        {hasOfficialHeroImage && result.imageAttribution ? (
           <SvgText
             fill="#8B95A1"
             fontFamily={RESULT_CARD_FONT_FAMILY}
@@ -3134,6 +3171,10 @@ function usageDailyRemaining(usage: WheregoUsage | null | undefined) {
   return usage?.dailyRemaining ?? usage?.remaining ?? 0;
 }
 
+function usageBaseRemaining(usage: WheregoUsage | null | undefined) {
+  return usage?.baseRemaining ?? 0;
+}
+
 function usagePaidCredits(usage: WheregoUsage | null | undefined) {
   return usage?.paidCreditsRemaining ?? 0;
 }
@@ -3294,9 +3335,36 @@ function resultFromRecommendation(
     overview: place.overview,
     imageUrl: place.imageUrl,
     imageAttribution: place.imageAttribution,
+    source: place.source,
+    ktoVerified: place.ktoVerified,
+    imagePlaceholderTheme: place.imagePlaceholderTheme,
     isFallback: false,
     mapLink: place.mapLink,
   };
+}
+
+function resultPlaceholderImage(result: DemoResult) {
+  return RESULT_PLACEHOLDER_IMAGES[result.imagePlaceholderTheme || inferResultPlaceholderTheme(result)];
+}
+
+function resultPlaceholderNotice(result: DemoResult) {
+  return result.source === 'gemini'
+    ? 'AI 자체 추천 · 실제 사진 없음'
+    : '관광공사 제공 이미지 없음';
+}
+
+function inferResultPlaceholderTheme(result: DemoResult): ResultImagePlaceholderTheme {
+  const text = `${result.place} ${result.region} ${result.overview || ''}`;
+  if (/바다|해변|해안|해수욕|섬|호수|강|수변|물가/.test(text)) {
+    return 'coast';
+  }
+  if (/캠핑|글램핑|피크닉|레포츠|놀이|테마파크|자전거|체험|액티비티/.test(text)) {
+    return 'outdoor';
+  }
+  if (/박물관|미술관|전시|문화|역사|사찰|궁|서원|도시|전망대|건축/.test(text)) {
+    return 'culture';
+  }
+  return 'nature';
 }
 
 function travelText(place: WheregoRecommendedPlace) {
@@ -4366,6 +4434,38 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
     width: '100%',
   },
+  resultImagePlaceholder: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  resultPlaceholderImage: {
+    ...StyleSheet.absoluteFillObject,
+    height: '100%',
+    resizeMode: 'cover',
+    width: '100%',
+  },
+  resultImagePlaceholderLogo: {
+    borderRadius: 12,
+    height: 54,
+    width: 54,
+  },
+  resultImagePlaceholderNotice: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    zIndex: 2,
+  },
+  resultImagePlaceholderText: {
+    color: '#4E5968',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
   imageAttributionCaption: {
     color: '#8B95A1',
     fontSize: 10,
@@ -4374,24 +4474,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 7,
     textAlign: 'right',
-  },
-  sun: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#FFD25C',
-    borderRadius: 38,
-    height: 76,
-    marginRight: 34,
-    marginTop: 28,
-    width: 76,
-  },
-  hill: {
-    alignSelf: 'center',
-    backgroundColor: '#54CCA6',
-    borderTopLeftRadius: 90,
-    borderTopRightRadius: 90,
-    height: 78,
-    marginTop: -12,
-    width: '76%',
   },
   resultBody: {
     padding: 18,

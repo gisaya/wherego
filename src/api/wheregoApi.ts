@@ -107,6 +107,9 @@ export type WheregoRecommendedPlace = {
   imageUrl?: string;
   imageCopyrightType?: string;
   imageAttribution?: string;
+  source?: 'kto' | 'gemini';
+  ktoVerified?: boolean;
+  imagePlaceholderTheme?: 'coast' | 'nature' | 'culture' | 'outdoor';
   matchedKeyword?: string;
   aiReason?: string;
   whyThisPlace?: string[];
