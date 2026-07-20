@@ -163,7 +163,17 @@ type DemoResult = {
   isFallback?: boolean;
 };
 
-type ResultImagePlaceholderTheme = 'coast' | 'nature' | 'culture' | 'outdoor';
+type ResultImagePlaceholderTheme =
+  | 'coast'
+  | 'nature'
+  | 'culture'
+  | 'outdoor'
+  | 'waterside'
+  | 'garden'
+  | 'heritage'
+  | 'indoor'
+  | 'wellness'
+  | 'activity';
 
 const LOGO_IMAGE = require('../assets/logo.png') as number;
 const RESULT_PLACEHOLDER_IMAGES: Record<ResultImagePlaceholderTheme, number> = {
@@ -171,6 +181,12 @@ const RESULT_PLACEHOLDER_IMAGES: Record<ResultImagePlaceholderTheme, number> = {
   nature: require('../assets/fallback-nature.jpg') as number,
   culture: require('../assets/fallback-culture.jpg') as number,
   outdoor: require('../assets/fallback-outdoor.jpg') as number,
+  waterside: require('../assets/fallback-waterside.jpg') as number,
+  garden: require('../assets/fallback-garden.jpg') as number,
+  heritage: require('../assets/fallback-heritage.jpg') as number,
+  indoor: require('../assets/fallback-indoor.jpg') as number,
+  wellness: require('../assets/fallback-wellness.jpg') as number,
+  activity: require('../assets/fallback-activity.jpg') as number,
 };
 const regionOptions: Origin[] = [
   {
@@ -3356,13 +3372,31 @@ function resultPlaceholderNotice(result: DemoResult) {
 
 function inferResultPlaceholderTheme(result: DemoResult): ResultImagePlaceholderTheme {
   const text = `${result.place} ${result.region} ${result.overview || ''}`;
-  if (/바다|해변|해안|해수욕|섬|호수|강|수변|물가/.test(text)) {
+  if (/온천|스파|웰니스|치유|명상|산림욕/.test(text)) {
+    return 'wellness';
+  }
+  if (/사찰|산사|한옥|궁궐|서원|향교|유적|문화재|고택|전통마을/.test(text)) {
+    return 'heritage';
+  }
+  if (/박물관|미술관|과학관|아쿠아리움|수족관|전시관|천문대|실내/.test(text)) {
+    return 'indoor';
+  }
+  if (/레일바이크|카약|래프팅|유람선|카트|루지|레포츠|테마파크|놀이공원|체험|액티비티/.test(text)) {
+    return 'activity';
+  }
+  if (/수목원|정원|식물원|꽃밭|꽃축제|온실|억새정원/.test(text)) {
+    return 'garden';
+  }
+  if (/호수|강변|강가|수변|물가|습지|갈대|저수지|연못/.test(text)) {
+    return 'waterside';
+  }
+  if (/바다|해변|해안|해수욕|섬|항구|갯벌/.test(text)) {
     return 'coast';
   }
-  if (/캠핑|글램핑|피크닉|레포츠|놀이|테마파크|자전거|체험|액티비티/.test(text)) {
+  if (/캠핑|글램핑|피크닉|야영|차박|자전거/.test(text)) {
     return 'outdoor';
   }
-  if (/박물관|미술관|전시|문화|역사|사찰|궁|서원|도시|전망대|건축/.test(text)) {
+  if (/전시|문화|역사|도시|전망대|건축/.test(text)) {
     return 'culture';
   }
   return 'nature';

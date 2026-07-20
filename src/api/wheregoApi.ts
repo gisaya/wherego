@@ -109,7 +109,17 @@ export type WheregoRecommendedPlace = {
   imageAttribution?: string;
   source?: 'kto' | 'gemini';
   ktoVerified?: boolean;
-  imagePlaceholderTheme?: 'coast' | 'nature' | 'culture' | 'outdoor';
+  imagePlaceholderTheme?:
+    | 'coast'
+    | 'nature'
+    | 'culture'
+    | 'outdoor'
+    | 'waterside'
+    | 'garden'
+    | 'heritage'
+    | 'indoor'
+    | 'wellness'
+    | 'activity';
   matchedKeyword?: string;
   aiReason?: string;
   whyThisPlace?: string[];
