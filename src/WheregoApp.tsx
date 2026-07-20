@@ -2538,7 +2538,7 @@ function OptionCard({
 
   return (
     <Pressable
-      accessibilityLabel={`${number}번 선택지, ${option.label}, ${option.caption}`}
+      accessibilityLabel={[`${number}번 선택지`, option.label, option.caption].filter(Boolean).join(', ')}
       accessibilityRole="button"
       disabled={disabled}
       style={({ pressed }) => [
@@ -2561,9 +2561,11 @@ function OptionCard({
         <Text adjustsFontSizeToFit minimumFontScale={0.86} numberOfLines={2} style={styles.optionLabel}>
           {option.label}
         </Text>
-        <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.optionCaption}>
-          {option.caption}
-        </Text>
+        {option.caption ? (
+          <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.optionCaption}>
+            {option.caption}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -3127,6 +3129,10 @@ function normalizeRemoteQuestions(questions: WheregoQuestion[]) {
 }
 
 function optionCaption(searchHints: string[], rawCaption?: string) {
+  if (rawCaption !== undefined) {
+    const explicitCaption = firstOptionCaptionSegment(rawCaption);
+    return explicitCaption.length <= 10 ? explicitCaption : explicitCaption.slice(0, 10).trim();
+  }
   const captionSegment = firstOptionCaptionSegment(rawCaption || '');
   const hintSegment = searchHints.map(firstOptionCaptionSegment).find(Boolean);
   const source = captionSegment || hintSegment || '추천 조건 반영';
