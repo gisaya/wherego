@@ -1,18 +1,13 @@
-import { grantPromotionReward, Storage } from '@apps-in-toss/framework';
+import { Storage } from '@apps-in-toss/framework';
 
-import {
-  WHEREGO_RESULT_PROMOTION_AMOUNT,
-  WHEREGO_RESULT_PROMOTION_CODE,
-} from '../config';
+import { WHEREGO_RESULT_PROMOTION_CODE } from '../config';
+import { WheregoApiError, type WheregoPromotionGrantResult } from '../api/wheregoApi';
 
 export type ResultPromotionOutcome =
   | { status: 'idle' | 'loading' | 'success' | 'alreadyGranted' | 'unsupported' }
   | { status: 'error'; errorCode?: string; retryable: boolean };
 
-type ResultPromotionGuard = {
-  reserve: () => Promise<boolean>;
-  resolve: (granted: boolean) => Promise<void>;
-};
+type ResultPromotionGrant = () => Promise<WheregoPromotionGrantResult>;
 
 const RESULT_PROMOTION_STORAGE_KEY =
   `wherego.result-promotion.${WHEREGO_RESULT_PROMOTION_CODE}.v1`;
@@ -21,7 +16,7 @@ const RESULT_PROMOTION_ATTEMPTED_VALUE = 'attempted';
 let promotionGrantInFlight: Promise<ResultPromotionOutcome> | null = null;
 
 async function grantResultViewPromotionOnce(
-  guard?: ResultPromotionGuard,
+  grant: ResultPromotionGrant,
 ): Promise<ResultPromotionOutcome> {
   const previousGrant = await Storage.getItem(RESULT_PROMOTION_STORAGE_KEY);
   if (previousGrant) {
@@ -32,77 +27,36 @@ async function grantResultViewPromotionOnce(
   // be suspended before the SDK promise resolves, so saving only after success is unsafe.
   await Storage.setItem(RESULT_PROMOTION_STORAGE_KEY, RESULT_PROMOTION_ATTEMPTED_VALUE);
 
-  if (guard) {
-    try {
-      const shouldGrant = await guard.reserve();
-      if (!shouldGrant) {
-        return { status: 'alreadyGranted' };
-      }
-    } catch (error) {
-      console.error('[wherego:result-promotion] server guard unavailable', error);
-      await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
-      return { status: 'error', errorCode: 'GUARD_UNAVAILABLE', retryable: true };
-    }
-  }
-
-  let result;
   try {
-    result = await grantPromotionReward({
-      params: {
-        amount: WHEREGO_RESULT_PROMOTION_AMOUNT,
-        promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
-      },
-    });
+    const result = await grant();
+    if (result.status === 'alreadyGranted') {
+      return { status: 'alreadyGranted' };
+    }
+    await Storage.setItem(RESULT_PROMOTION_STORAGE_KEY, result.key);
+    return { status: 'success' };
   } catch (error) {
-    // The SDK may have reached Toss before rejecting. Keep both guards reserved to
-    // avoid a duplicate payment from an unsafe automatic retry.
-    console.error('[wherego:result-promotion] sdk call rejected', error);
-    return { status: 'error', errorCode: 'SDK_REJECTED', retryable: false };
-  }
-
-  if (result == null) {
-    await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
-    await resolveGuard(guard, false);
-    return { status: 'unsupported' };
-  }
-  if (result === 'ERROR') {
-    await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
-    await resolveGuard(guard, false);
-    return { status: 'error', retryable: true };
-  }
-  if ('errorCode' in result) {
-    console.warn('[wherego:result-promotion] rejected', { errorCode: result.errorCode });
-    await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
-    await resolveGuard(guard, false);
+    const retryable = error instanceof WheregoApiError && error.status === 503;
+    if (retryable) {
+      await Storage.removeItem(RESULT_PROMOTION_STORAGE_KEY);
+    }
+    console.error('[wherego:result-promotion] server grant failed', error);
     return {
       status: 'error',
-      errorCode: result.errorCode,
-      retryable: result.errorCode === '4110',
+      errorCode: error instanceof WheregoApiError ? error.code : 'UNEXPECTED',
+      retryable,
     };
   }
-
-  await Storage.setItem(RESULT_PROMOTION_STORAGE_KEY, result.key);
-  await resolveGuard(guard, true);
-  return { status: 'success' };
 }
 
 export function grantResultViewPromotion(
-  guard?: ResultPromotionGuard,
+  grant: ResultPromotionGrant,
 ): Promise<ResultPromotionOutcome> {
   if (promotionGrantInFlight) {
     return promotionGrantInFlight;
   }
 
-  promotionGrantInFlight = grantResultViewPromotionOnce(guard).finally(() => {
+  promotionGrantInFlight = grantResultViewPromotionOnce(grant).finally(() => {
     promotionGrantInFlight = null;
   });
   return promotionGrantInFlight;
-}
-
-async function resolveGuard(guard: ResultPromotionGuard | undefined, granted: boolean) {
-  try {
-    await guard?.resolve(granted);
-  } catch (error) {
-    console.warn('[wherego:result-promotion] server guard update failed', error);
-  }
 }

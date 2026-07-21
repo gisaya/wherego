@@ -47,7 +47,7 @@
 - `pages/promotion.tsx`: 혜택 진입 `/promotion`
 - `src/WheregoApp.tsx`: 공용 앱 UI와 상태 흐름
 - `src/api/wheregoApi.ts`: 서버 API
-- `src/promotion/resultPromotion.ts`: 프로모션 SDK와 로컬 1회 방어
+- `src/promotion/resultPromotion.ts`: 서버 지급 호출과 로컬 1회 방어
 
 ## 사용량과 결제
 
@@ -64,8 +64,10 @@
 - 결과 전 전면광고 ID: `ait.v2.live.69c443b05e6a42ea`
 - 횟수 충전 리워드 광고 ID: `ait.v2.live.7f9040b7cff746c5`
 - 친구 공유 리워드 모듈 ID: `1e6b212b-9093-4546-9991-99f478262910`
-- 일반 `/` 진입에서는 프로모션 UI와 SDK를 실행하지 않는다.
+- 일반 `/` 진입에서는 프로모션 UI와 지급 API를 실행하지 않는다.
 - 혜택 `/promotion` 진입에서만 결과 화면 프로모션을 실행한다.
+- `getAnonymousKey()` hash를 JBG가 mTLS 검증한 뒤 지급 key 발급과 토스 포인트 지급을 서버에서 수행한다. 프로모션 코드와 50원 금액은 서버 설정과 일치해야 한다.
+- 이전 출시 AIT의 클라이언트 SDK 지급을 위해 `/api/wherego/promotion/attempt` 호환 경로는 유지한다.
 - 운영 프로모션 코드: `01KXJHNBZ46JPHND9R3VH7S9TF`
 - 운영 지급액: 50원
 - 테스트 코드는 `RUNBOOK.md`에만 기록하며 출시 AIT에 넣지 않는다.
@@ -86,6 +88,7 @@
 - `POST /api/wherego/recommend`
 - `POST /api/wherego/usage`, `/usage/reward`, `/usage/link`
 - `POST /api/wherego/promotion/attempt`
+- `POST /api/wherego/promotion/grant`
 - `POST /api/wherego/iap/products`, `/iap/grant`, `/iap/reconcile`
 - `POST /api/wherego/login/exchange`, `/login/unlink`
 
@@ -118,25 +121,28 @@ API 키와 Gemini 키는 Render 환경변수에만 둔다. 클라이언트에는
 - 결과를 2회 이상 받은 사용자에게 한 번만 Apps in Toss 리뷰 요청 CTA를 표시한다. 실제 리뷰 팝업 노출 여부는 플랫폼 정책을 따른다.
 - 첫 화면은 횟수·로그인 연결·결제 복원·이용권 상품 조회 중 전용 로딩 화면을 유지하고, 완료 후 인트로를 한 번에 표시한다.
 - 질문 배너를 스크롤 콘텐츠에서 분리해 하단에 고정하고 카드 영역에는 배너 높이만큼 여백을 확보했다.
+- 2026-07-17 Apps in Toss 공지에 맞춰 프로모션을 `getAnonymousKey()` hash 기반 mTLS 서버 지급으로 전환했다. 서버가 식별키 검증, 지급 key 발급, 실제 지급을 순서대로 수행하고 DB+로컬 guard로 중복을 막는다.
+- 새 Apps in Toss 게임 저장소에서 재사용할 시작·저장·약관·TDS·광고·결제·출시 문서를 `docs/APPS_IN_TOSS_GAME_HANDOFF.md`에 추가했다.
 
 ## 현재 검증 상태
 
 - 프런트 TypeScript strict 검사 통과
-- 프런트 Jest 프로모션·리뷰 단위 테스트 10개 통과
+- 프런트 Jest 프로모션·리뷰 단위 테스트 8개 통과
 - 정적 약관 빌드와 질문 프로브 문법 검사 통과
-- 백엔드 Wherego 테스트 137개와 Python compileall 통과
+- 백엔드 Wherego 테스트 149개와 Python compileall 통과
 - 랜덤 5,000세트에서 7문항, 원천 3+일반 4, 한 세트 내 일반 테마 중복 0건을 확인했다. 원천축의 가능한 선택 조합 11,616개 모두 1~3개의 검색 의도와 목적 질문 primary 의도를 만든다.
 - 장거리 실패 조합은 원후보 40개, 압축 11개, Gemini 후보 5개로 재현 성공했으며 모두 최소 거리 조건을 충족
 - 운영 질문 리소스 버전: `2026-07-20-v2.1`
-- Android/iOS AIT 빌드 0 errors, 0 warnings 완료
-- 최신 AIT deploymentId: `019f8224-fa67-7c8a-9898-78e1137e9712`
-- 앱 커밋 `0f06fca`, 서버 커밋 `67b2643`이 원격에 반영됐고 Render health에서 서버 커밋, Postgres, 누락 환경변수 0개를 확인했다.
-- AIT 내부에 컨셉 이미지 10종, 운영 프로모션 코드, 50원과 라이브 광고 ID를 확인했고 프로모션 테스트 코드는 없다.
+- Android/iOS AIT 빌드 0 errors 완료. iOS의 Apps in Toss framework 소스맵 경고 1건은 번들 생성에 영향이 없다.
+- 최신 AIT deploymentId: `019f84e2-eb47-7f97-bb0d-4563c52994fe`
+- 서버 커밋 `7d2ea3a`가 원격과 Render에 반영됐고 health에서 동일 커밋, Postgres, 누락 환경변수 0개를 확인했다.
+- AIT 내부에 컨셉 이미지 10종, 새 `/api/wherego/promotion/grant` 경로, 운영 프로모션 코드, 50원과 라이브 광고 ID를 확인했다. 프로모션 테스트 코드와 예전 리워드 광고 ID는 없다.
+- 공개 서비스 이용약관과 개인정보 처리방침에서 사업자 주소 `경기도 고양시 덕양구 통일로 343, 5층 503`을 확인했다.
 
 ## 남은 위험
 
 - 프로모션, 광고, 인앱결제, PNG 저장은 실제 최신 Toss 앱 QR에서 최종 확인해야 한다.
-- 익명 키 기반 사용량/프로모션 방어는 일반 사용자 중복 방지용이다. 변조 클라이언트까지 강제하려면 Toss 로그인 기반 서버 지급이 필요하다.
+- 프로모션 hash 검증과 서버 지급은 최신 운영 AIT의 실제 QR에서 최초 지급·중복 차단·일시 오류 재시도를 확인해야 한다.
 - 후보 0건과 추천 집중도는 3시간 QC에서 계속 본다. 표본 10건 미만의 집중도는 결함으로 단정하지 않는다.
 - 이동 시간은 추정치라 실제 내비게이션 시간과 다를 수 있다.
 - AI 자체 추천은 관광공사 미등록 결과이므로 실제 장소 존재 여부와 지도 검색 결과를 최신 AIT 실기기에서 확인해야 한다.
@@ -145,7 +151,7 @@ API 키와 Gemini 키는 Render 환경변수에만 둔다. 클라이언트에는
 ## Next Recommended Steps
 
 1. 최신 운영 AIT를 업로드해 `/`와 `/promotion`을 각각 열고 초기 로딩 뒤 첫 화면이 한 번만 나타나는지 확인한다.
-2. `/promotion` 결과에서 50원 1회 지급, 재진입 무지급, guard 장애 시 미지급을 확인한다.
+2. `/promotion` 결과에서 hash 검증 기반 50원 서버 지급, 재진입 무지급, mTLS/guard 장애 시 미지급을 확인한다.
 3. 기본 2회, 광고 +1 최대 2회, 공유 +3, 구매 +10과 로그인 후 잔여 복원을 실기기에서 확인한다. 잔여 0회 첫 화면에서 광고·구매가 화면 이동 없이 바로 열리는지도 확인한다.
 4. 관광공사 이미지 없음과 AI 자체 추천 각각에서 컨셉 이미지·출처 문구·PNG 저장·네이버지도 검색을 확인한다.
 5. 2지선다·4지선다에서 배너가 같은 하단 위치에 고정되고 카드와 겹치지 않는지, 전면광고와 뒤로가기 종료를 함께 회귀한다.

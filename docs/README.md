@@ -13,6 +13,7 @@
 | [`03_검증.md`](03_검증.md) | 변경 유형별 검증 기준 |
 | [`06_운영.md`](06_운영.md) | 운영 URL, 설정, 배포 체크 |
 | [`10_선택지_질문풀_검토.md`](10_선택지_질문풀_검토.md) | 질문 생성 정책과 메타데이터 원칙 |
+| [`APPS_IN_TOSS_GAME_HANDOFF.md`](APPS_IN_TOSS_GAME_HANDOFF.md) | 새 게임 저장소용 Apps in Toss 시작·저장·출시 핸드오프 |
 | [`../RUNBOOK.md`](../RUNBOOK.md) | 복사해 실행할 명령과 장애 대응 |
 
 ## 보조 문서

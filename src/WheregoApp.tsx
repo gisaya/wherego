@@ -36,11 +36,11 @@ import {
   fetchWheregoQuestionSet,
   fetchWheregoUsage,
   exchangeWheregoTossLogin,
+  grantWheregoResultPromotion,
   grantWheregoReward,
   linkWheregoGuestUsage,
   prepareWheregoCandidates,
   recommendWheregoDestination,
-  updateWheregoPromotionAttempt,
   WheregoApiError,
   type WheregoCandidateSet,
   type WheregoCreditSource,
@@ -751,22 +751,19 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
 
     let cancelled = false;
     setResultPromotion({ status: 'loading' });
-    void grantResultViewPromotion({
-      reserve: async () => {
-        const response = await updateWheregoPromotionAttempt({
-          anonymousUserKey: guestAnonymousUserKeyRef.current,
-          promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
-          action: 'reserve',
-        });
-        return response.shouldGrant;
-      },
-      resolve: async (granted) => {
-        await updateWheregoPromotionAttempt({
-          anonymousUserKey: guestAnonymousUserKeyRef.current,
-          promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
-          action: granted ? 'granted' : 'release',
-        });
-      },
+    void grantResultViewPromotion(async () => {
+      const anonymousUserKey = guestAnonymousUserKeyRef.current;
+      if (!anonymousUserKey) {
+        throw new WheregoApiError(
+          '토스 사용자 식별키를 확인하지 못했어요.',
+          409,
+          'anon_key_required',
+        );
+      }
+      return grantWheregoResultPromotion({
+        anonymousUserKey,
+        promotionCode: WHEREGO_RESULT_PROMOTION_CODE,
+      });
     })
       .then((outcome) => {
         if (!cancelled) {
@@ -2991,8 +2988,14 @@ function resultPromotionStatusText(outcome: ResultPromotionOutcome) {
 
 function resultPromotionErrorText(errorCode: string | undefined) {
   switch (errorCode) {
-    case 'GUARD_UNAVAILABLE':
-      return '중복 지급 여부를 확인하지 못했어요.';
+    case 'anon_key_required':
+    case 'invalid_anon_key':
+      return '토스앱에서 사용자 정보를 확인하지 못했어요.';
+    case 'apps_in_toss_unavailable':
+    case 'reward_key_missing':
+      return '토스 포인트 지급 확인이 지연되고 있어요.';
+    case 'promotion_code_mismatch':
+      return '프로모션 정보를 확인하지 못했어요.';
     case '4100':
       return '프로모션 정보를 찾지 못했어요.';
     case '4109':

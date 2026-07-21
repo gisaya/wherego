@@ -46,6 +46,7 @@ powershell -ExecutionPolicy Bypass -File scripts\ait-build.ps1
 
 - 생성물: `wherego.ait`
 - Android/iOS와 React Native 호환 번들을 함께 만들기 때문에 시간이 걸린다.
+- Apps in Toss framework의 손상된 inline source map 경고는 현재 알려진 비차단 경고다. `AIT build completed`와 deploymentId가 출력되고 번들 오류가 0인지 확인한다.
 - 별도 Metro 번들과 AIT 빌드를 중복 실행하지 않는다.
 - `wherego.ait`, `.granite`, `.swc`, `.codex-shims`, `node_modules`, `.vercel/output`은 Git 제외다.
 
@@ -112,6 +113,8 @@ WHEREGO_ANALYTICS_HMAC_SECRET
 WHEREGO_IAP_10_CREDIT_SKU
 WHEREGO_LOGIN_IDENTITY_SECRET
 WHEREGO_LOGIN_UNLINK_BASIC_AUTH
+WHEREGO_RESULT_PROMOTION_CODE=01KXJHNBZ46JPHND9R3VH7S9TF
+WHEREGO_RESULT_PROMOTION_AMOUNT=50
 APPS_IN_TOSS_MTLS_CERT_PEM
 APPS_IN_TOSS_MTLS_KEY_PEM
 APPS_IN_TOSS_MTLS_KEY_PASSWORD
@@ -124,13 +127,13 @@ APPS_IN_TOSS_MTLS_KEY_PASSWORD
 - 일반: `intoss://wherego`
 - 혜택: `intoss://wherego/promotion`
 - 프로모션 테스트 코드는 `TEST_01KXJHNBZ46JPHND9R3VH7S9TF`다. 전용 테스트 AIT에만 잠시 넣고 저장·출시 전 운영 코드로 복구한다.
-- 프로모션 서버 guard 예약 실패 시 SDK를 호출하지 않는다.
-- SDK 호출의 결과가 불명확한 rejection은 중복 위험 때문에 자동 재시도하지 않는다.
-- 명확히 해제 가능한 일시 오류만 결과 화면의 `다시 확인하기`를 노출한다.
+- 새 AIT는 `POST /api/wherego/promotion/grant`로 hash 검증, 지급 key 발급, 50원 지급을 JBG에 요청한다.
+- 이전 출시 AIT용 `/api/wherego/promotion/attempt`와 클라이언트 SDK 흐름은 서버에서 계속 허용한다.
+- 검증·지급 key 발급 단계 실패는 예약을 해제하고 재시도할 수 있다. 실제 지급 요청의 네트워크 결과가 불명확하면 중복 위험 때문에 예약과 로컬 guard를 유지한다.
 
 실기기 필수 시나리오:
 
-1. `/`에는 혜택 UI와 프로모션 SDK 호출이 없다.
+1. `/`에는 혜택 UI와 프로모션 지급 API 호출이 없다.
 2. `/promotion` 최초 성공 결과에만 50원이 지급된다.
 3. 재진입, 결과 재렌더, 같은 사용자 재설치는 중복 지급되지 않는다.
 4. 기본 2회, 광고 +1 최대 2회, 공유 +3 하루 1회가 맞다.
@@ -143,6 +146,7 @@ APPS_IN_TOSS_MTLS_KEY_PASSWORD
 11. 앱 시작 중에는 전용 로딩 화면만 보이고 횟수·로그인·결제 복원·상품 조회 완료 뒤 인트로가 한 번에 표시된다.
 12. 2지선다와 4지선다에서 질문 배너가 하단 안전영역의 같은 위치에 있고 카드와 겹치지 않는다.
 13. 성공 결과를 2회 확인하면 리뷰 CTA가 한 번만 표시되고 이후 재노출되지 않는다.
+14. `/promotion` 지급 시 실제 hash만 허용되고 `install-`, `runtime-`, 로그인 파생 키는 포인트 지급에 사용되지 않는다.
 
 ## 상품과 로그인
 

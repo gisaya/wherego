@@ -15,6 +15,8 @@ When the user says "저장", update the project so the next Codex session can re
 5. Run the narrowest practical verification command.
 6. Commit the save point to Git unless the user explicitly says not to commit.
 7. Push the current branch to the configured remote unless the user explicitly says not to push.
+8. When starting another Apps in Toss game, copy the working rules from
+   `docs/APPS_IN_TOSS_GAME_HANDOFF.md` instead of copying Wherego-specific product decisions.
 
 ## Commit Guidance
 

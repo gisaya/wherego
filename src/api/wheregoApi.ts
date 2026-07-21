@@ -6,6 +6,7 @@ const RECOMMENDATION_TIMEOUT_MS = 45000;
 const USAGE_TIMEOUT_MS = 8000;
 const IAP_TIMEOUT_MS = 20000;
 const LOGIN_TIMEOUT_MS = 15000;
+const PROMOTION_TIMEOUT_MS = 25000;
 
 export type WheregoCreditSource = 'base' | 'ad' | 'share' | 'paid';
 
@@ -270,16 +271,22 @@ export async function linkWheregoGuestUsage(params: {
   return body.usage;
 }
 
-export async function updateWheregoPromotionAttempt(params: {
-  anonymousUserKey?: string | null;
+export type WheregoPromotionGrantResult =
+  | { status: 'success'; key: string }
+  | { status: 'alreadyGranted' };
+
+export async function grantWheregoResultPromotion(params: {
+  anonymousUserKey: string;
   promotionCode: string;
-  action: 'reserve' | 'granted' | 'release';
-}): Promise<{ shouldGrant: boolean }> {
-  return postWherego('/api/wherego/promotion/attempt', {
-    anonymousUserKey: params.anonymousUserKey || undefined,
-    promotionCode: params.promotionCode,
-    action: params.action,
-  });
+}): Promise<WheregoPromotionGrantResult> {
+  return postWherego(
+    '/api/wherego/promotion/grant',
+    {
+      anonymousUserKey: params.anonymousUserKey,
+      promotionCode: params.promotionCode,
+    },
+    PROMOTION_TIMEOUT_MS,
+  );
 }
 
 export async function fetchWheregoIapConfig(): Promise<WheregoIapConfig> {

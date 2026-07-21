@@ -1,11 +1,11 @@
 /// <reference types="jest" />
 
-import { grantPromotionReward, Storage } from '@apps-in-toss/framework';
+import { Storage } from '@apps-in-toss/framework';
 
+import { WheregoApiError } from '../api/wheregoApi';
 import { grantResultViewPromotion } from './resultPromotion';
 
 jest.mock('@apps-in-toss/framework', () => ({
-  grantPromotionReward: jest.fn(),
   Storage: {
     getItem: jest.fn(),
     setItem: jest.fn(),
@@ -13,17 +13,9 @@ jest.mock('@apps-in-toss/framework', () => ({
   },
 }));
 
-const grantPromotionRewardMock = jest.mocked(grantPromotionReward);
 const storageGetItemMock = jest.mocked(Storage.getItem);
 const storageSetItemMock = jest.mocked(Storage.setItem);
 const storageRemoveItemMock = jest.mocked(Storage.removeItem);
-
-function createGuard() {
-  return {
-    reserve: jest.fn<Promise<boolean>, []>(),
-    resolve: jest.fn<Promise<void>, [boolean]>(),
-  };
-}
 
 describe('grantResultViewPromotion', () => {
   beforeEach(() => {
@@ -39,92 +31,58 @@ describe('grantResultViewPromotion', () => {
     jest.restoreAllMocks();
   });
 
-  it('does not reserve or call the SDK when a local guard already exists', async () => {
+  it('does not call the server when a local guard already exists', async () => {
     storageGetItemMock.mockResolvedValue('existing-reward-key');
-    const guard = createGuard();
+    const grant = jest.fn();
 
-    await expect(grantResultViewPromotion(guard)).resolves.toEqual({ status: 'alreadyGranted' });
+    await expect(grantResultViewPromotion(grant)).resolves.toEqual({ status: 'alreadyGranted' });
 
-    expect(guard.reserve).not.toHaveBeenCalled();
-    expect(grantPromotionRewardMock).not.toHaveBeenCalled();
+    expect(grant).not.toHaveBeenCalled();
     expect(storageSetItemMock).not.toHaveBeenCalled();
   });
 
-  it('fails closed when the server guard is unavailable', async () => {
-    const guard = createGuard();
-    guard.reserve.mockRejectedValue(new Error('server unavailable'));
+  it('clears the local guard when the server says retry is safe', async () => {
+    const grant = jest.fn().mockRejectedValue(
+      new WheregoApiError('server unavailable', 503, 'apps_in_toss_unavailable'),
+    );
 
-    await expect(grantResultViewPromotion(guard)).resolves.toEqual({
+    await expect(grantResultViewPromotion(grant)).resolves.toEqual({
       status: 'error',
-      errorCode: 'GUARD_UNAVAILABLE',
+      errorCode: 'apps_in_toss_unavailable',
       retryable: true,
     });
 
-    expect(grantPromotionRewardMock).not.toHaveBeenCalled();
     expect(storageRemoveItemMock).toHaveBeenCalledTimes(1);
-    expect(guard.resolve).not.toHaveBeenCalled();
   });
 
-  it('does not call the SDK when the server guard rejects a duplicate', async () => {
-    const guard = createGuard();
-    guard.reserve.mockResolvedValue(false);
+  it('returns already granted when the server rejects a duplicate', async () => {
+    const grant = jest.fn().mockResolvedValue({ status: 'alreadyGranted' });
 
-    await expect(grantResultViewPromotion(guard)).resolves.toEqual({ status: 'alreadyGranted' });
+    await expect(grantResultViewPromotion(grant)).resolves.toEqual({ status: 'alreadyGranted' });
 
-    expect(grantPromotionRewardMock).not.toHaveBeenCalled();
     expect(storageRemoveItemMock).not.toHaveBeenCalled();
   });
 
-  it('keeps both guards and disables retry when the SDK promise rejects', async () => {
-    const guard = createGuard();
-    guard.reserve.mockResolvedValue(true);
-    grantPromotionRewardMock.mockRejectedValue(new Error('unknown SDK outcome'));
+  it('keeps the local guard when the server outcome may be ambiguous', async () => {
+    const grant = jest.fn().mockRejectedValue(
+      new WheregoApiError('unknown outcome', 409, 'wherego_promotion_pending'),
+    );
 
-    await expect(grantResultViewPromotion(guard)).resolves.toEqual({
+    await expect(grantResultViewPromotion(grant)).resolves.toEqual({
       status: 'error',
-      errorCode: 'SDK_REJECTED',
+      errorCode: 'wherego_promotion_pending',
       retryable: false,
     });
 
     expect(storageRemoveItemMock).not.toHaveBeenCalled();
-    expect(guard.resolve).not.toHaveBeenCalled();
   });
 
-  it('releases both guards for a retryable structured SDK error', async () => {
-    const guard = createGuard();
-    guard.reserve.mockResolvedValue(true);
-    grantPromotionRewardMock.mockResolvedValue({ errorCode: '4110', message: 'retry' });
+  it('persists the reward key after a server-side grant succeeds', async () => {
+    const grant = jest.fn().mockResolvedValue({ status: 'success', key: 'reward-key' });
 
-    await expect(grantResultViewPromotion(guard)).resolves.toEqual({
-      status: 'error',
-      errorCode: '4110',
-      retryable: true,
-    });
-
-    expect(storageRemoveItemMock).toHaveBeenCalledTimes(1);
-    expect(guard.resolve).toHaveBeenCalledWith(false);
-  });
-
-  it('releases both guards when the SDK is unsupported', async () => {
-    const guard = createGuard();
-    guard.reserve.mockResolvedValue(true);
-    grantPromotionRewardMock.mockResolvedValue(undefined);
-
-    await expect(grantResultViewPromotion(guard)).resolves.toEqual({ status: 'unsupported' });
-
-    expect(storageRemoveItemMock).toHaveBeenCalledTimes(1);
-    expect(guard.resolve).toHaveBeenCalledWith(false);
-  });
-
-  it('persists the reward key and finalizes the server guard after success', async () => {
-    const guard = createGuard();
-    guard.reserve.mockResolvedValue(true);
-    grantPromotionRewardMock.mockResolvedValue({ key: 'reward-key' });
-
-    await expect(grantResultViewPromotion(guard)).resolves.toEqual({ status: 'success' });
+    await expect(grantResultViewPromotion(grant)).resolves.toEqual({ status: 'success' });
 
     expect(storageSetItemMock).toHaveBeenLastCalledWith(expect.any(String), 'reward-key');
     expect(storageRemoveItemMock).not.toHaveBeenCalled();
-    expect(guard.resolve).toHaveBeenCalledWith(true);
   });
 });
