@@ -12,6 +12,7 @@
 - API: `C:\Users\ESOL\Documents\jbg`, GitHub `gisaya/jbg`, 브랜치 `main`
 - 운영 API: `https://jbg.onrender.com`
 - 약관: `https://wherego-lake.vercel.app/terms/service`, `https://wherego-lake.vercel.app/terms/privacy`
+- 공개 약관의 사업자 주소: `경기도 고양시 덕양구 통일로 343, 5층 503`
 - 생성물 `*.ait`, 키, 인증서, `.env*`, 로컬 로그는 Git에 넣지 않는다.
 
 ## 현재 제품 결정
