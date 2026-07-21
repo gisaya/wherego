@@ -7,6 +7,7 @@ import {
   InlineAd,
   isMinVersionSupported,
   loadFullScreenAd,
+  requestReview,
   saveBase64Data,
   showFullScreenAd,
   Storage,
@@ -66,6 +67,7 @@ import {
   grantResultViewPromotion,
   type ResultPromotionOutcome,
 } from './promotion/resultPromotion';
+import { recordSuccessfulResultForReview } from './review/resultReview';
 
 export type WheregoEntryMode = 'general' | 'promotion';
 
@@ -481,6 +483,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
   const quotaExceededRef = useRef(false);
   const exitPromptOpenRef = useRef(false);
   const resultCardSvgRef = useRef<Svg | null>(null);
+  const resultReviewCountedSessionRef = useRef<string | null>(null);
   const questionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const questionSetRequestIdRef = useRef(0);
   const candidateSetPromiseRef = useRef<Promise<WheregoCandidateSet | null> | null>(null);
@@ -519,7 +522,10 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
   const [reservedCreditSource, setReservedCreditSource] = useState<WheregoCreditSource | null>(null);
   const [recommendation, setRecommendation] = useState<WheregoRecommendation | null>(null);
   const [recommendationStatus, setRecommendationStatus] = useState<RecommendationStatus>('idle');
+  const [recommendationErrorCode, setRecommendationErrorCode] = useState<string | null>(null);
   const [resultMessage, setResultMessage] = useState('');
+  const [showResultReview, setShowResultReview] = useState(false);
+  const [isResultReviewRequesting, setIsResultReviewRequesting] = useState(false);
   const [resultPromotion, setResultPromotion] = useState<ResultPromotionOutcome>({ status: 'idle' });
   const [promotionRetryNonce, setPromotionRetryNonce] = useState(0);
   const currentQuestion = questionSet[questionIndex];
@@ -690,6 +696,34 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
 
     void Image.prefetch(result.imageUrl).catch(() => undefined);
   }, [result.imageUrl, step]);
+
+  useEffect(() => {
+    if (step !== 'result' || recommendation == null) {
+      return;
+    }
+
+    const sessionId = recommendationSessionIdRef.current;
+    if (resultReviewCountedSessionRef.current === sessionId) {
+      return;
+    }
+    resultReviewCountedSessionRef.current = sessionId;
+    setShowResultReview(false);
+
+    let cancelled = false;
+    void recordSuccessfulResultForReview()
+      .then((shouldShow) => {
+        if (!cancelled) {
+          setShowResultReview(shouldShow);
+        }
+      })
+      .catch((error) => {
+        console.error('[wherego:review] eligibility check failed', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recommendation, step]);
 
   useEffect(() => {
     if (entryMode !== 'promotion' || step !== 'result' || recommendation == null) {
@@ -1323,6 +1357,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     resetRewardAdState();
     setRecommendation(null);
     setRecommendationStatus('idle');
+    setRecommendationErrorCode(null);
     setResultMessage('');
     setResultPromotion({ status: 'idle' });
     setPromotionRetryNonce(0);
@@ -1643,6 +1678,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     quotaExceededRef.current = false;
     setRecommendation(null);
     setRecommendationStatus('idle');
+    setRecommendationErrorCode(null);
     setResultMessage('');
     setResultPromotion({ status: 'idle' });
     setPromotionRetryNonce(0);
@@ -1724,6 +1760,9 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     }
 
     startCandidatePreparation();
+    if (hasRewardAccess) {
+      startRecommendationAnalysis();
+    }
     questionAdvanceTimeoutRef.current = setTimeout(() => {
       questionAdvanceTimeoutRef.current = null;
       setSelectedOptionLabel(null);
@@ -1740,11 +1779,13 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     if (answers.length === 0) {
       setRecommendation(null);
       setRecommendationStatus('error');
+      setRecommendationErrorCode('wherego_missing_answers');
       setRewardAdMessage('답변 정보를 확인하지 못했어요. 처음부터 다시 진행해주세요.');
       return;
     }
 
     setRecommendationStatus('loading');
+    setRecommendationErrorCode(null);
     setResultMessage('');
 
     try {
@@ -1762,9 +1803,12 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
         setUsage(nextRecommendation.usage);
       }
       setRecommendationStatus('ready');
+      setRecommendationErrorCode(null);
     } catch (error) {
       setRecommendation(null);
       setRecommendationStatus('error');
+      const errorCode = error instanceof WheregoApiError ? error.code || null : null;
+      setRecommendationErrorCode(errorCode);
       if (error instanceof WheregoApiError && error.usage) {
         setUsage(error.usage);
       }
@@ -1773,14 +1817,30 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
         openQuota();
         return;
       }
+      if (errorCode === 'wherego_no_place_candidates') {
+        setRewardAdMessage('선택한 조건을 모두 만족하는 관광지를 찾지 못했어요.');
+        return;
+      }
       setRewardAdMessage(`추천을 완료하지 못했어요. ${toErrorMessage(error)}`);
     }
   }
 
   function retryRecommendation() {
     setRewardAdMessage('');
+    setRecommendationErrorCode(null);
     startCandidatePreparation();
     startRecommendationAnalysis();
+  }
+
+  function restartQuestionsAfterNoCandidates() {
+    setRewardAdMessage('');
+    setRecommendationErrorCode(null);
+    candidateSetPromiseRef.current = null;
+    if (origin == null) {
+      resetToIntro();
+      return;
+    }
+    void startFlowWithOrigin(origin);
   }
 
   function openMap() {
@@ -1798,6 +1858,21 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
       })
       .catch((error) => {
         setResultMessage(`카드 저장을 완료하지 못했어요. ${toErrorMessage(error)}`);
+      });
+  }
+
+  function openResultReview() {
+    if (isResultReviewRequesting) {
+      return;
+    }
+    setIsResultReviewRequesting(true);
+    void requestReview()
+      .catch((error) => {
+        console.error('[wherego:review] request failed', error);
+      })
+      .finally(() => {
+        setIsResultReviewRequesting(false);
+        setShowResultReview(false);
       });
   }
 
@@ -1859,11 +1934,13 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
             ) : null}
             {step === 'rewardGate' ? (
               <RewardGate
+                errorCode={recommendationErrorCode}
                 hasRewardAccess={hasRewardAccess}
                 paidCreditNext={willUsePaidCredit}
-                message={rewardGateMessage(rewardAdMessage, recommendationStatus)}
+                message={rewardGateMessage(rewardAdMessage, recommendationStatus, recommendationErrorCode)}
                 recommendationStatus={recommendationStatus}
                 status={rewardAdStatus}
+                onRestartQuestions={restartQuestionsAfterNoCandidates}
                 onRetryRecommendation={retryRecommendation}
                 onWatchAd={showRewardAd}
               />
@@ -1900,7 +1977,10 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
                   result={result}
                   onHome={resetToIntro}
                   onMap={openMap}
+                  onReview={openResultReview}
                   onSave={saveCard}
+                  reviewRequesting={isResultReviewRequesting}
+                  showReview={showResultReview}
                 />
                 <ResultCardPngSource
                   ref={resultCardSvgRef}
@@ -2584,16 +2664,20 @@ function OptionCard({
 }
 
 function RewardGate({
+  errorCode,
   hasRewardAccess,
   message,
+  onRestartQuestions,
   onRetryRecommendation,
   onWatchAd,
   paidCreditNext,
   recommendationStatus,
   status,
 }: {
+  errorCode: string | null;
   hasRewardAccess: boolean;
   message: string;
+  onRestartQuestions: () => void;
   onRetryRecommendation: () => void;
   onWatchAd: () => void;
   paidCreditNext: boolean;
@@ -2603,6 +2687,7 @@ function RewardGate({
   const isAdLoading = !paidCreditNext && status === 'loading';
   const isRecommendationLoading = recommendationStatus === 'loading';
   const isRecommendationError = recommendationStatus === 'error';
+  const hasNoPlaceCandidates = errorCode === 'wherego_no_place_candidates';
   const isRecommendationDone = recommendationStatus === 'ready';
   const hasStartedRecommendation = recommendationStatus !== 'idle';
 
@@ -2619,21 +2704,27 @@ function RewardGate({
     (!paidCreditNext && (status === 'loading' || status === 'showing')) ||
     (hasRewardAccess && !isRecommendationError);
   const buttonLabel = isRecommendationError
-    ? '추천 다시 시도'
+    ? hasNoPlaceCandidates
+      ? '조건을 바꿔 다시 선택'
+      : '추천 다시 시도'
     : hasRewardAccess
       ? '추천 마무리 중'
       : paidCreditNext
         ? '이용권으로 결과 보기'
         : rewardButtonLabel(status, isRecommendationLoading);
   const pillLabel = isRecommendationError
-    ? '추천 재시도 필요'
+    ? hasNoPlaceCandidates
+      ? '조건 조정 필요'
+      : '추천 재시도 필요'
     : isRecommendationDone
       ? '추천 준비 완료'
       : hasStartedRecommendation
         ? 'AI 추천 준비'
         : '결과 확인 전';
   const title = isRecommendationError
-    ? '추천을 다시 시도해주세요.'
+    ? hasNoPlaceCandidates
+      ? '조건을 조금 바꿔볼까요?'
+      : '추천을 다시 시도해주세요.'
     : isRecommendationDone
     ? '추천 카드 준비가 끝났어요.'
     : hasStartedRecommendation
@@ -2642,7 +2733,9 @@ function RewardGate({
         ? '광고 없이 맞춤 여행지를 추천해드려요.'
         : '짧은 광고 후 맞춤 여행지를 추천해드려요.';
   const copy = isRecommendationError
-    ? '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
+    ? hasNoPlaceCandidates
+      ? '출발지는 그대로 두고 새 질문을 고를 수 있어요. 확인한 광고는 다시 보지 않아도 돼요.'
+      : '임시 추천을 보여주지 않고, 관광정보와 방문자수 기반 추천을 다시 요청할게요.'
     : isRecommendationDone
     ? '짧은 광고가 끝나면 추천 카드와 지도 연결을 바로 열어드릴게요.'
     : isAdLoading
@@ -2673,7 +2766,13 @@ function RewardGate({
         <PrimaryButton
           disabled={isButtonDisabled}
           label={buttonLabel}
-          onPress={isRecommendationError ? onRetryRecommendation : onWatchAd}
+          onPress={
+            isRecommendationError
+              ? hasNoPlaceCandidates
+                ? onRestartQuestions
+                : onRetryRecommendation
+              : onWatchAd
+          }
         />
       </View>
     </View>
@@ -2721,17 +2820,23 @@ function ResultScreen({
   onHome,
   onMap,
   onPromotionRetry,
+  onReview,
   onSave,
   promotion,
+  reviewRequesting,
   result,
+  showReview,
 }: {
   message: string;
   onHome: () => void;
   onMap: () => void;
   onPromotionRetry: () => void;
+  onReview: () => void;
   onSave: () => void;
   promotion: ResultPromotionOutcome | null;
+  reviewRequesting: boolean;
   result: DemoResult;
+  showReview: boolean;
 }) {
   const locationText = resultLocationText(result);
 
@@ -2771,6 +2876,20 @@ function ResultScreen({
           {message ? <Text style={styles.resultMessage}>{message}</Text> : null}
         </View>
       </View>
+      {showReview ? (
+        <View style={styles.resultReviewPrompt}>
+          <Text style={styles.resultReviewTitle}>추천이 마음에 들었나요?</Text>
+          <Text style={styles.resultReviewCopy}>
+            어디고를 계속 개선할 수 있게 리뷰를 남겨주세요.
+          </Text>
+          <PrimaryButton
+            label="리뷰 남기기"
+            loading={reviewRequesting}
+            onPress={onReview}
+            viewStyle={styles.resultReviewButton}
+          />
+        </View>
+      ) : null}
       <SecondaryButton label="처음으로 돌아가기" onPress={onHome} viewStyle={styles.homeButton} />
     </View>
   );
@@ -3443,13 +3562,17 @@ function regionFromAddress(address: string) {
   return address.split(/\s+/).filter(Boolean).slice(0, 2).join(' ') || '지역 확인 필요';
 }
 
-function rewardGateMessage(adMessage: string, status: RecommendationStatus) {
+function rewardGateMessage(
+  adMessage: string,
+  status: RecommendationStatus,
+  errorCode: string | null,
+) {
   const recommendationMessage =
     status === 'loading'
       ? 'AI가 한국관광공사 관광정보에서 후보를 고르는 중이에요.'
       : status === 'ready'
         ? '추천 카드 준비가 끝났어요.'
-        : status === 'error'
+        : status === 'error' && errorCode !== 'wherego_no_place_candidates'
           ? '추천 요청이 완료되지 않았어요. 다시 시도해주세요.'
           : '';
 
@@ -4587,6 +4710,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     marginTop: 10,
+  },
+  resultReviewPrompt: {
+    marginHorizontal: 8,
+    paddingTop: 18,
+  },
+  resultReviewTitle: {
+    color: '#191F28',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 23,
+  },
+  resultReviewCopy: {
+    color: '#6B7684',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  resultReviewButton: {
+    marginTop: 12,
   },
   homeButton: {
     marginHorizontal: 4,
