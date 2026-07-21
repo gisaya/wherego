@@ -515,6 +515,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
   const [isRewardGranting, setIsRewardGranting] = useState(false);
   const [iapProduct, setIapProduct] = useState<WheregoIapProduct | null>(null);
   const [isIapLoading, setIsIapLoading] = useState(false);
+  const [isIntroReady, setIsIntroReady] = useState(false);
   const [isIapPurchasing, setIsIapPurchasing] = useState(false);
   const [isTossLoggedIn, setIsTossLoggedIn] = useState(false);
   const [isTossLoginLoading, setIsTossLoginLoading] = useState(false);
@@ -559,44 +560,56 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
         : step === 'result'
           ? 'result'
           : 'question-set-loading';
+  const shouldDockQuestionBanner = shouldShowBannerAd && step === 'question';
 
   useEffect(() => {
+    let disposed = false;
     void (async () => {
-      const { key } = await resolveAnonymousUserKey();
-      guestAnonymousUserKeyRef.current = key;
-      anonymousUserKeyRef.current = key;
-      await refreshUsage(key);
-
       try {
-        const stored = await Storage.getItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
-        const session = parseStoredTossLoginSession(stored);
-        if (session) {
-          tossLoginSessionTokenRef.current = session.sessionToken;
-          anonymousUserKeyRef.current = session.anonymousUserKey;
-          setIsTossLoggedIn(true);
-          try {
-            const linkedUsage = await linkWheregoGuestUsage({
-              guestAnonymousUserKey: key,
-              loginSessionToken: session.sessionToken,
-            });
-            setUsage(linkedUsage);
-          } catch (error) {
-            if (isWheregoLoginRequiredError(error)) {
-              await clearTossLoginSession();
-            } else {
-              await refreshUsage(session.anonymousUserKey);
+        const { key } = await resolveAnonymousUserKey();
+        guestAnonymousUserKeyRef.current = key;
+        anonymousUserKeyRef.current = key;
+        await refreshUsage(key);
+
+        try {
+          const stored = await Storage.getItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
+          const session = parseStoredTossLoginSession(stored);
+          if (session) {
+            tossLoginSessionTokenRef.current = session.sessionToken;
+            anonymousUserKeyRef.current = session.anonymousUserKey;
+            setIsTossLoggedIn(true);
+            try {
+              const linkedUsage = await linkWheregoGuestUsage({
+                guestAnonymousUserKey: key,
+                loginSessionToken: session.sessionToken,
+              });
+              setUsage(linkedUsage);
+            } catch (error) {
+              if (isWheregoLoginRequiredError(error)) {
+                await clearTossLoginSession();
+              } else {
+                await refreshUsage(session.anonymousUserKey);
+              }
             }
+          } else if (stored) {
+            await Storage.removeItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
           }
-        } else if (stored) {
-          await Storage.removeItem(TOSS_LOGIN_SESSION_STORAGE_KEY);
+        } catch (_) {
+          // Product loading still works when local login-session restoration is unavailable.
         }
-      } catch (_) {
-        // Product loading still works when local login-session restoration is unavailable.
+        await loadIapProductAndRestore(anonymousUserKeyRef.current);
+      } catch (error) {
+        console.error('[wherego:intro] initialization failed', error);
+        setUsageMessage('이용 정보를 모두 불러오지 못했어요. 잠시 후 다시 확인해 주세요.');
+      } finally {
+        if (!disposed) {
+          setIsIntroReady(true);
+        }
       }
-      await loadIapProductAndRestore(anonymousUserKeyRef.current);
     })();
 
     return () => {
+      disposed = true;
       rewardAdUnregisterRef.current?.();
       rewardAdUnregisterRef.current = null;
       clearRewardAdLoadTimer();
@@ -1880,11 +1893,13 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
     <TDSProvider colorPreference="light">
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.phone}>
+          <View style={[styles.phone, shouldDockQuestionBanner ? styles.phoneWithDockedBanner : null]}>
             {step === 'question' ? <Header counter={`${questionIndex + 1} / ${questionSet.length}`} /> : null}
             {step === 'question' ? <ProgressBar progress={progress} /> : null}
             {step === 'intro' ? (
-              entryMode === 'promotion' ? (
+              !isIntroReady ? (
+                <IntroLoadingScreen entryMode={entryMode} />
+              ) : entryMode === 'promotion' ? (
                 <PromotionIntroScreen
                   adStatus={quotaAdStatus}
                   granting={isRewardGranting}
@@ -1988,10 +2003,15 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
                 />
               </>
             ) : null}
-            {shouldShowBannerAd ? <BannerAd key={bannerAdKey} /> : null}
+            {shouldShowBannerAd && !shouldDockQuestionBanner ? <BannerAd key={bannerAdKey} /> : null}
             {waitingForLocation ? <CurrentLocationResolver onLocation={startFlowWithCurrentLocation} /> : null}
           </View>
         </ScrollView>
+        {shouldDockQuestionBanner ? (
+          <View style={styles.questionBannerDock}>
+            <BannerAd key={bannerAdKey} />
+          </View>
+        ) : null}
       </SafeAreaView>
     </TDSProvider>
   );
@@ -2023,6 +2043,21 @@ function Header({ counter }: { counter: string }) {
         <Text style={styles.brandName}>어디고</Text>
       </View>
       <Text style={styles.counter}>{counter}</Text>
+    </View>
+  );
+}
+
+function IntroLoadingScreen({ entryMode }: { entryMode: WheregoEntryMode }) {
+  return (
+    <View style={styles.initialLoadingScreen}>
+      <Image source={LOGO_IMAGE} style={styles.initialLoadingLogo} />
+      <Text style={styles.initialLoadingBrand}>어디고</Text>
+      <ActivityIndicator color="#2B84FC" size="large" />
+      <Text style={styles.initialLoadingText}>
+        {entryMode === 'promotion'
+          ? '혜택과 추천 횟수를 확인하고 있어요.'
+          : '추천 횟수와 이용권을 확인하고 있어요.'}
+      </Text>
     </View>
   );
 }
@@ -3783,6 +3818,36 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     width: '100%',
   },
+  phoneWithDockedBanner: {
+    paddingBottom: 122,
+  },
+  initialLoadingScreen: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 620,
+    paddingBottom: 36,
+  },
+  initialLoadingLogo: {
+    height: 72,
+    marginBottom: 10,
+    resizeMode: 'contain',
+    width: 72,
+  },
+  initialLoadingBrand: {
+    color: '#191F28',
+    fontSize: 24,
+    fontWeight: '800',
+    marginBottom: 24,
+  },
+  initialLoadingText: {
+    color: '#6B7684',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: 16,
+    textAlign: 'center',
+  },
   hiddenCardRenderer: {
     height: RESULT_CARD_IMAGE_HEIGHT,
     left: 0,
@@ -4744,6 +4809,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
     overflow: 'hidden',
     width: '100%',
+  },
+  questionBannerDock: {
+    backgroundColor: '#F5F7FA',
+    bottom: 0,
+    elevation: 8,
+    left: 0,
+    paddingBottom: 4,
+    paddingHorizontal: 20,
+    position: 'absolute',
+    right: 0,
+    shadowColor: '#191F28',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    zIndex: 20,
   },
   primaryButton: {
     alignSelf: 'stretch',
