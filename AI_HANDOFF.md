@@ -12,7 +12,7 @@
 - API: `C:\Users\ESOL\Documents\jbg`, GitHub `gisaya/jbg`, 브랜치 `main`
 - 운영 API: `https://jbg.onrender.com`
 - 약관: `https://wherego-lake.vercel.app/terms/service`, `https://wherego-lake.vercel.app/terms/privacy`
-- 공개 약관의 사업자 주소: `경기도 고양시 덕양구 통일로 343, 5층 503`
+- 공개 약관 문의 이메일: `gisaya@naver.com`
 - 생성물 `*.ait`, 키, 인증서, `.env*`, 로컬 로그는 Git에 넣지 않는다.
 
 ## 현재 제품 결정
@@ -137,7 +137,7 @@ API 키와 Gemini 키는 Render 환경변수에만 둔다. 클라이언트에는
 - 최신 AIT deploymentId: `019f84e2-eb47-7f97-bb0d-4563c52994fe`
 - 서버 커밋 `7d2ea3a`가 원격과 Render에 반영됐고 health에서 동일 커밋, Postgres, 누락 환경변수 0개를 확인했다.
 - AIT 내부에 컨셉 이미지 10종, 새 `/api/wherego/promotion/grant` 경로, 운영 프로모션 코드, 50원과 라이브 광고 ID를 확인했다. 프로모션 테스트 코드와 예전 리워드 광고 ID는 없다.
-- 공개 서비스 이용약관과 개인정보 처리방침에서 사업자 주소 `경기도 고양시 덕양구 통일로 343, 5층 503`을 확인했다.
+- 2026-07-22 공개 서비스 이용약관과 개인정보 처리방침에서 사업자 주소를 제거하고 문의 이메일을 `gisaya@naver.com`으로 통일했다. `yarn terms:build`가 통과했다.
 
 ## 남은 위험
 
