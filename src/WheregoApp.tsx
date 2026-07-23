@@ -2884,7 +2884,6 @@ function ResultScreen({
             <View style={styles.resultImagePlaceholder}>
               <Image source={resultPlaceholderImage(result)} style={styles.resultPlaceholderImage} />
               <View style={styles.resultImagePlaceholderNotice}>
-                <Image source={LOGO_IMAGE} style={styles.resultImagePlaceholderLogo} />
                 <Text style={styles.resultImagePlaceholderText}>{resultPlaceholderNotice(result)}</Text>
               </View>
             </View>
@@ -4673,25 +4672,22 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
     width: '100%',
   },
-  resultImagePlaceholderLogo: {
-    borderRadius: 12,
-    height: 54,
-    width: 54,
-  },
   resultImagePlaceholderNotice: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 16,
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(17, 24, 39, 0.68)',
+    borderRadius: 8,
+    bottom: 10,
+    left: 10,
+    maxWidth: '90%',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    position: 'absolute',
     zIndex: 2,
   },
   resultImagePlaceholderText: {
-    color: '#4E5968',
-    fontSize: 12,
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '700',
-    lineHeight: 18,
+    lineHeight: 14,
   },
   imageAttributionCaption: {
     color: '#8B95A1',
