@@ -2427,7 +2427,7 @@ function QuotaScreen({
               </Text>
             </View>
             <Text numberOfLines={1} style={styles.iapOfferPrice}>
-              {productPrice || (iapLoading ? '확인 중' : '490원')}
+              {productPrice || (iapLoading ? '확인 중' : '495원')}
             </Text>
           </View>
           <View style={styles.iapBenefitList}>
