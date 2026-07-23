@@ -148,13 +148,15 @@ APPS_IN_TOSS_MTLS_KEY_PASSWORD
 13. 성공 결과를 2회 확인하면 리뷰 CTA가 한 번만 표시되고 이후 재노출되지 않는다.
 14. `/promotion` 지급 시 실제 hash만 허용되고 `install-`, `runtime-`, 로그인 파생 키는 포인트 지급에 사용되지 않는다.
 
+결과 컨셉 이미지는 `https://wherego-lake.vercel.app/assets/results/`에서 제공한다. AIT 업로드 전 대표 테마 URL이 HTTP 200인지 확인하고, 관광공사 이미지 URL이 깨진 경우에도 컨셉 이미지로 전환되는지 실기기에서 확인한다.
+
 ## 상품과 로그인
 
 - 상품: 소모성 `AI 여행지 추천 3회 이용권`, 공급가 450원, 판매가 495원
 - 화면 가격은 `IAP.getProductItemList()` 응답을 사용하고 하드코딩하지 않는다.
 - 로그인은 구매 시점에만 요청한다.
 - 유료 이용권 잔액이 있거나 유료 횟수로 추천을 진행 중이면 배너광고를 노출하지 않는다.
-- 서버가 Toss 주문 상태를 mTLS로 확인한 뒤 주문 ID 기준 한 번만 +10을 지급한다.
+- 서버가 Toss 주문 상태를 mTLS로 확인한 뒤 주문 ID 기준 한 번만 +3을 지급한다.
 - 상세 등록값은 `docs/IAP_PRODUCT_REGISTRATION.md`를 따른다.
 
 ## 로컬 Android

@@ -59,6 +59,11 @@ import {
   INTRO_FOREST_SOURCE,
 } from './assets/introPhotoData';
 import {
+  RESULT_PLACEHOLDER_IMAGE_URIS,
+  WHEREGO_LOGO_IMAGE_SOURCE,
+  type ResultImagePlaceholderTheme,
+} from './assets/resultPlaceholder';
+import {
   WHEREGO_RESULT_PROMOTION_AMOUNT,
   WHEREGO_RESULT_PROMOTION_CODE,
   WHEREGO_SHARE_REWARD_MODULE_ID,
@@ -167,31 +172,7 @@ type DemoResult = {
   isFallback?: boolean;
 };
 
-type ResultImagePlaceholderTheme =
-  | 'coast'
-  | 'nature'
-  | 'culture'
-  | 'outdoor'
-  | 'waterside'
-  | 'garden'
-  | 'heritage'
-  | 'indoor'
-  | 'wellness'
-  | 'activity';
-
-const LOGO_IMAGE = require('../assets/logo.png') as number;
-const RESULT_PLACEHOLDER_IMAGES: Record<ResultImagePlaceholderTheme, number> = {
-  coast: require('../assets/fallback-coast.jpg') as number,
-  nature: require('../assets/fallback-nature.jpg') as number,
-  culture: require('../assets/fallback-culture.jpg') as number,
-  outdoor: require('../assets/fallback-outdoor.jpg') as number,
-  waterside: require('../assets/fallback-waterside.jpg') as number,
-  garden: require('../assets/fallback-garden.jpg') as number,
-  heritage: require('../assets/fallback-heritage.jpg') as number,
-  indoor: require('../assets/fallback-indoor.jpg') as number,
-  wellness: require('../assets/fallback-wellness.jpg') as number,
-  activity: require('../assets/fallback-activity.jpg') as number,
-};
+const LOGO_IMAGE = WHEREGO_LOGO_IMAGE_SOURCE;
 const regionOptions: Origin[] = [
   {
     type: 'selected_region',
@@ -2881,14 +2862,24 @@ function ResultScreen({
   showReview: boolean;
 }) {
   const locationText = resultLocationText(result);
+  const [officialImageFailed, setOfficialImageFailed] = useState(false);
+  const showOfficialImage = Boolean(result.imageUrl) && !officialImageFailed;
+
+  useEffect(() => {
+    setOfficialImageFailed(false);
+  }, [result.imageUrl]);
 
   return (
     <View style={styles.resultScreen}>
       <ResultPromotionNotice onRetry={onPromotionRetry} outcome={promotion} />
       <View style={styles.resultCard}>
         <View style={styles.resultArt}>
-          {result.imageUrl ? (
-            <Image source={{ uri: result.imageUrl }} style={styles.resultImage} />
+          {showOfficialImage ? (
+            <Image
+              onError={() => setOfficialImageFailed(true)}
+              source={{ uri: result.imageUrl }}
+              style={styles.resultImage}
+            />
           ) : (
             <View style={styles.resultImagePlaceholder}>
               <Image source={resultPlaceholderImage(result)} style={styles.resultPlaceholderImage} />
@@ -2899,7 +2890,7 @@ function ResultScreen({
             </View>
           )}
         </View>
-        {result.imageUrl && result.imageAttribution ? (
+        {showOfficialImage && result.imageAttribution ? (
           <Text style={styles.imageAttributionCaption}>사진 출처 · {result.imageAttribution}</Text>
         ) : null}
         <View style={styles.resultBody}>
@@ -3026,7 +3017,7 @@ const ResultCardPngSource = React.forwardRef<
   }
 >(function ResultCardPngSource({ result }, ref) {
   const hasOfficialHeroImage = Boolean(result.imageUrl);
-  const heroImageUri = result.imageUrl || Image.resolveAssetSource(resultPlaceholderImage(result)).uri;
+  const heroImageUri = result.imageUrl || resultPlaceholderImageUri(result);
   const placeholderNotice = resultPlaceholderNotice(result);
   const placeLines = svgTextLines(result.place, 13, 2);
   const personaLines = svgTextLines(result.persona, 19, 2);
@@ -3530,10 +3521,14 @@ function resultFromRecommendation(
 }
 
 function resultPlaceholderImage(result: DemoResult) {
+  return { uri: resultPlaceholderImageUri(result) };
+}
+
+function resultPlaceholderImageUri(result: DemoResult) {
   const explicitV2 = result.imagePlaceholderThemeV2;
   return (
-    (explicitV2 == null ? undefined : RESULT_PLACEHOLDER_IMAGES[explicitV2]) ||
-    RESULT_PLACEHOLDER_IMAGES[inferResultPlaceholderTheme(result)]
+    (explicitV2 == null ? undefined : RESULT_PLACEHOLDER_IMAGE_URIS[explicitV2]) ||
+    RESULT_PLACEHOLDER_IMAGE_URIS[inferResultPlaceholderTheme(result)]
   );
 }
 
