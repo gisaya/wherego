@@ -110,7 +110,7 @@ GEMINI_WHEREGO_MODEL=gemini-3.1-flash-lite
 WHEREGO_USAGE_LIMIT_ENABLED=true
 WHEREGO_ANALYTICS_ENABLED=true
 WHEREGO_ANALYTICS_HMAC_SECRET
-WHEREGO_IAP_10_CREDIT_SKU
+WHEREGO_IAP_3_CREDIT_SKU
 WHEREGO_LOGIN_IDENTITY_SECRET
 WHEREGO_LOGIN_UNLINK_BASIC_AUTH
 WHEREGO_RESULT_PROMOTION_CODE=01KXJHNBZ46JPHND9R3VH7S9TF
@@ -138,7 +138,7 @@ APPS_IN_TOSS_MTLS_KEY_PASSWORD
 3. 재진입, 결과 재렌더, 같은 사용자 재설치는 중복 지급되지 않는다.
 4. 기본 2회, 광고 +1 최대 2회, 공유 +3 하루 1회가 맞다.
 5. 잔여 0회 첫 화면에서 광고와 구매가 별도 충전 화면 없이 즉시 열리고, 서버 횟수 불일치 때만 충전 화면 fallback이 열린다.
-6. 구매 +10, 재시작 복원, 중복 주문, 환불 회수가 맞다.
+6. 구매 +3, 재시작 복원, 중복 주문, 환불 회수가 맞다.
 7. 결과 PNG 저장은 공유 API를 호출하지 않고 지도 버튼은 네이버지도를 연다.
 8. 관광공사 이미지가 없으면 화면과 PNG에 같은 컨셉 이미지와 `관광공사 제공 이미지 없음`이 표시된다.
 9. 관광공사 미등록 AI 자체 추천은 `AI 자체 추천 · 실제 사진 없음`으로 표시되고 운영시간·주차·입장료를 단정하지 않는다.
@@ -150,9 +150,10 @@ APPS_IN_TOSS_MTLS_KEY_PASSWORD
 
 ## 상품과 로그인
 
-- 상품: 소모성 `AI 여행지 추천 10회 이용권`
+- 상품: 소모성 `AI 여행지 추천 3회 이용권`, 공급가 450원, 예상 판매가 490원
 - 화면 가격은 `IAP.getProductItemList()` 응답을 사용하고 하드코딩하지 않는다.
 - 로그인은 구매 시점에만 요청한다.
+- 유료 이용권 잔액이 있거나 유료 횟수로 추천을 진행 중이면 배너광고를 노출하지 않는다.
 - 서버가 Toss 주문 상태를 mTLS로 확인한 뒤 주문 ID 기준 한 번만 +10을 지급한다.
 - 상세 등록값은 `docs/IAP_PRODUCT_REGISTRATION.md`를 따른다.
 

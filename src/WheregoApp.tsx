@@ -63,6 +63,7 @@ import {
   WHEREGO_RESULT_PROMOTION_CODE,
   WHEREGO_SHARE_REWARD_MODULE_ID,
 } from './config';
+import { shouldSuppressBannerAds } from './ads/bannerAd';
 import {
   grantResultViewPromotion,
   type ResultPromotionOutcome,
@@ -547,11 +548,16 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
   const introMessage = isIntroBaseQuotaExhausted
     ? quotaRewardMessage || (isIntroQuotaExhausted ? iapMessage : usageMessage)
     : usageMessage;
+  const suppressBannerAds = shouldSuppressBannerAds({
+    paidCreditsRemaining: usagePaidCredits(usage),
+    reservedCreditSource,
+  });
   const shouldShowBannerAd =
-    step === 'question' ||
-    (step === 'origin' && isQuestionSetLoading) ||
-    (step === 'rewardGate' && hasRewardAccess && hasClosedFullScreenAd) ||
-    (step === 'result' && hasClosedFullScreenAd);
+    !suppressBannerAds &&
+    (step === 'question' ||
+      (step === 'origin' && isQuestionSetLoading) ||
+      (step === 'rewardGate' && hasRewardAccess && hasClosedFullScreenAd) ||
+      (step === 'result' && hasClosedFullScreenAd));
   const bannerAdKey =
     step === 'question'
       ? `question-${questionIndex}`
@@ -2111,7 +2117,7 @@ function IntroScreen({
       ? '토스 로그인 중'
       : iapLoading
         ? '이용권 준비 중'
-        : '10회 이용권 구매하기';
+        : '3회 이용권 구매하기';
   const usageLabel = usage?.limitEnabled
     ? quotaExhausted
       ? '추천 횟수를 모두 사용했어요'
@@ -2226,7 +2232,7 @@ function PromotionIntroScreen({
       ? '토스 로그인 중'
       : iapLoading
         ? '이용권 준비 중'
-        : '10회 이용권 구매하기';
+        : '3회 이용권 구매하기';
   const usageLabel = usage?.limitEnabled
     ? quotaExhausted
       ? '추천 횟수를 모두 사용했어요'
@@ -2365,7 +2371,7 @@ function QuotaScreen({
     : usage?.shareRewardUsed
       ? '오늘 공유 보상 완료'
       : '친구에게 공유하고 3회 받기';
-  const productCredits = iapProduct?.credits || 10;
+  const productCredits = iapProduct?.credits || 3;
   const productPrice = iapProduct?.displayAmount || '';
   const purchaseButtonLabel = iapPurchasing
     ? '결제 확인 중'
@@ -2421,7 +2427,7 @@ function QuotaScreen({
               </Text>
             </View>
             <Text numberOfLines={1} style={styles.iapOfferPrice}>
-              {productPrice || (iapLoading ? '확인 중' : '10회권')}
+              {productPrice || (iapLoading ? '확인 중' : '490원')}
             </Text>
           </View>
           <View style={styles.iapBenefitList}>
@@ -2429,6 +2435,10 @@ function QuotaScreen({
             <View style={styles.iapBenefitRow}>
               <View style={styles.iapBenefitDot} />
               <Text style={styles.iapBenefitText}>이용권 횟수 사용 시 결과 전 전면광고 없이 바로 추천</Text>
+            </View>
+            <View style={[styles.iapBenefitRow, styles.iapBenefitRowSpaced]}>
+              <View style={styles.iapBenefitDot} />
+              <Text style={styles.iapBenefitText}>이용권 보유 중 배너광고 없이 이용</Text>
             </View>
             <View style={[styles.iapBenefitRow, styles.iapBenefitRowSpaced]}>
               <View style={styles.iapBenefitDot} />
