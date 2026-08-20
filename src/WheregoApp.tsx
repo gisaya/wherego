@@ -59,6 +59,7 @@ import {
   INTRO_FOREST_SOURCE,
 } from './assets/introPhotoData';
 import {
+  RESULT_PLACEHOLDER_BADGE_LABEL,
   RESULT_PLACEHOLDER_IMAGE_URIS,
   WHEREGO_LOGO_IMAGE_SOURCE,
   type ResultImagePlaceholderTheme,
@@ -1152,7 +1153,7 @@ export function WheregoApp({ entryMode }: { entryMode: WheregoEntryMode }) {
       exitPromptOpenRef.current = false;
     };
     Alert.alert(
-      '어디고를 종료할까요?',
+      '여행BTI를 종료할까요?',
       '여행지 추천을 계속할 수 있어요.',
       [
         { text: '계속하기', style: 'cancel', onPress: closePrompt },
@@ -2024,7 +2025,7 @@ function Header({ counter }: { counter: string }) {
     <View style={styles.header}>
       <View style={styles.brand}>
         <Image source={LOGO_IMAGE} style={styles.logo} />
-        <Text style={styles.brandName}>어디고</Text>
+        <Text style={styles.brandName}>여행BTI</Text>
       </View>
       <Text style={styles.counter}>{counter}</Text>
     </View>
@@ -2035,7 +2036,7 @@ function IntroLoadingScreen({ entryMode }: { entryMode: WheregoEntryMode }) {
   return (
     <View style={styles.initialLoadingScreen}>
       <Image source={LOGO_IMAGE} style={styles.initialLoadingLogo} />
-      <Text style={styles.initialLoadingBrand}>어디고</Text>
+      <Text style={styles.initialLoadingBrand}>여행BTI</Text>
       <ActivityIndicator color="#2B84FC" size="large" />
       <Text style={styles.initialLoadingText}>
         {entryMode === 'promotion'
@@ -2884,7 +2885,7 @@ function ResultScreen({
             <View style={styles.resultImagePlaceholder}>
               <Image source={resultPlaceholderImage(result)} style={styles.resultPlaceholderImage} />
               <View style={styles.resultImagePlaceholderNotice}>
-                <Text style={styles.resultImagePlaceholderText}>{resultPlaceholderNotice(result)}</Text>
+                <Text style={styles.resultImagePlaceholderText}>{RESULT_PLACEHOLDER_BADGE_LABEL}</Text>
               </View>
             </View>
           )}
@@ -2912,7 +2913,7 @@ function ResultScreen({
         <View style={styles.resultReviewPrompt}>
           <Text style={styles.resultReviewTitle}>추천이 마음에 들었나요?</Text>
           <Text style={styles.resultReviewCopy}>
-            어디고를 계속 개선할 수 있게 리뷰를 남겨주세요.
+            여행BTI를 계속 개선할 수 있게 리뷰를 남겨주세요.
           </Text>
           <PrimaryButton
             label="리뷰 남기기"
@@ -3017,7 +3018,6 @@ const ResultCardPngSource = React.forwardRef<
 >(function ResultCardPngSource({ result }, ref) {
   const hasOfficialHeroImage = Boolean(result.imageUrl);
   const heroImageUri = result.imageUrl || resultPlaceholderImageUri(result);
-  const placeholderNotice = resultPlaceholderNotice(result);
   const placeLines = svgTextLines(result.place, 13, 2);
   const personaLines = svgTextLines(result.persona, 19, 2);
   const reasonLines = svgTextLines(result.reason, 25, 5);
@@ -3031,6 +3031,8 @@ const ResultCardPngSource = React.forwardRef<
   const cardHeight = 1222;
   const contentX = cardX + 48;
   const contentWidth = cardWidth - 96;
+  const placeholderBadgeWidth = 330;
+  const placeholderBadgeX = cardX + cardWidth - placeholderBadgeWidth - 24;
   const locationTextY = locationLines.length > 1 ? 890 : 909;
 
   return (
@@ -3061,16 +3063,24 @@ const ResultCardPngSource = React.forwardRef<
           <Rect fill="#000000" height={RESULT_CARD_HERO_HEIGHT} opacity={0.28} width={cardWidth} x={cardX} y={cardY} />
           {!hasOfficialHeroImage ? (
             <>
-              <Rect fill="#000000" height={38} opacity={0.58} rx={12} width={310} x={contentX} y={456} />
+              <Rect
+                fill="#000000"
+                height={34}
+                opacity={0.58}
+                rx={10}
+                width={placeholderBadgeWidth}
+                x={placeholderBadgeX}
+                y={462}
+              />
               <SvgText
                 fill="#FFFFFF"
                 fontFamily={RESULT_CARD_FONT_FAMILY}
                 fontSize={18}
                 fontWeight="700"
-                x={contentX + 16}
-                y={482}
+                x={placeholderBadgeX + 16}
+                y={485}
               >
-                {placeholderNotice}
+                {RESULT_PLACEHOLDER_BADGE_LABEL}
               </SvgText>
             </>
           ) : null}
@@ -3088,7 +3098,7 @@ const ResultCardPngSource = React.forwardRef<
           </SvgText>
         ) : null}
         <SvgText fill={heroTitleColor} fontFamily={RESULT_CARD_FONT_FAMILY} fontSize={34} fontWeight="800" x={contentX} y={150}>
-          어디고 추천 카드
+          여행BTI 추천 카드
         </SvgText>
         <SvgTextBlock color={heroPlaceColor} lineHeight={62} lines={placeLines} weight="800" x={contentX} y={234} />
         <SvgTextBlock color="#1E63D6" lineHeight={34} lines={personaLines} weight="800" x={contentX} y={588} />
@@ -3529,12 +3539,6 @@ function resultPlaceholderImageUri(result: DemoResult) {
     (explicitV2 == null ? undefined : RESULT_PLACEHOLDER_IMAGE_URIS[explicitV2]) ||
     RESULT_PLACEHOLDER_IMAGE_URIS[inferResultPlaceholderTheme(result)]
   );
-}
-
-function resultPlaceholderNotice(result: DemoResult) {
-  return result.source === 'gemini'
-    ? 'AI 자체 추천 · 실제 사진 없음'
-    : '관광공사 제공 이미지 없음';
 }
 
 function inferResultPlaceholderTheme(result: DemoResult): ResultImagePlaceholderTheme {

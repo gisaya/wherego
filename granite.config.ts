@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     appsInToss({
       brand: {
-        displayName: '어디고',
+        displayName: '여행BTI',
         primaryColor: '#2B84FC',
         icon: 'https://static.toss.im/appsintoss/51165/be941510-6da6-4bba-982c-11824ab9a089.png',
       },

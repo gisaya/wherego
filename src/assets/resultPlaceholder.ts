@@ -6,6 +6,8 @@ export const WHEREGO_LOGO_IMAGE_SOURCE: ImageSourcePropType = {
   uri: `${STATIC_ASSET_BASE_URL}/logo.png`,
 };
 
+export const RESULT_PLACEHOLDER_BADGE_LABEL = '예시 이미지 · 실제 장소 사진 아님';
+
 export const RESULT_PLACEHOLDER_IMAGE_URIS = {
   coast: `${STATIC_ASSET_BASE_URL}/results/fallback-coast.jpg`,
   nature: `${STATIC_ASSET_BASE_URL}/results/fallback-nature.jpg`,

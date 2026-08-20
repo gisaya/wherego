@@ -418,7 +418,7 @@ async function main() {
       personaTitle: `${plan.persona.title} 유형이에요!`,
       oneLine: plan.persona.oneLine,
       recommendedPlaces: placeResults,
-      shareText: `${placeResults[0]?.title || '오늘의 여행지'} 어때요? 어디고가 취향에 맞춰 골라봤어요.`,
+      shareText: `${placeResults[0]?.title || '오늘의 여행지'} 어때요? 여행BTI가 취향에 맞춰 골라봤어요.`,
     },
   };
 

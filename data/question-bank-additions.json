@@ -1,6 +1,6 @@
 {
   "version": "2026-07-09",
-  "appName": "어디고",
+  "appName": "여행BTI",
   "selectionStrategy": {
     "requiredCount": 3,
     "randomCount": 5,

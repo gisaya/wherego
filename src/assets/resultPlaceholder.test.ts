@@ -1,4 +1,5 @@
 import {
+  RESULT_PLACEHOLDER_BADGE_LABEL,
   RESULT_PLACEHOLDER_IMAGE_URIS,
   STATIC_ASSET_BASE_URL,
   WHEREGO_LOGO_IMAGE_SOURCE,
@@ -19,5 +20,9 @@ describe('result placeholder assets', () => {
     expect(WHEREGO_LOGO_IMAGE_SOURCE).toEqual({
       uri: `${STATIC_ASSET_BASE_URL}/logo.png`,
     });
+  });
+
+  it('clearly identifies generated placeholders as non-location photos', () => {
+    expect(RESULT_PLACEHOLDER_BADGE_LABEL).toBe('예시 이미지 · 실제 장소 사진 아님');
   });
 });

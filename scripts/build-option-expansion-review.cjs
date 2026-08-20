@@ -67,7 +67,7 @@ for (const group of general.tagGroups || []) {
 
 const context = {
   version: source.version,
-  appName: '어디고',
+  appName: '여행BTI',
   purpose: '다른 AI가 현재 질문은행과 겹치지 않는 여행지 추천용 선택지 후보를 제안하도록 제공하는 검토 컨텍스트',
   productPrinciple: '성격 테스트가 아니라 실제로 갈 관광지를 좁히는 질문이어야 한다.',
   dataSources: ['한국관광공사 국문 관광정보 서비스 KorService2', '한국관광공사 지역별 방문자수 DataLabService'],

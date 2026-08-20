@@ -1,6 +1,6 @@
 {
   "version": "2026-07-09",
-  "appName": "어디고",
+  "appName": "여행BTI",
   "purpose": "앱 진입 직후 장소 후보를 빠르게 좁히는 필수 3문항 후보 세트",
   "recommendedRequiredSlots": [
     {

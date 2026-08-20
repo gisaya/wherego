@@ -559,9 +559,9 @@ const tagGroups = GROUPS.map(buildGroup);
 
 const output = {
   version: '2026-07-12',
-  appName: '어디고',
+  appName: '여행BTI',
   philosophy:
-    '어디고의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.',
+    '여행BTI의 질문은 성격 테스트가 아니라 여행지를 추천하기 위한 입력이다. 모든 질문은 관광지 검색어, 지역/이동 범위, 접근성 필터, 혼잡도 가중치 중 하나로 연결되어야 한다.',
   runtimeSelection: {
     randomTagGroupCount: 4,
     questionsPerSelectedTagGroup: 1,
