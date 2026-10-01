@@ -18,7 +18,7 @@ export type WheregoUsage = {
   baseUsed: number;
   baseRemaining: number;
   adRewardsUsed: number;
-  adRewardsLimit: number;
+  adRewardsLimit: number | null;
   adCreditsRemaining: number;
   shareRewardUsed: boolean;
   shareCreditsRemaining: number;
@@ -34,6 +34,7 @@ export type WheregoIapProductConfig = {
 
 export type WheregoIapConfig = {
   enabled: boolean;
+  restorationEnabled?: boolean;
   products: WheregoIapProductConfig[];
 };
 
@@ -189,6 +190,7 @@ export type WheregoRecommendation = {
     rankingNotes?: string[];
   };
   creditSource?: WheregoCreditSource;
+  adFree?: boolean;
   usage?: WheregoUsage;
 };
 
@@ -213,6 +215,7 @@ export type WheregoCandidateSet = {
     };
   };
   creditSource?: WheregoCreditSource;
+  adFree?: boolean;
   usage?: WheregoUsage;
 };
 
@@ -352,6 +355,7 @@ export async function fetchWheregoQuestionSet(params: {
         },
         body: JSON.stringify({
           origin: params.origin,
+          questionCount: 6,
         }),
       }),
       timeoutPromise,
@@ -375,6 +379,7 @@ export async function prepareWheregoCandidates(params: {
   sessionId?: string;
   anonymousUserKey?: string | null;
   loginSessionToken?: string | null;
+  previewOnly?: boolean;
 }): Promise<WheregoCandidateSet> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -385,7 +390,7 @@ export async function prepareWheregoCandidates(params: {
 
   try {
     const response = await Promise.race([
-      fetch(`${API_BASE_URL}/api/wherego/candidates`, {
+      fetch(`${API_BASE_URL}/api/wherego/candidates?usagePolicy=uncapped-v1`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -396,6 +401,7 @@ export async function prepareWheregoCandidates(params: {
           sessionId: params.sessionId,
           anonymousUserKey: params.anonymousUserKey || undefined,
           loginSessionToken: params.loginSessionToken || undefined,
+          previewOnly: params.previewOnly === true,
         }),
       }),
       timeoutPromise,
@@ -411,6 +417,21 @@ export async function prepareWheregoCandidates(params: {
       clearTimeout(timeoutId);
     }
   }
+}
+
+export async function prepareWheregoSelection(params: {
+  origin: WheregoRecommendOrigin;
+  answers: WheregoRecommendAnswer[];
+  candidateSet: WheregoCandidateSet;
+  sessionId: string;
+  anonymousUserKey?: string | null;
+  loginSessionToken?: string | null;
+}): Promise<{ status: 'preparing' | 'deferred' }> {
+  return postWherego('/api/wherego/prepare-selection', {
+    ...params,
+    anonymousUserKey: params.anonymousUserKey || undefined,
+    loginSessionToken: params.loginSessionToken || undefined,
+  });
 }
 
 export async function recommendWheregoDestination(params: {
@@ -430,7 +451,7 @@ export async function recommendWheregoDestination(params: {
 
   try {
     const response = await Promise.race([
-      fetch(`${API_BASE_URL}/api/wherego/recommend`, {
+      fetch(`${API_BASE_URL}/api/wherego/recommend?usagePolicy=uncapped-v1`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -501,7 +522,7 @@ async function postWherego<T>(
 
   try {
     const response = await Promise.race([
-      fetch(`${API_BASE_URL}${path}`, {
+      fetch(`${API_BASE_URL}${path}?usagePolicy=uncapped-v1`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

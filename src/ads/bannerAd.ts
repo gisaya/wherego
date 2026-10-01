@@ -1,9 +1,11 @@
 export function shouldSuppressBannerAds({
   paidCreditsRemaining,
   reservedCreditSource,
+  adFree = false,
 }: {
   paidCreditsRemaining: number;
   reservedCreditSource: string | null;
+  adFree?: boolean;
 }) {
-  return paidCreditsRemaining > 0 || reservedCreditSource === 'paid';
+  return adFree || paidCreditsRemaining > 0 || reservedCreditSource === 'paid';
 }

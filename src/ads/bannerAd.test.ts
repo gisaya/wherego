@@ -1,6 +1,11 @@
 import { shouldSuppressBannerAds } from './bannerAd';
 
 describe('shouldSuppressBannerAds', () => {
+  it('keeps the daily first recommendation free of banners before and after reservation', () => {
+    for (const reservedCreditSource of [null, 'base']) {
+      expect(shouldSuppressBannerAds({ paidCreditsRemaining: 0, reservedCreditSource, adFree: true })).toBe(true);
+    }
+  });
   it('removes banners while purchased credits remain', () => {
     expect(
       shouldSuppressBannerAds({

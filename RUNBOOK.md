@@ -1,17 +1,18 @@
 # Wherego Runbook
 
-최종 갱신: 2026-07-21 KST
+최종 갱신: 2026-10-01 KST
 
 ## 경로와 런타임
 
 ```powershell
-$wherego = 'C:\Users\ESOL\Documents\wherego'
-$jbg = 'C:\Users\ESOL\Documents\jbg'
+$wherego = 'C:\Users\ESOL\Documents\wherego-weekend-web'
+$jbg = 'C:\Users\ESOL\Documents\jbg-wherego-six-daily'
 $node = 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'
 ```
 
-- 앱 Git: `https://github.com/gisaya/wherego.git`, `master`
-- 서버 Git: `https://github.com/gisaya/jbg.git`, `main`
+- 앱 Git: `https://github.com/gisaya/wherego.git`, 작업 브랜치 `codex/weekend-web-20260929`, 운영 브랜치 `master`
+- 서버 Git: `https://github.com/gisaya/jbg.git`, 운영 브랜치 `main`. 위 격리 작업 트리에서 기능 변경은 이미 운영에 반영됐다.
+- 기본 `wherego`와 `jbg`의 기존 변경은 건드리지 않는다. 작업 트리 경로를 확인하고 실행한다.
 - 운영 API: `https://jbg.onrender.com`
 - 약관: `https://wherego-lake.vercel.app/terms/service`, `https://wherego-lake.vercel.app/terms/privacy`
 - 로컬 비밀값은 `.env.local` 또는 JBG의 비추적 환경 파일에만 둔다.
@@ -21,8 +22,8 @@ $node = 'C:\Users\ESOL\.cache\codex-runtimes\codex-primary-runtime\dependencies\
 ```powershell
 Set-Location $wherego
 & $node .yarn\releases\yarn-4.9.1.cjs test
+& $node .yarn\releases\yarn-4.9.1.cjs web:test
 & $node .yarn\releases\yarn-4.9.1.cjs typecheck
-& $node scripts\build-vercel-terms.cjs
 & $node --check scripts\probe-question-bank-result.cjs
 git diff --check
 ```
@@ -63,26 +64,26 @@ powershell -ExecutionPolicy Bypass -File scripts\ait-build.ps1
 Set-Location $jbg
 $env:PYTHONPATH='apps/server'
 python -m unittest discover -s apps/server/backend/tests -p 'test_wherego*.py'
-python -m compileall -q apps/server/backend/app apps/server/backend/scripts
+python -m compileall -q apps/server/backend/app apps/server/backend/tests
 ```
 
 운영 배포 후:
 
 ```powershell
 Invoke-RestMethod 'https://jbg.onrender.com/api/health'
-Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/usage' -ContentType 'application/json' -Body '{"anonymousKey":"smoke-runbook"}'
+Invoke-RestMethod -Method Post -Uri 'https://jbg.onrender.com/api/wherego/usage' -ContentType 'application/json' -Body '{"anonymousKey":"smoke-runbook","usagePolicy":"uncapped-v1"}'
 ```
 
 실사용 QC:
 
 ```powershell
 $env:PYTHONPATH='apps/server'
-python -m backend.scripts.wherego_qc_report --hours 3 --limit 5000 --json
+python -m backend.scripts.wherego_qc_report --hours 12 --limit 5000 --json
 python -m backend.scripts.wherego_qc_report --hours 24 --limit 5000 --json
 python -m backend.scripts.wherego_qc_report --hours 168 --limit 10000 --json
 ```
 
-자동화는 3시간 리포트를 먼저 실행하고 표본이 10건 미만일 때만 24시간을 추가한다. 168시간 리포트는 월요일 첫 실행에서만 사용한다.
+사용자 QC 지시는 12시간 표본이 10건 미만일 때만 24시간을 추가하고, 한국시간 월요일 00:00~02:59 첫 실행에서만 168시간을 추가하는 것이다. 실제 일정은 저장된 자동화 설정이 기준이며 이번 저장에서 변경하지 않는다.
 
 원시 JSON에는 사용자 식별 정보가 포함될 수 있으므로 공유하거나 문서에 붙이지 않는다.
 
@@ -136,28 +137,28 @@ APPS_IN_TOSS_MTLS_KEY_PASSWORD
 1. `/`에는 혜택 UI와 프로모션 지급 API 호출이 없다.
 2. `/promotion` 최초 성공 결과에만 50원이 지급된다.
 3. 재진입, 결과 재렌더, 같은 사용자 재설치는 중복 지급되지 않는다.
-4. 기본 2회, 광고 +1 최대 2회, 공유 +3 하루 1회가 맞다.
-5. 잔여 0회 첫 화면에서 광고와 구매가 별도 충전 화면 없이 즉시 열리고, 서버 횟수 불일치 때만 충전 화면 fallback이 열린다.
-6. 구매 +3, 재시작 복원, 중복 주문, 환불 회수가 맞다.
+4. KST 매일 첫 1회는 전면·배너 광고 없이 제공한다. 이후 리워드 광고 완료마다 +1회로 계속 추천하며 두 번째 전면광고는 없다. 광고 미완료·중복·표시 실패에는 미지급, 공유 +3 하루 1회는 유지한다. 서버 정책은 `3a52c4e`로 배포됐고 새 AIT는 `usagePolicy=uncapped-v1`을 사용한다.
+5. 잔여 0회도 출발지와 6문항부터 선택하고 공공데이터 후보를 먼저 준비한다. 실제 SDK `impression` 이후 20초에 비공개 AI 준비, 보상이 먼저 오면 서버 지급 직후 추천. 보상·서버 지급·광고 종료 후에만 결과 표시. 20초 이전 종료/실패/이탈에서 타이머 취소, 이후 중도 종료는 AI 비용 가능. 과거 유한 상한은 `최신 추천 횟수 확인`으로 복구. 구매 UI 없음. 상세한 준비 캐시/한계는 `docs/MINIAPP_GROWTH_UX.md` 참조.
+6. 기존 보유 이용권 사용, 저장 로그인 세션의 미지급 주문 복원, 중복 주문 미지급, 환불 회수가 맞다. 새 주문이나 로그인 모달은 호출하지 않는다.
 7. 결과 PNG 저장은 공유 API를 호출하지 않고 지도 버튼은 네이버지도를 연다.
 8. 관광공사 이미지가 없으면 화면과 PNG에 같은 컨셉 이미지와 오른쪽 아래 `예시 이미지 · 실제 장소 사진 아님` 고지가 표시된다.
 9. 관광공사 미등록 AI 자체 추천도 `예시 이미지 · 실제 장소 사진 아님`으로 표시되고 운영시간·주차·입장료를 단정하지 않는다.
-10. 모든 단계의 뒤로가기는 종료 확인창을 거친다.
-11. 앱 시작 중에는 전용 로딩 화면만 보이고 횟수·로그인·결제 복원·상품 조회 완료 뒤 인트로가 한 번에 표시된다.
-12. 2지선다와 4지선다에서 질문 배너가 하단 안전영역의 같은 위치에 있고 카드와 겹치지 않는다.
+10. 마지막 제출 전 뒤로가기는 이전 선택 단계로 돌아가 답변을 수정할 수 있고, 이후 상태에서는 홈 복귀·종료 확인이 의도대로 동작한다.
+11. 앱 시작 중에는 전용 로딩 화면만 보이고 횟수·저장 로그인 조회 뒤 인트로가 한 번에 표시된다. 기존 주문 복원은 저장 세션이 있을 때만 뒤에서 실행한다.
+12. 2지선다와 4지선다에서 질문 배너가 별도 하단 영역에 있고 안전영역·카드와 겹치지 않는다.
 13. 성공 결과를 2회 확인하면 리뷰 CTA가 한 번만 표시되고 이후 재노출되지 않는다.
 14. `/promotion` 지급 시 실제 hash만 허용되고 `install-`, `runtime-`, 로그인 파생 키는 포인트 지급에 사용되지 않는다.
 
 결과 컨셉 이미지는 `https://wherego-lake.vercel.app/assets/results/`에서 제공한다. AIT 업로드 전 대표 테마 URL이 HTTP 200인지 확인하고, 관광공사 이미지 URL이 깨진 경우에도 컨셉 이미지로 전환되는지 실기기에서 확인한다.
 
-## 상품과 로그인
+## 기존 주문과 로그인
 
-- 상품: 소모성 `AI 여행지 추천 3회 이용권`, 공급가 450원, 판매가 495원
-- 화면 가격은 `IAP.getProductItemList()` 응답을 사용하고 하드코딩하지 않는다.
-- 로그인은 구매 시점에만 요청한다.
+- 신규 상품 판매·가격·구매 버튼·`appLogin()`·`IAP.createOneTimePurchaseOrder()`를 제거했다.
+- 일반 진입에서는 상품 API와 `IAP.getProductItemList()`를 호출하지 않는다.
+- 유효한 저장 로그인 세션의 기존 주문만 복원하며 로그인 만료·기기 변경에 따른 이용권 문의는 약관의 이메일로 안내한다.
 - 유료 이용권 잔액이 있거나 유료 횟수로 추천을 진행 중이면 배너광고를 노출하지 않는다.
 - 서버가 Toss 주문 상태를 mTLS로 확인한 뒤 주문 ID 기준 한 번만 +3을 지급한다.
-- 상세 등록값은 `docs/IAP_PRODUCT_REGISTRATION.md`를 따른다.
+- 과거 등록값은 `docs/IAP_PRODUCT_REGISTRATION.md`에 보존한다. 판매 재개 지시로 사용하지 않는다. 운영 콘솔 상품 상태는 별도로 확인한다.
 
 ## 로컬 Android
 
@@ -175,6 +176,8 @@ adb shell am start -a android.intent.action.VIEW -d 'intoss://wherego'
 
 ## 저장
 
+사용자가 2026-10-01 버전 등록을 직접 하겠다고 지시했다. AIT 빌드 요청은 파일 생성·검증까지만 진행하며 토스 업로드·버전 등록·검토 요청·출시는 수행하지 않는다. 출시 메모는 공백/문장부호 포함 120자 이하이며 `docs/RELEASE_MEMO.md`를 사용한다.
+
 사용자가 `저장`이라고 하면 `SAVE_PROTOCOL.md`를 따른다.
 
 ```powershell
@@ -189,3 +192,7 @@ git push origin <현재 브랜치>
 ```
 
 문서에는 최신 AIT deploymentId 하나와 최종 검증 결과만 남긴다. 비밀값, 생성물, 캐시, 원시 QC 데이터는 커밋하지 않는다.
+
+현재 브랜치 저장/푸시는 `master` 병합, Vercel 공개 배포, 토스 버전 등록과 다르다. 검증된 최신 AIT가 있으면 문서 저장만을 위해 다시 빌드하지 않는다.
+
+웹 실행 명령은 `yarn web:dev`, 검증은 `yarn web:test`, 공개 웹 빌드는 `yarn web:build`다. `web/`, `public/web/`, `web-server/`는 소스이며 `.vercel/output/`은 생성물이다. 공개 배포는 사진 권한과 별도 지시를 확인한 뒤 진행한다. 빌드는 출력 폴더를 재생성하므로 작업 트리 안의 `.vercel/output` 경로임을 먼저 확인한다.

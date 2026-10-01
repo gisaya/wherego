@@ -32,6 +32,10 @@ class RootErrorBoundary extends Component<PropsWithChildren, { hasError: boolean
     return { hasError: true };
   }
 
+  override componentDidCatch(error: Error) {
+    console.error('[wherego:root-render]', error.name, error.message);
+  }
+
   override render() {
     if (this.state.hasError) {
       return (

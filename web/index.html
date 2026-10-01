@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#177557">
+  <title>주말어디 | 이번 주말 나들이 추천</title>
+  <meta name="description" content="서울·경기·인천 주말 나들이. 실내·야외, 관심사, 걷는 양을 고르면 어울리는 장소를 비교하고 친구와 공유할 수 있어요.">
+  <link rel="canonical" href="https://wherego-lake.vercel.app/">
+  <meta property="og:title" content="주말어디 | 이번 주말, 어디로 갈까요?">
+  <meta property="og:description" content="서울·경기·인천에서 가볍게 떠날 곳을 골라요.">
+  <meta property="og:image" content="https://wherego-lake.vercel.app/assets/logo.png">
+  <link rel="icon" href="/assets/logo.png"><link rel="stylesheet" href="/web/style.css">
+  <script type="module" src="/web/app.mjs"></script>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="/">주말어디<span class="brand-dot" aria-hidden="true"></span></a><nav aria-label="주 메뉴"><a href="/#guides">상황별 나들이</a><button class="text-button" id="saved-button">저장한 곳</button></nav></header>
+  <main>
+    <section id="experience" class="experience">
+      <div class="intro-copy"><p class="eyebrow">가까운 곳으로, 가벼운 주말</p><h1>주말어디</h1><p class="lead">이번 주말, 어디로 갈까요?</p></div>
+      <form id="recommend-form" class="start-form">
+        <fieldset><legend>가고 싶은 지역</legend><div class="segments three"><label><input type="radio" name="region" value="seoul" checked><span>서울</span></label><label><input type="radio" name="region" value="gyeonggi"><span>경기</span></label><label><input type="radio" name="region" value="incheon"><span>인천</span></label></div></fieldset>
+        <fieldset><legend>어디에서 시간을 보낼까요?</legend><div class="segments three"><label><input type="radio" name="environment" value="any" checked><span>상관없어요</span></label><label><input type="radio" name="environment" value="indoor"><span>실내 위주</span></label><label><input type="radio" name="environment" value="outdoor"><span>야외에서</span></label></div></fieldset>
+        <fieldset><legend>오늘 끌리는 것</legend><div class="segments four"><label><input type="radio" name="interest" value="nature" checked><span>초록과 자연</span></label><label><input type="radio" name="interest" value="culture"><span>전시와 역사</span></label><label><input type="radio" name="interest" value="water"><span>물가 풍경</span></label><label><input type="radio" name="interest" value="any"><span>상관없어요</span></label></div></fieldset>
+        <fieldset><legend>걷는 양은 어느 정도?</legend><div class="segments two"><label><input type="radio" name="walking" value="light" checked><span>가볍게 둘러보기</span></label><label><input type="radio" name="walking" value="active"><span>충분히 걸어도 좋아요</span></label></div></fieldset>
+        <button class="primary" type="submit">나들이 후보 보기 <span aria-hidden="true">→</span></button><p class="fine">로그인 없이 무료 · 정리된 장소 정보에서 조건에 맞춰 골라요.</p>
+      </form>
+    </section>
+    <section id="results" class="results" hidden aria-live="polite"></section>
+    <section class="guide-section" id="guides"><div class="section-heading"><div><p class="eyebrow">오늘의 조건부터 골라요</p><h2>상황별 나들이</h2></div><span class="muted">서울 · 경기 · 인천</span></div><div class="guide-list"><!-- GUIDE_LINKS --></div></section>
+    <section class="notice"><h2>떠나기 전에</h2><p>추천은 방문 가능 여부나 한적함을 보장하지 않아요. 운영 시간·휴무·예약·안전 안내는 공식 페이지에서 확인하세요. 수도권 13곳부터 소개하며, 걷는 양은 구간 선택에 따라 달라져요.</p></section>
+  </main>
+  <!-- FOOTER -->
+  <!-- SAVED_DIALOG -->
+  <noscript><p class="notice">조건별 추천에는 JavaScript가 필요해요. 상황별 나들이 페이지는 바로 읽을 수 있어요.</p></noscript>
+</body>
+</html>
