@@ -2,6 +2,15 @@ import { places } from './guides.mjs';
 const kto = id => `https://english.visitkorea.or.kr/svc/contents/contentsView.do?vcontsId=${id}`;
 const photo = name => `https://tong.visitkorea.or.kr/cms/resource/${name}`;
 const seoulPhoto = (sn, n = 1) => `https://english.visitseoul.net/comm/getImage?srvcId=MEDIA&parentSn=${sn}&fileTy=MEDIA&fileNo=${n}`;
+// KTO searchKeyword2 coordinates checked on 2026-10-02; the biology record's out-of-region point is omitted.
+const geography = {
+  forest: [37.5430715815, 127.0417984460], botanic: [37.5691701546, 126.8360015625],
+  craft: [37.5767003779, 126.9835480508], tank: [37.5699856862, 126.8951646315],
+  fortress: [37.2872981922, 127.0120983143], songdo: [37.3929, 126.6383],
+  science: [37.438119, 127.005777], 'gyeonggi-museum': [37.2669161821, 127.1074175017],
+  paik: [37.2691438360, 127.1103281741], ilsan: [37.657058, 126.763855],
+  writing: [37.3947110226, 126.6379452558], 'incheon-park': [37.4576199732, 126.7492580058],
+};
 const metadata = {
   forest: { region: 'seoul', environments: ['outdoor'], interests: ['nature'], walking: 2, image: seoulPhoto(72834) },
   botanic: { region: 'seoul', environments: ['indoor', 'outdoor'], interests: ['nature'], walking: 2, image: seoulPhoto(68414, 2) },
@@ -22,4 +31,4 @@ const additional = [
 export const catalog = [
   ...Object.entries(places).map(([id, p]) => ({ id, ...p, ...metadata[id] })),
   ...additional,
-].map(p => ({ ...p, reviewedAt: '2026-09-29', attribution: p.url.includes('visitseoul') ? '서울관광재단 Visit Seoul' : '한국관광공사 VISITKOREA' }));
+].map(p => ({ ...p, lat: geography[p.id]?.[0], lng: geography[p.id]?.[1], reviewedAt: '2026-09-29', attribution: p.url.includes('visitseoul') ? '서울관광재단 Visit Seoul' : '한국관광공사 VISITKOREA' }));

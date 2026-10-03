@@ -1,4 +1,4 @@
-const events = new Set(['visit', 'start', 'result', 'place_view', 'map', 'save', 'share', 'share_visit']);
+const events = new Set(['visit', 'start', 'result_review', 'result_request', 'result', 'place_view', 'map', 'save', 'share', 'share_visit']);
 function cleanEvent(body) {
   if (!body || !events.has(body.event)) return null;
   return { experiment: 'weekend-rules-v1', event: body.event,

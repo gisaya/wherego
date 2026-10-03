@@ -2,6 +2,25 @@ export const BRAND = '주말어디';
 export const REGIONS = [{ id: 'seoul', label: '서울' }, { id: 'gyeonggi', label: '경기' }, { id: 'incheon', label: '인천' }];
 export const INTERESTS = { nature: '초록과 자연', culture: '전시와 역사', water: '물가 풍경', any: '상관없어요' };
 
+const trafficSources = new Set(['direct', 'search', 'share', 'guide', 'referral']);
+const searchHosts = new Set(['google.com', 'www.google.com', 'google.co.kr', 'www.google.co.kr',
+  'search.naver.com', 'm.search.naver.com', 'bing.com', 'www.bing.com', 'search.daum.net', 'm.search.daum.net']);
+
+export function trafficAttribution({ url, referrer = '', previousSource } = {}) {
+  const current = new URL(url);
+  let referring;
+  try { referring = referrer ? new URL(referrer) : null; } catch { referring = null; }
+  const internal = referring?.origin === current.origin;
+  const hint = current.searchParams.get('from');
+  let source;
+  if (hint === 'share') source = 'share';
+  else if (internal && trafficSources.has(previousSource)) source = previousSource;
+  else if (hint === 'guide') source = 'guide';
+  else if (internal || !referrer) source = 'direct';
+  else source = referring && searchHosts.has(referring.hostname) ? 'search' : 'referral';
+  return { source, sharedEntry: hint === 'share' && !internal };
+}
+
 export function recommend(catalog, preferences) {
   const { region, environment, interest, walking } = preferences;
   if (!REGIONS.some(r => r.id === region) || !['any', 'indoor', 'outdoor'].includes(environment) ||

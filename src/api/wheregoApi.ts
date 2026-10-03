@@ -339,38 +339,10 @@ export async function reconcileWheregoIapPurchase(params: {
 export async function fetchWheregoQuestionSet(params: {
   origin: WheregoRecommendOrigin;
 }): Promise<WheregoQuestionSet> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new WheregoApiError('질문 세트 응답이 지연되고 있어요.', 408));
-    }, QUESTION_SET_TIMEOUT_MS);
-  });
-
-  try {
-    const response = await Promise.race([
-      fetch(`${API_BASE_URL}/api/wherego/questions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          origin: params.origin,
-          questionCount: 6,
-        }),
-      }),
-      timeoutPromise,
-    ]);
-
-    if (!response.ok) {
-      throw await parseApiError(response);
-    }
-
-    return (await response.json()) as WheregoQuestionSet;
-  } finally {
-    if (timeoutId != null) {
-      clearTimeout(timeoutId);
-    }
-  }
+  return postWherego('/api/wherego/questions', {
+    origin: params.origin,
+    questionCount: 6,
+  }, QUESTION_SET_TIMEOUT_MS, '질문 세트 응답이 지연되고 있어요.');
 }
 
 export async function prepareWheregoCandidates(params: {
@@ -381,42 +353,14 @@ export async function prepareWheregoCandidates(params: {
   loginSessionToken?: string | null;
   previewOnly?: boolean;
 }): Promise<WheregoCandidateSet> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new WheregoApiError('관광지 후보 준비가 지연되고 있어요.', 408));
-    }, CANDIDATE_SET_TIMEOUT_MS);
-  });
-
-  try {
-    const response = await Promise.race([
-      fetch(`${API_BASE_URL}/api/wherego/candidates?usagePolicy=uncapped-v1`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          origin: params.origin,
-          answers: params.answers,
-          sessionId: params.sessionId,
-          anonymousUserKey: params.anonymousUserKey || undefined,
-          loginSessionToken: params.loginSessionToken || undefined,
-          previewOnly: params.previewOnly === true,
-        }),
-      }),
-      timeoutPromise,
-    ]);
-
-    if (!response.ok) {
-      throw await parseApiError(response);
-    }
-
-    return (await response.json()) as WheregoCandidateSet;
-  } finally {
-    if (timeoutId != null) {
-      clearTimeout(timeoutId);
-    }
-  }
+  return postWherego('/api/wherego/candidates', {
+    origin: params.origin,
+    answers: params.answers,
+    sessionId: params.sessionId,
+    anonymousUserKey: params.anonymousUserKey || undefined,
+    loginSessionToken: params.loginSessionToken || undefined,
+    previewOnly: params.previewOnly === true,
+  }, CANDIDATE_SET_TIMEOUT_MS, '관광지 후보 준비가 지연되고 있어요.');
 }
 
 export async function prepareWheregoSelection(params: {
@@ -442,43 +386,15 @@ export async function recommendWheregoDestination(params: {
   anonymousUserKey?: string | null;
   loginSessionToken?: string | null;
 }): Promise<WheregoRecommendation> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new WheregoApiError('추천 서버 응답이 지연되고 있어요.', 408));
-    }, RECOMMENDATION_TIMEOUT_MS);
-  });
-
-  try {
-    const response = await Promise.race([
-      fetch(`${API_BASE_URL}/api/wherego/recommend?usagePolicy=uncapped-v1`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          origin: params.origin,
-          answers: params.answers,
-          limit: 1,
-          candidateSet: params.candidateSet || undefined,
-          sessionId: params.sessionId,
-          anonymousUserKey: params.anonymousUserKey || undefined,
-          loginSessionToken: params.loginSessionToken || undefined,
-        }),
-      }),
-      timeoutPromise,
-    ]);
-
-    if (!response.ok) {
-      throw await parseApiError(response);
-    }
-
-    return (await response.json()) as WheregoRecommendation;
-  } finally {
-    if (timeoutId != null) {
-      clearTimeout(timeoutId);
-    }
-  }
+  return postWherego('/api/wherego/recommend', {
+    origin: params.origin,
+    answers: params.answers,
+    limit: 1,
+    candidateSet: params.candidateSet || undefined,
+    sessionId: params.sessionId,
+    anonymousUserKey: params.anonymousUserKey || undefined,
+    loginSessionToken: params.loginSessionToken || undefined,
+  }, RECOMMENDATION_TIMEOUT_MS, '추천 서버 응답이 지연되고 있어요.');
 }
 
 async function parseApiError(response: Response): Promise<WheregoApiError> {
@@ -512,29 +428,32 @@ async function postWherego<T>(
   path: string,
   payload: Record<string, unknown>,
   timeoutMs = USAGE_TIMEOUT_MS,
+  timeoutMessage = '추천 횟수 확인이 지연되고 있어요.',
 ): Promise<T> {
+  const controller = typeof AbortController === 'function' ? new AbortController() : undefined;
+  // RN and Node expose different ambient declarations for the same runtime signal.
+  const signal = controller?.signal as NonNullable<Parameters<typeof fetch>[1]>['signal'];
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
-      reject(new WheregoApiError('추천 횟수 확인이 지연되고 있어요.', 408));
+      reject(new WheregoApiError(timeoutMessage, 408));
+      controller?.abort();
     }, timeoutMs);
   });
 
-  try {
-    const response = await Promise.race([
-      fetch(`${API_BASE_URL}${path}?usagePolicy=uncapped-v1`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      }),
-      timeoutPromise,
-    ]);
-    if (!response.ok) {
-      throw await parseApiError(response);
-    }
+  // Keep the deadline active through error parsing and successful JSON decoding.
+  const request = async () => {
+    const response = await fetch(`${API_BASE_URL}${path}?usagePolicy=uncapped-v1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      ...(controller ? { signal } : {}),
+    });
+    if (!response.ok) throw await parseApiError(response);
     return (await response.json()) as T;
+  };
+  try {
+    return await Promise.race([request(), timeoutPromise]);
   } finally {
     if (timeoutId != null) {
       clearTimeout(timeoutId);

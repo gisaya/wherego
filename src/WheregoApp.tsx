@@ -445,6 +445,8 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
   const quotaRewardGrantedRef = useRef(false);
   const quotaRewardDismissedRef = useRef(false);
   const pendingAdRewardRef = useRef<{ message: string; usage: WheregoUsage } | null>(null);
+  const pendingRewardGrantRef = useRef<{ source: 'ad' | 'share'; grantId: string; sessionId: string } | null>(null);
+  const rewardGrantInFlightRef = useRef(false);
   const contactsViralCleanupRef = useRef<(() => void) | null>(null);
   const iapRestoreAttemptedTokenRef = useRef<string | null>(null);
   const tossLoginSessionTokenRef = useRef<string | null>(null);
@@ -486,6 +488,7 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
   const [quotaAdStatus, setQuotaAdStatus] = useState<RewardAdStatus>('idle');
   const [quotaRewardMessage, setQuotaRewardMessage] = useState('');
   const [isRewardGranting, setIsRewardGranting] = useState(false);
+  const [hasPendingRewardGrant, setHasPendingRewardGrant] = useState(false);
   const [isIntroReady, setIsIntroReady] = useState(false);
   const [reservedCreditSource, setReservedCreditSource] = useState<WheregoCreditSource | null>(null);
   const [reservedAdFree, setReservedAdFree] = useState(false);
@@ -528,19 +531,10 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
     adFree: reservedAdFree || (reservedCreditSource == null && usageBaseRemaining(usage) > 0),
   });
   const shouldShowBannerAd =
-    !suppressBannerAds && !bannerUnavailable &&
-    (step === 'question' ||
-      (step === 'origin' && isQuestionSetLoading) ||
-      (step === 'rewardGate' && hasRewardAccess && hasClosedFullScreenAd) ||
-      (step === 'result' && hasClosedFullScreenAd));
-  const bannerAdKey =
-    step === 'question'
-      ? 'question-flow'
-      : step === 'rewardGate'
-        ? 'ai-recommendation-loading'
-        : step === 'result'
-          ? 'result'
-          : 'question-set-loading';
+    !suppressBannerAds && !bannerUnavailable && !libraryVisible &&
+    ((step === 'question' && currentQuestion != null && !isQuestionSetLoading) ||
+      (step === 'result' && recommendationStatus === 'ready' && hasClosedFullScreenAd));
+  const bannerAdKey = step === 'question' ? 'question-flow' : 'result';
   const shouldDockQuestionBanner = shouldShowBannerAd && step === 'question';
 
   useEffect(() => {
@@ -707,11 +701,11 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
   }, [hasRewardAccess, willUsePaidCredit]);
 
   useEffect(() => {
-    if (!shouldPrepareQuotaRecharge || quotaAdLoadedRef.current || quotaAdStatus !== 'idle') {
+    if (!shouldPrepareQuotaRecharge || hasPendingRewardGrant || quotaAdLoadedRef.current || quotaAdStatus !== 'idle') {
       return;
     }
     loadQuotaRewardAd();
-  }, [quotaAdStatus, shouldPrepareQuotaRecharge]);
+  }, [hasPendingRewardGrant, quotaAdStatus, shouldPrepareQuotaRecharge]);
 
   useEffect(() => {
     if (shouldPrepareQuotaRecharge) {
@@ -1176,6 +1170,12 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
 
   async function applyRewardCredit(source: 'ad' | 'share', grantId: string) {
     const sessionId = recommendationSessionIdRef.current;
+    if (rewardGrantInFlightRef.current) return;
+    const pending = pendingRewardGrantRef.current;
+    if (pending && (pending.sessionId !== sessionId || pending.grantId !== grantId || pending.source !== source)) return;
+    pendingRewardGrantRef.current = { source, grantId, sessionId };
+    rewardGrantInFlightRef.current = true;
+    setHasPendingRewardGrant(true);
     setIsRewardGranting(true);
     setQuotaRewardMessage('추천 횟수를 반영하고 있어요.');
     try {
@@ -1187,6 +1187,8 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
         grantId,
       });
       if (sessionId !== recommendationSessionIdRef.current) return;
+      pendingRewardGrantRef.current = null;
+      setHasPendingRewardGrant(false);
       setUsage(nextUsage);
       const message = source === 'ad' ? 'AI 추천 1회가 추가됐어요.' : 'AI 추천 3회가 추가됐어요.';
       if (source === 'ad') {
@@ -1206,8 +1208,17 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
       }
       setQuotaRewardMessage(toErrorMessage(error));
     } finally {
-      if (sessionId === recommendationSessionIdRef.current) setIsRewardGranting(false);
+      if (sessionId === recommendationSessionIdRef.current) {
+        rewardGrantInFlightRef.current = false;
+        setIsRewardGranting(false);
+      }
     }
+  }
+
+  function retryRewardCredit() {
+    const pending = pendingRewardGrantRef.current;
+    if (!pending || pending.sessionId !== recommendationSessionIdRef.current) return;
+    void applyRewardCredit(pending.source, pending.grantId);
   }
 
   async function prepareRewardedRecommendation(sessionId: string) {
@@ -1260,7 +1271,7 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
   }
 
   function openShareReward() {
-    if (!WHEREGO_SHARE_REWARD_MODULE_ID || usage?.shareRewardUsed || isRewardGranting) {
+    if (!WHEREGO_SHARE_REWARD_MODULE_ID || usage?.shareRewardUsed || isRewardGranting || pendingRewardGrantRef.current) {
       return;
     }
 
@@ -1316,6 +1327,9 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
     selectionPreparationPromiseRef.current = null;
     recommendationAnalysisSessionRef.current = null;
     pendingAdRewardRef.current = null;
+    pendingRewardGrantRef.current = null;
+    rewardGrantInFlightRef.current = false;
+    setHasPendingRewardGrant(false);
     quotaRewardGrantedRef.current = false;
     quotaRewardDismissedRef.current = false;
     setIsRewardGranting(false);
@@ -1985,6 +1999,8 @@ export function WheregoApp({ entryMode, initialSharedPlace = null }: { entryMode
               <QuotaScreen
                 adStatus={quotaAdStatus}
                 granting={isRewardGranting}
+                rewardPending={hasPendingRewardGrant}
+                onRetryReward={retryRewardCredit}
                 message={quotaRewardMessage || usageMessage}
                 onBack={resetToIntro}
                 onShare={openShareReward}
@@ -2228,6 +2244,8 @@ function PromotionIntroScreen({
 function QuotaScreen({
   adStatus,
   granting,
+  rewardPending,
+  onRetryReward,
   message,
   onBack,
   onShare,
@@ -2240,6 +2258,8 @@ function QuotaScreen({
 }: {
   adStatus: RewardAdStatus;
   granting: boolean;
+  rewardPending: boolean;
+  onRetryReward: () => void;
   message: string;
   onBack: () => void;
   onShare: () => void;
@@ -2285,23 +2305,32 @@ function QuotaScreen({
         ) : null}
         <Text style={styles.quotaRewardHeading}>추천 더 받기</Text>
         <View style={styles.quotaActions}>
-          <PrimaryButton
-            disabled={
-              adLimitReached ||
-              adStatus === 'unsupported' ||
-              adStatus === 'idle' ||
-              adStatus === 'loading' ||
-              adStatus === 'showing' ||
-              granting
-            }
-            label={adButtonLabel}
-            loading={adStatus === 'idle' || adStatus === 'loading' || granting}
-            onPress={onWatchAd}
-          />
+          {rewardPending ? (
+            <PrimaryButton
+              disabled={granting || adStatus === 'showing'}
+              loading={granting}
+              label="보상 반영 다시 시도"
+              onPress={onRetryReward}
+            />
+          ) : (
+            <PrimaryButton
+              disabled={
+                adLimitReached ||
+                adStatus === 'unsupported' ||
+                adStatus === 'idle' ||
+                adStatus === 'loading' ||
+                adStatus === 'showing' ||
+                granting
+              }
+              label={adButtonLabel}
+              loading={adStatus === 'idle' || adStatus === 'loading' || granting}
+              onPress={onWatchAd}
+            />
+          )}
           {adLimitReached ? (
             <SecondaryButton disabled={refreshingUsage} loading={refreshingUsage} label="최신 추천 횟수 확인" onPress={onRefreshUsage} />
           ) : null}
-          <SecondaryButton disabled={shareUnavailable || granting} label={shareButtonLabel} onPress={onShare} />
+          <SecondaryButton disabled={shareUnavailable || granting || rewardPending} label={shareButtonLabel} onPress={onShare} />
           <SecondaryButton label="처음으로 돌아가기" onPress={onBack} viewStyle={styles.quotaBackButton} />
         </View>
       </View>

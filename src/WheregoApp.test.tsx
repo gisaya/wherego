@@ -3,7 +3,7 @@ import { Image, StyleSheet } from 'react-native';
 import { appLogin, IAP, isMinVersionSupported, Storage } from '@apps-in-toss/framework';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { WheregoApp } from './WheregoApp';
-import { fetchWheregoIapConfig, fetchWheregoUsage, grantWheregoIapPurchase, grantWheregoReward, linkWheregoGuestUsage, prepareWheregoCandidates, prepareWheregoSelection, recommendWheregoDestination, WheregoApiError, type WheregoUsage } from './api/wheregoApi';
+import { fetchWheregoIapConfig, fetchWheregoQuestionSet, fetchWheregoUsage, grantWheregoIapPurchase, grantWheregoReward, linkWheregoGuestUsage, prepareWheregoCandidates, prepareWheregoSelection, recommendWheregoDestination, WheregoApiError, type WheregoUsage } from './api/wheregoApi';
 
 const mockLoadAd = jest.fn();
 const mockShowAd = jest.fn();
@@ -137,6 +137,42 @@ describe('daily free and ongoing ad recommendation flow', () => {
       await act(async () => { jest.advanceTimersByTime(250); });
     }
   }
+
+  const banners = () => renderer.root.findAll(node => node.props.adGroupId != null);
+
+  it('does not mount a banner while questions are loading', async () => {
+    jest.mocked(fetchWheregoUsage).mockResolvedValue(usedDailyUsage);
+    jest.mocked(fetchWheregoQuestionSet).mockImplementationOnce(() => new Promise(() => {}));
+    await openApp();
+    await press('AI 추천 시작하기');
+    const button = renderer.root.findAll(node => node.props.children === '현재 위치로 추천' && typeof node.props.onPress === 'function')[0];
+    if (!button) throw new Error('Missing location button');
+    await act(async () => { button.props.onPress(); await Promise.resolve(); });
+    expect(banners()).toHaveLength(0);
+  });
+
+  it('shows banners on questions and results but not AI loading or a covered result', async () => {
+    jest.mocked(fetchWheregoUsage).mockResolvedValue(usedDailyUsage);
+    let complete: (result: unknown) => void = () => { throw new Error('Missing recommendation'); };
+    jest.mocked(recommendWheregoDestination).mockImplementationOnce(() => new Promise(resolve => { complete = resolve as (result: unknown) => void; }));
+    await openApp();
+    await press('AI 추천 시작하기');
+    await press('현재 위치로 추천');
+    expect(banners()).toHaveLength(1);
+    for (let index = 0; index < 6; index += 1) {
+      const option = renderer.root.findAll(node => node.props.option?.label === `선택 ${index}`)[0];
+      if (!option) throw new Error(`Missing option: ${index}`);
+      await act(async () => { option.props.onPress(); jest.advanceTimersByTime(250); });
+    }
+    await press('광고 보고 추천받기');
+    await act(async () => { mockAdEvents.onEvent({ type: 'userEarnedReward' }); });
+    await act(async () => { mockAdEvents.onEvent({ type: 'dismissed' }); });
+    expect(banners()).toHaveLength(0);
+    await act(async () => { complete({ personaTitle: '예시 여행', oneLine: '예시 추천', recommendedPlaces: [{ contentId: 'sample-1', title: '예시 공원', address: '예시시 예시구' }] }); });
+    expect(banners()).toHaveLength(1);
+    await press('찜한 여행지 보기');
+    expect(banners()).toHaveLength(0);
+  });
 
   it.each(['general', 'promotion'] as const)('removes new purchases and product SDK calls from the %s entry', async entryMode => {
     jest.mocked(isMinVersionSupported).mockReturnValue(true);
@@ -354,6 +390,23 @@ describe('daily free and ongoing ad recommendation flow', () => {
     await act(async () => { mockAdEvents.onEvent({ type: 'dismissed' }); });
     expect(prepareWheregoSelection).not.toHaveBeenCalled();
     expect(recommendWheregoDestination).not.toHaveBeenCalled();
+  });
+
+  it('retries a completed reward with the same grant id and answers, without another ad', async () => {
+    jest.mocked(fetchWheregoUsage).mockResolvedValue(usedDailyUsage);
+    jest.mocked(grantWheregoReward).mockRejectedValueOnce(new WheregoApiError('보상 반영 지연', 408));
+    await openApp();
+    await answerQuestions();
+    await press('광고 보고 추천받기');
+    await act(async () => { mockAdEvents.onEvent({ type: 'userEarnedReward' }); });
+    await act(async () => { mockAdEvents.onEvent({ type: 'dismissed' }); });
+    expect(recommendWheregoDestination).not.toHaveBeenCalled();
+    await press('보상 반영 다시 시도');
+    expect(grantWheregoReward).toHaveBeenCalledTimes(2);
+    expect(jest.mocked(grantWheregoReward).mock.calls[1]?.[0]).toEqual(jest.mocked(grantWheregoReward).mock.calls[0]?.[0]);
+    expect(mockShowAd).toHaveBeenCalledTimes(1);
+    expect(recommendWheregoDestination).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(recommendWheregoDestination).mock.calls[0]?.[0].answers).toHaveLength(6);
   });
 
   it('retries an AI failure with the earned credit and no second ad', async () => {
